@@ -1,4 +1,22 @@
-huggle (3.0.0.0) UNRELEASED; urgency=low
+huggle (3.0.0.0-ppa5ubuntu1) precise; urgency=low
+
+  * urgent fix
+
+ -- Peter Bena <benapetr@gmail.com>  Tue, 03 Dec 2013 18:50:40 +0100
+
+huggle (3.0.0.0-ppa5) precise; urgency=low
+
+  * nightly fix (undefined variable critical bug)
+
+ -- Petr Bena <benapetr@gmail.com>  Sun, 01 Dec 2013 21:53:26 +0100
+
+huggle (3.0.0.0-ppa4) precise; urgency=low
+
+  * N 76c48b27aca1e61b9462ec08ccbbfc70f60a217b
+
+ -- Petr Bena <benapetr@gmail.com>  Fri, 29 Nov 2013 17:11:10 +0000
+
+huggle (3.0.0.0) precise; urgency=low
 
   * Initial release
 

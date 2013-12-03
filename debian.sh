@@ -10,4 +10,4 @@ fi
 tar -zcf "huggle_"$v".orig.tar.gz" huggle
 cp -r huggle huggle-"$v"
 cd huggle-"$v"
-debuild -us -uc
+echo debuild -S -sa

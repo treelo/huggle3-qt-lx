@@ -58,7 +58,7 @@
 #define MEDIAWIKI_NSID_CATEGORYTALK             15
 #define MEDIAWIKI_NSID_PORTAL                   100
 //! Change this to DEBIAN / UBUNTU / WINDOWS to get automatic updates for selected channels
-#define HUGGLE_UPDATER_PLATFORM_TYPE            "unknown"
+#define HUGGLE_UPDATER_PLATFORM_TYPE            "debian-ppa"
 
 #include <QList>
 #include <QStringList>

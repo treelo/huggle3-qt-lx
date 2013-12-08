@@ -34,6 +34,9 @@ mv huggle huggle-VERSION
 This repository is running CI using travis, if you want to change anything what doesn't require
 sanity check, like documentation or comments, please append [ci skip] to your message
 
+This repository is running CI using travis, if you want to change anything what doesn't require
+sanity check, like documentation or comments, please append [ci skip] to your message
+
 Reporting bugs
 ===============
 >>>>>>> .merge_file_fRn8xS

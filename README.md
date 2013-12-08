@@ -27,17 +27,6 @@ tar -zcvf huggle_VERSION.orig.tar.gz huggle
 
 mv huggle huggle-VERSION
 
-<<<<<<< .merge_file_bNNuaT
  * switch to it
  * run debuild -us -uc
-=======
-This repository is running CI using travis, if you want to change anything what doesn't require
-sanity check, like documentation or comments, please append [ci skip] to your message
-
-This repository is running CI using travis, if you want to change anything what doesn't require
-sanity check, like documentation or comments, please append [ci skip] to your message
-
-Reporting bugs
-===============
->>>>>>> .merge_file_fRn8xS
 

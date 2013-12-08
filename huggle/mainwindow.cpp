@@ -41,6 +41,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->Queue1 = new HuggleQueue(this);
     this->_History = new History(this);
     this->wHistory = new HistoryForm(this);
+    this->RestoreQuery = NULL;
     this->fUaaReportForm = NULL;
     this->OnNext_EvPage = NULL;
     this->wUserInfo = new UserinfoForm(this);
@@ -53,6 +54,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->addDockWidget(Qt::RightDockWidgetArea, this->wUserInfo);
     this->addDockWidget(Qt::BottomDockWidgetArea, this->VandalDock);
     this->preferencesForm = new Preferences(this);
+    this->RestoreEdit = NULL;
     this->aboutForm = new AboutForm(this);
     this->ui->actionBlock_user->setEnabled(Configuration::HuggleConfiguration->Rights.contains("block"));
     this->ui->actionDelete->setEnabled(Configuration::HuggleConfiguration->Rights.contains("delete"));
@@ -264,6 +266,11 @@ void MainWindow::ProcessEdit(WikiEdit *e, bool IgnoreHistory, bool KeepHistory, 
     {
         return;
     }
+    if (e->Page == NULL || e->User == NULL)
+    {
+        throw new Huggle::Exception("Page and User must not be NULL in edit that is supposed to be displayed on form",
+                  "void MainWindow::ProcessEdit(WikiEdit *e, bool IgnoreHistory, bool KeepHistory, bool KeepUser)");
+    }
     if (this->OnNext_EvPage != NULL)
     {
         delete this->OnNext_EvPage;
@@ -287,25 +294,25 @@ void MainWindow::ProcessEdit(WikiEdit *e, bool IgnoreHistory, bool KeepHistory, 
     if (this->Historical.contains(e) == false)
     {
         this->Historical.append(e);
-    }
-    if (this->CurrentEdit != NULL)
-    {
-        if (!IgnoreHistory)
+        if (this->CurrentEdit != NULL)
         {
-            if (this->CurrentEdit->Next != NULL)
+            if (!IgnoreHistory)
             {
-                // now we need to get to last edit in chain
-                WikiEdit *latest = CurrentEdit;
-                while (latest->Next != NULL)
+                if (this->CurrentEdit->Next != NULL)
                 {
-                    latest = latest->Next;
+                    // now we need to get to last edit in chain
+                    WikiEdit *latest = CurrentEdit;
+                    while (latest->Next != NULL)
+                    {
+                        latest = latest->Next;
+                    }
+                    latest->Next = e;
+                    e->Previous = latest;
+                } else
+                {
+                    this->CurrentEdit->Next = e;
+                    e->Previous = this->CurrentEdit;
                 }
-                latest->Next = e;
-                e->Previous = latest;
-            } else
-            {
-                this->CurrentEdit->Next = e;
-                e->Previous = this->CurrentEdit;
             }
         }
     }
@@ -611,6 +618,60 @@ void MainWindow::DisplayWelcomeMessage()
     this->Render();
 }
 
+void MainWindow::FinishRestore()
+{
+    if (this->RestoreEdit == NULL || this->RestoreQuery == NULL)
+    {
+        return;
+    }
+
+    if (!this->RestoreQuery->Processed())
+    {
+        return;
+    }
+
+    QDomDocument d;
+    d.setContent(this->RestoreQuery->Result->Data);
+    QDomNodeList page = d.elementsByTagName("rev");
+    QDomNodeList code = d.elementsByTagName("page");
+    if (code.count() > 0)
+    {
+        QDomElement e = code.at(0).toElement();
+        if (e.attributes().contains("missing"))
+        {
+            this->RestoreQuery->UnregisterConsumer(HUGGLECONSUMER_MAINFORM);
+            this->RestoreQuery = NULL;
+            Huggle::Syslog::HuggleLogs->Log("Unable to restore the revision, because there is no text available for it");
+            this->RestoreEdit->UnregisterConsumer("RestoreEdit");
+            this->RestoreEdit = NULL;
+            return;
+        }
+    }
+    // get last id
+    if (page.count() > 0)
+    {
+        QDomElement e = page.at(0).toElement();
+        QString text = e.text();
+        if (text == "")
+        {
+            this->RestoreQuery->UnregisterConsumer(HUGGLECONSUMER_MAINFORM);
+            this->RestoreQuery = NULL;
+            Huggle::Syslog::HuggleLogs->Log("Unable to restore the revision, because there is no text available for it");
+            this->RestoreEdit->UnregisterConsumer("RestoreEdit");
+            this->RestoreEdit = NULL;
+            return;
+        }
+        QString sm = Configuration::HuggleConfiguration->LocalConfig_RestoreSummary;
+        sm = sm.replace("$1", QString(this->RestoreEdit->RevID));
+        sm = sm.replace("$2", this->RestoreEdit->User->Username);
+        Core::HuggleCore->EditPage(this->RestoreEdit->Page, text, sm);
+    }
+    this->RestoreQuery->UnregisterConsumer(HUGGLECONSUMER_MAINFORM);
+    this->RestoreQuery = NULL;
+    this->RestoreEdit->UnregisterConsumer("RestoreEdit");
+    this->RestoreEdit = NULL;
+}
+
 void MainWindow::on_actionPreferences_triggered()
 {
     this->preferencesForm->show();
@@ -701,7 +762,51 @@ void MainWindow::OnTimerTick1()
             + " edits and " + QString::number(Core::HuggleCore->RunningQueriesGetCount()) + " queries."
             + " I have " + QString::number(Configuration::HuggleConfiguration->WhiteList.size())
             + " whitelisted users and you have " + QString::number(HuggleQueueItemLabel::Count)
-            + " edits waiting in queue.";
+            + " edits waiting in queue. Statistics: ";
+    // calculate stats, but not if huggle uptime is lower than 50 seconds
+    double Uptime = Core::HuggleCore->GetUptimeInSeconds();
+    if (this->ShuttingDown)
+    {
+        t += " none";
+    } else if (Uptime < 50)
+    {
+        t += " waiting for more edits";
+    } else
+    {
+        double EditsPerMinute = 0;
+        double RevertsPerMinute = 0;
+        if (Huggle::Configuration::HuggleConfiguration->EditCounter > 0)
+        {
+            EditsPerMinute = Configuration::HuggleConfiguration->EditCounter / (Uptime / 60);
+        }
+        if (Huggle::Configuration::HuggleConfiguration->RvCounter > 0)
+        {
+            RevertsPerMinute = Configuration::HuggleConfiguration->RvCounter / (Uptime / 60);
+        }
+        double VandalismLevel = 0;
+        if (EditsPerMinute > 0 && RevertsPerMinute > 0)
+        {
+            VandalismLevel = (RevertsPerMinute / (EditsPerMinute / 2)) * 10;
+        }
+        QString color = "green";
+        if (VandalismLevel > 0.8)
+        {
+            color = "blue";
+        }
+        if (VandalismLevel > 1.2)
+        {
+            color = "black";
+        }
+        if (VandalismLevel > 1.8)
+        {
+            color = "orange";
+        }
+        // make the numbers easier to read
+        EditsPerMinute = round(EditsPerMinute * 100) / 100;
+        RevertsPerMinute = round(RevertsPerMinute * 100) / 100;
+        t += " <font color=" + color + ">" + QString::number(EditsPerMinute) + " edits per minute " + QString::number(RevertsPerMinute)
+                + " reverts per minute, level " + QString::number(VandalismLevel) + "</font>";
+    }
     if (Configuration::HuggleConfiguration->Verbosity > 0)
     {
         t += " QGC: " + QString::number(GC::gc->list.count()) + "U: " + QString::number(WikiUser::ProblematicUsers.count());
@@ -752,6 +857,7 @@ void MainWindow::OnTimerTick1()
             this->qNext = NULL;
         }
     }
+    this->FinishRestore();
     Core::HuggleCore->TruncateReverts();
 }
 
@@ -1874,13 +1980,26 @@ void Huggle::MainWindow::on_actionRestore_this_revision_triggered()
     {
         return;
     }
-    if (this->CurrentEdit->Page->Contents == "")
+
+    if (this->RestoreEdit != NULL || this->RestoreQuery != NULL)
     {
-        Huggle::Syslog::HuggleLogs->Log("Cowardly refusing to restore blank revision");
+        Huggle::Syslog::HuggleLogs->Log("I am currently restoring another edit, please wait");
         return;
     }
-    QString sm = Configuration::HuggleConfiguration->LocalConfig_RestoreSummary;
-    sm = sm.replace("$1", QString(this->CurrentEdit->RevID));
-    sm = sm.replace("$2", this->CurrentEdit->User->Username);
-    Core::HuggleCore->EditPage(this->CurrentEdit->Page, this->CurrentEdit->Page->Contents, sm);
+
+    this->RestoreQuery = new ApiQuery();
+    this->RestoreQuery->RegisterConsumer(HUGGLECONSUMER_MAINFORM);
+    this->RestoreQuery->Parameters = "prop=revisions&rvprop=" +
+            QUrl::toPercentEncoding("timestamp|user|comment|content") + "&titles=" +
+            QUrl::toPercentEncoding(this->CurrentEdit->Page->PageName) + "&rvstartid=";
+            QString::number(this->CurrentEdit->RevID) + "&rvlimit=1";
+    this->RestoreQuery->SetAction(ActionQuery);
+    this->RestoreQuery->Process();
+    this->CurrentEdit->RegisterConsumer("RestoreEdit");
+    this->RestoreEdit = this->CurrentEdit;
+}
+
+void Huggle::MainWindow::on_actionClear_triggered()
+{
+    this->Queue1->Clear();
 }

@@ -57,6 +57,7 @@
 #define MEDIAWIKI_NSID_CATEGORY                 14
 #define MEDIAWIKI_NSID_CATEGORYTALK             15
 #define MEDIAWIKI_NSID_PORTAL                   100
+#define MEDIAWIKI_NSID_PORTALTALK               101
 //! Change this to DEBIAN / UBUNTU / WINDOWS to get automatic updates for selected channels
 #define HUGGLE_UPDATER_PLATFORM_TYPE            "debian-ppa"
 
@@ -428,7 +429,6 @@ namespace Huggle
             // Reverting
             //////////////////////////////////////////////
 
-            QString DefaultRevertSummary;
             /*!
              * \brief GetDefaultRevertSummary Retrieve default summary
              * \param source User who should be replaced instead of $1

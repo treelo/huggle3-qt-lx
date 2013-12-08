@@ -4,7 +4,7 @@ huggle3-qt-lx
 Huggle 3 QT-LX is an anti-vandalism tool for use on Wikipedia and other Wikimedia projects, written in C++ (QT framework).
 It is supported for Windows and Linux
 
-[![Build Status](https://travis-ci.org/huggle/huggle3-qt-lx.png?branch=debian)](https://travis-ci.org/huggle/huggle3-qt-lx)
+[![Build Status](https://travis-ci.org/huggle/huggle3-qt-lx.png?branch=ubuntu)](https://travis-ci.org/huggle/huggle3-qt-lx)
 
 This is a repository that is used to build debian packages
 
@@ -27,6 +27,14 @@ tar -zcvf huggle_VERSION.orig.tar.gz huggle
 
 mv huggle huggle-VERSION
 
+<<<<<<< .merge_file_bNNuaT
  * switch to it
  * run debuild -us -uc
+=======
+This repository is running CI using travis, if you want to change anything what doesn't require
+sanity check, like documentation or comments, please append [ci skip] to your message
+
+Reporting bugs
+===============
+>>>>>>> .merge_file_fRn8xS
 

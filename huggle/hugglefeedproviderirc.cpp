@@ -51,7 +51,8 @@ bool HuggleFeedProviderIRC::Start()
     this->Network->UserName = Configuration::HuggleConfiguration->HuggleVersion;
     if (!this->Network->Connect())
     {
-        Huggle::Syslog::HuggleLogs->Log(Huggle::Localizations::HuggleLocalizations->Localize("irc-error", Configuration::HuggleConfiguration->IRCServer));
+        Huggle::Syslog::HuggleLogs->Log(Huggle::Localizations::HuggleLocalizations->Localize("irc-error",
+                                                         Configuration::HuggleConfiguration->IRCServer));
         delete this->Network;
         this->Network = NULL;
         return false;
@@ -372,7 +373,7 @@ void HuggleFeedProviderIRC::ParseEdit(QString line)
 
     if (line.contains(QString(QChar(3)) + "10"))
     {
-        line = line.mid(line.indexOf(QString(QChar(3)) + "10"));
+        line = line.mid(line.indexOf(QString(QChar(3)) + "10") + 3);
         if (line.contains(QString(QChar(3))))
         {
             edit->Summary = line.mid(0, line.indexOf(QString(QChar(3))));

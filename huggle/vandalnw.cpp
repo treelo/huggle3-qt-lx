@@ -160,6 +160,16 @@ void VandalNw::Rescore(WikiEdit *edit)
     }
 }
 
+void VandalNw::Message()
+{
+    if (this->Irc->IsConnected())
+    {
+        this->Irc->Send(this->GetChannel(), this->ui->lineEdit->text());
+        this->Insert(Configuration::HuggleConfiguration->UserName + ": " + ui->lineEdit->text());
+    }
+    this->ui->lineEdit->setText("");
+}
+
 void VandalNw::ProcessGood(WikiEdit *edit, QString user)
 {
     edit->User->setBadnessScore(edit->User->getBadnessScore() - 200);
@@ -170,9 +180,20 @@ void VandalNw::ProcessGood(WikiEdit *edit, QString user)
 
 void VandalNw::ProcessRollback(WikiEdit *edit, QString user)
 {
-    edit->User->setBadnessScore(edit->User->getBadnessScore() - 200);
-    this->Insert("<font color=blue>" + user + " seen a good edit to " + edit->Page->PageName +
-                 " by " + edit->User->Username + " (" + QString::number(edit->RevID) + ")" + "</font>");
+    this->Insert("<font color=orange>" + user + " did a rollback of " + edit->Page->PageName + " by " +
+           edit->User->Username + " (" + QString::number(edit->RevID) + ")" + "</font>");
+    edit->User->setBadnessScore(edit->User->getBadnessScore() + 200);
+    if (Huggle::Configuration::HuggleConfiguration->UserConfig_DeleteEditsAfterRevert)
+    {
+        // we need to delete older edits that we know and that is somewhere in queue
+        if (Core::HuggleCore->Main != NULL)
+        {
+            if (Core::HuggleCore->Main->Queue1 != NULL)
+            {
+                Core::HuggleCore->Main->Queue1->DeleteOlder(edit);
+            }
+        }
+    }
     Core::HuggleCore->Main->Queue1->DeleteByRevID(edit->RevID);
 }
 
@@ -311,12 +332,7 @@ void VandalNw::Insert(QString text)
 
 void Huggle::VandalNw::on_pushButton_clicked()
 {
-    if (this->Irc->IsConnected())
-    {
-        this->Irc->Send(this->GetChannel(), this->ui->lineEdit->text());
-        this->Insert(Configuration::HuggleConfiguration->UserName + ": " + ui->lineEdit->text());
-    }
-    this->ui->lineEdit->setText("");
+    this->Message();
 }
 
 HAN::RescoreItem::RescoreItem(int _revID, int _score, QString _user)
@@ -358,4 +374,9 @@ HAN::GenericItem::GenericItem(HAN::GenericItem *i)
 {
     this->RevID = i->RevID;
     this->User = i->User;
+}
+
+void Huggle::VandalNw::on_lineEdit_returnPressed()
+{
+    this->Message();
 }

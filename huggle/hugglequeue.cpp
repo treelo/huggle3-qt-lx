@@ -89,6 +89,7 @@ void HuggleQueue::AddItem(WikiEdit *page)
             // we found it
             Huggle::Syslog::HuggleLogs->DebugLog("Ignoring edit to " + page->Page->PageName + " because it was reverted by someone");
             WikiEdit::Lock_EditList->unlock();
+            page->UnregisterConsumer(HUGGLECONSUMER_DELETIONLOCK);
             return;
         }
         WikiEdit::Lock_EditList->unlock();
@@ -381,6 +382,21 @@ void HuggleQueue::DeleteOlder(WikiEdit *edit)
             }
         }
         i++;
+    }
+}
+
+void HuggleQueue::Clear()
+{
+    // now we need to remove all items
+    while (this->Items.count() > 0)
+    {
+        if (!this->DeleteItem(this->Items.at(0)))
+        {
+            // we failed to remove the item, break or we end up
+            // looping here
+            Huggle::Syslog::HuggleLogs->DebugLog("Failed to clear the queue");
+            return;
+        }
     }
 }
 

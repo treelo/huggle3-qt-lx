@@ -57,6 +57,22 @@ WikiEdit::~WikiEdit()
     WikiEdit::Lock_EditList->lock();
     WikiEdit::EditList.removeAll(this);
     WikiEdit::Lock_EditList->unlock();
+    if (this->Previous != NULL && this->Next != NULL)
+    {
+        this->Previous->Next = this->Next;
+        this->Next->Previous = this->Previous;
+    } else
+    {
+        if (this->Previous != NULL)
+        {
+            this->Previous->Next = NULL;
+        }
+
+        if (this->Next != NULL)
+        {
+            this->Next->Previous = NULL;
+        }
+    }
     delete this->User;
     delete this->Page;
 }
@@ -194,7 +210,8 @@ bool WikiEdit::FinalizePostProcessing()
             }
         } else
         {
-            Huggle::Syslog::HuggleLogs->DebugLog("Failed to obtain diff for " + this->Page->PageName + " the error was: " + DifferenceQuery->Result->Data);
+            Huggle::Syslog::HuggleLogs->DebugLog("Failed to obtain diff for " + this->Page->PageName + " the error was: "
+                                                 + DifferenceQuery->Result->Data);
         }
         // we are done processing the diff
         this->ProcessingDiff = false;
@@ -241,6 +258,7 @@ void WikiEdit::ProcessWords()
         }
         xx++;
     }
+
     xx = 0;
     while (xx<Configuration::HuggleConfiguration->LocalConfig_ScoreWords.count())
     {
@@ -253,39 +271,43 @@ void WikiEdit::ProcessWords()
         }
         int SD = 0;
         bool found = false;
-        if (text.startsWith(w))
+        if (text == w)
         {
             found = true;
         }
         while (!found && SD < Configuration::HuggleConfiguration->Separators.count())
         {
-            if (text.contains(Configuration::HuggleConfiguration->Separators.at(SD) + w))
+            if (text.startsWith(w + Configuration::HuggleConfiguration->Separators.at(SD)))
             {
                 found = true;
+                break;
+            }
+            if (text.endsWith(Configuration::HuggleConfiguration->Separators.at(SD) + w))
+            {
+                found = true;
+                break;
+            }
+            int SL = 0;
+            while (SL <Configuration::HuggleConfiguration->Separators.count())
+            {
+                if (text.contains(Configuration::HuggleConfiguration->Separators.at(SD) +
+                             w + Configuration::HuggleConfiguration->Separators.at(SL)))
+                {
+                    found = true;
+                    break;
+                }
+                if (found)
+                {
+                    break;
+                }
+                SL++;
             }
             SD++;
         }
         if (found)
         {
-            found = false;
-            SD = 0;
-            if (text.endsWith(w))
-            {
-                found = true;
-            }
-            while (!found && SD < Configuration::HuggleConfiguration->Separators.count())
-            {
-                if (text.contains(w + Configuration::HuggleConfiguration->Separators.at(SD)))
-                {
-                    found = true;
-                }
-                SD++;
-            }
-            if (found)
-            {
-                this->Score += Configuration::HuggleConfiguration->LocalConfig_ScoreWords.at(xx).score;
-                ScoreWords.append(w);
-            }
+            this->Score += Configuration::HuggleConfiguration->LocalConfig_ScoreWords.at(xx).score;
+            ScoreWords.append(w);
         }
         xx++;
     }
@@ -311,13 +333,14 @@ void WikiEdit::PostProcess()
     if (this->RevID != -1)
     {
         // &rvprop=content can't be used because of fuck up of mediawiki
-        this->DifferenceQuery->Parameters = "prop=revisions&rvprop=" + QUrl::toPercentEncoding( "ids|user|timestamp|comment" ) + "&rvlimit=1&rvtoken=rollback&rvstartid=" +
-                                  QString::number(this->RevID) + "&rvdiffto=prev&titles=" +
-                                  QUrl::toPercentEncoding(this->Page->PageName);
+        this->DifferenceQuery->Parameters = "prop=revisions&rvprop=" + QUrl::toPercentEncoding( "ids|user|timestamp|comment" ) +
+                                            "&rvlimit=1&rvtoken=rollback&rvstartid=" +
+                                            QString::number(this->RevID) + "&rvdiffto=prev&titles=" +
+                                            QUrl::toPercentEncoding(this->Page->PageName);
     } else
     {
-        this->DifferenceQuery->Parameters = "prop=revisions&rvprop=" + QUrl::toPercentEncoding( "ids|user|timestamp|comment" ) + "&rvlimit=1&rvtoken=rollback&rvdiffto=prev&titles=" +
-            QUrl::toPercentEncoding(this->Page->PageName);
+        this->DifferenceQuery->Parameters = "prop=revisions&rvprop=" + QUrl::toPercentEncoding( "ids|user|timestamp|comment" ) +
+                            "&rvlimit=1&rvtoken=rollback&rvdiffto=prev&titles=" + QUrl::toPercentEncoding(this->Page->PageName);
     }
     this->DifferenceQuery->Target = Page->PageName;
     //this->DifferenceQuery->UsingPOST = true;
@@ -399,6 +422,10 @@ void ProcessorThread::Process(WikiEdit *edit)
     if (edit->Size > 1200 || edit->Size < -1200)
     {
         edit->Score += Configuration::HuggleConfiguration->LocalConfig_ScoreChange;
+    }
+    if (edit->Page->IsUserpage())
+    {
+        IgnoreWords = true;
     }
 
     edit->Score += edit->User->getBadnessScore();

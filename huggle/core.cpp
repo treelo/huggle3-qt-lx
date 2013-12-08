@@ -47,7 +47,8 @@ void Core::Init()
     Configuration::LoadConfig();
     Syslog::HuggleLogs->DebugLog("Loading defs");
     this->LoadDefs();
-    Configuration::HuggleConfiguration->LocalConfig_RevertSummaries.append("Test edits;Reverted edits by [[Special:Contributions/$1|$1]] identified as test edits");
+    Configuration::HuggleConfiguration->LocalConfig_RevertSummaries.append("Test edits;Reverted edits by [[Special:Contributions/$1|$1]] "\
+                                                                           "identified as test edits");
 #ifdef PYTHONENGINE
     Syslog::HuggleLogs->Log("Loading python engine");
     this->Python = new PythonEngine();
@@ -57,7 +58,7 @@ void Core::Init()
     Syslog::HuggleLogs->DebugLog("Loading queue");
     // these are separators that we use to parse words, less we have, faster huggle will be, despite it will fail more to detect vandals
     // keep it low but precise enough
-    Configuration::HuggleConfiguration->Separators << " " << "." << "," << "(" << ")" << ":" << ";" << "!" << "?" << "/";
+    Configuration::HuggleConfiguration->Separators << " " << "." << "," << "(" << ")" << ":" << ";" << "!" << "?" << "/" << "<" << ">" << "[" << "]";
     HuggleQueueFilter::Filters.append(HuggleQueueFilter::DefaultFilter);
     if (!Configuration::HuggleConfiguration->_SafeMode)
     {
@@ -183,6 +184,8 @@ void Core::DeleteEdit(WikiEdit *edit)
     {
         edit->Previous->Next = edit->Next;
         edit->Next->Previous = edit->Previous;
+        edit->Previous = NULL;
+        edit->Next = NULL;
         edit->UnregisterConsumer(HUGGLECONSUMER_MAINFORM);
         return;
     }
@@ -190,11 +193,13 @@ void Core::DeleteEdit(WikiEdit *edit)
     if (edit->Previous != NULL)
     {
         edit->Previous->Next = NULL;
+        edit->Previous = NULL;
     }
 
     if (edit->Next != NULL)
     {
         edit->Next->Previous = NULL;
+        edit->Next = NULL;
     }
 
     edit->UnregisterConsumer(HUGGLECONSUMER_MAINFORM);
@@ -578,6 +583,7 @@ void Core::PreProcessEdit(WikiEdit *_e)
             if (Configuration::HuggleConfiguration->RevertPatterns.at(xx).exactMatch(_e->Summary))
             {
                 _e->IsRevert = true;
+                Huggle::Configuration::HuggleConfiguration->RvCounter++;
                 if (Configuration::HuggleConfiguration->UserConfig_DeleteEditsAfterRevert)
                 {
                     _e->RegisterConsumer("UncheckedReverts");
@@ -825,6 +831,11 @@ void Core::TruncateReverts()
         this->RevertBuffer.removeAt(0);
         we->UnregisterConsumer("UncheckedReverts");
     }
+}
+
+double Core::GetUptimeInSeconds()
+{
+    return (double)this->StartupTime.secsTo(QDateTime::currentDateTime());
 }
 
 bool HgApplication::notify(QObject *receiver, QEvent *event)

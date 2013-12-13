@@ -32,7 +32,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->wq = NULL;
     this->Status = new QLabel();
     this->ui->statusBar->addWidget(this->Status);
-    this->showMaximized();
     this->qNext = NULL;
     this->tb = new HuggleTool();
     this->Queries = new ProcessList(this);
@@ -56,8 +55,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->preferencesForm = new Preferences(this);
     this->RestoreEdit = NULL;
     this->aboutForm = new AboutForm(this);
-    this->ui->actionBlock_user->setEnabled(Configuration::HuggleConfiguration->Rights.contains("block"));
-    this->ui->actionDelete->setEnabled(Configuration::HuggleConfiguration->Rights.contains("delete"));
+    // we store the value in bool so that we don't need to call expensive string function twice
+    bool PermissionBlock = Configuration::HuggleConfiguration->Rights.contains("block");
+    this->ui->actionBlock_user->setEnabled(PermissionBlock);
+    this->ui->actionBlock_user_2->setEnabled(PermissionBlock);
+    bool PermissionDelete = Configuration::HuggleConfiguration->Rights.contains("delete");
+    this->ui->actionDelete_page->setEnabled(PermissionDelete);
+    this->ui->actionDelete->setEnabled(PermissionDelete);
     this->ui->actionProtect->setEnabled(Configuration::HuggleConfiguration->Rights.contains("protect"));
     this->addDockWidget(Qt::LeftDockWidgetArea, this->_History);
     this->SystemLog->resize(100, 80);
@@ -88,7 +92,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         this->ui->actionIRC->setChecked(true);
         if (!Core::HuggleCore->PrimaryFeedProvider->Start())
         {
-            Syslog::HuggleLogs->Log("ERROR: " + Localizations::HuggleLocalizations->Localize("irc-failure"));
+            Syslog::HuggleLogs->ErrorLog(Localizations::HuggleLocalizations->Localize("irc-failure"));
             delete Core::HuggleCore->PrimaryFeedProvider;
             this->ui->actionIRC->setChecked(false);
             this->ui->actionWiki->setChecked(true);
@@ -139,8 +143,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         layout =new QFile(Configuration::GetConfigurationPath() + "mainwindow_state");
         if (!layout->open(QIODevice::ReadOnly))
         {
-            /// \todo LOCALIZE ME
-            Syslog::HuggleLogs->Log("ERROR: Unable to read state from a config file");
+            Syslog::HuggleLogs->ErrorLog("Unable to read state from a config file");
         } else
         {
             if (!this->restoreState(layout->readAll()))
@@ -157,7 +160,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         layout = new QFile(Configuration::GetConfigurationPath() + "mainwindow_geometry");
         if (!layout->open(QIODevice::ReadOnly))
         {
-            Syslog::HuggleLogs->Log("ERROR: Unable to read geometry from a config file");
+            Syslog::HuggleLogs->ErrorLog("Unable to read geometry from a config file");
         } else
         {
             if (!this->restoreGeometry(layout->readAll()))
@@ -168,14 +171,14 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         layout->close();
         delete layout;
     }
+    this->showMaximized();
     // these controls are for debugging only
     if (Configuration::HuggleConfiguration->Verbosity == 0)
     {
-        this->ui->actionList_all_QGC_items->setVisible(false);
-        this->ui->actionEdit_info->setVisible(false);
-        /// \bug This doesn't work
-        this->ui->menuDebug->hide();
+        QAction *debugm = this->ui->menuDebug_2->menuAction();
+        this->ui->menuHelp->removeAction(debugm);
     }
+
     Hooks::MainWindowIsLoad(this);
     this->VandalDock->Connect();
 }
@@ -227,18 +230,15 @@ void MainWindow::_ReportUser()
 
     if (this->CurrentEdit->User->IsReported)
     {
-        /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->Log("ERROR: This user is already reported");
+        Syslog::HuggleLogs->ErrorLog(Localizations::HuggleLocalizations->Localize("report-duplicate"));
         return;
     }
 
     if (!Configuration::HuggleConfiguration->LocalConfig_AIV)
     {
         QMessageBox mb;
-        /// \todo LOCALIZE ME
-        mb.setText("This project doesn't support AIV system");
-        /// \todo LOCALIZE ME
-        mb.setWindowTitle("Function not available");
+        mb.setText(Localizations::HuggleLocalizations->Localize("missing-aiv"));
+        mb.setWindowTitle(Localizations::HuggleLocalizations->Localize("function-miss"));
         mb.setIcon(QMessageBox::Information);
         mb.exec();
         return;
@@ -366,10 +366,9 @@ void MainWindow::Render()
             }
         }
 
-        /// \todo LOCALIZE ME
-        this->tb->SetInfo("Diff of page: " + this->CurrentEdit->Page->PageName
-                          + " (score: " + QString::number(this->CurrentEdit->Score)
-                          + word + ")");
+        QStringList params;
+        params << this->CurrentEdit->Page->PageName << QString::number(this->CurrentEdit->Score) + word;
+        this->tb->SetInfo(Huggle::Localizations::HuggleLocalizations->Localize("browser-diff", params));
         return;
     }
     this->tb->SetTitle(this->Browser->CurrentPageName());
@@ -467,20 +466,36 @@ void MainWindow::FinishPatrols()
     }
 }
 
+void MainWindow::DecreaseBS()
+{
+    if (this->CurrentEdit != NULL)
+    {
+        this->CurrentEdit->User->setBadnessScore(this->CurrentEdit->User->getBadnessScore() - 200);
+    }
+}
+
+void MainWindow::IncreaseBS()
+{
+    if (this->CurrentEdit != NULL)
+    {
+        this->CurrentEdit->User->setBadnessScore(this->CurrentEdit->User->getBadnessScore() + 200);
+    }
+}
+
 RevertQuery *MainWindow::Revert(QString summary, bool nd, bool next)
 {
     bool rollback = true;
     if (this->CurrentEdit == NULL)
     {
         /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->Log("ERROR: Unable to revert, edit is null");
+        Syslog::HuggleLogs->ErrorLog("Unable to revert, edit is null");
         return NULL;
     }
 
     if (!this->CurrentEdit->IsPostProcessed())
     {
         /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->Log("ERROR: This edit is still being processed, please wait");
+        Syslog::HuggleLogs->ErrorLog("This edit is still being processed, please wait");
         return NULL;
     }
 
@@ -545,7 +560,7 @@ bool MainWindow::Warn(QString WarningType, RevertQuery *dependency)
 
     if (warning == "")
     {
-        /// \todo LOCALIZE ME
+        // This is very rare error, no need to localize it
         Syslog::HuggleLogs->Log("There is no such warning template " + __template);
         return false;
     }
@@ -571,9 +586,14 @@ bool MainWindow::Warn(QString WarningType, RevertQuery *dependency)
     }
 
     title = title.replace("$1", this->CurrentEdit->Page->PageName);
-    /// \todo Properly implement system to ensure that section head is not posted after level 1 warning
-    Core::HuggleCore->MessageUser(this->CurrentEdit->User, warning, "Your edits to " + this->CurrentEdit->Page->PageName,
-                      title, true, dependency);
+    QString id = "Your edits to " + this->CurrentEdit->Page->PageName;
+    if (Configuration::HuggleConfiguration->UserConfig_EnforceMonthsAsHeaders)
+    {
+        QDateTime d = QDateTime::currentDateTime();
+        id = Core::HuggleCore->MonthText(d.date().month()) + " " + QString::number(d.date().year());
+    }
+    Core::HuggleCore->MessageUser(this->CurrentEdit->User, warning, id, title, true, dependency, false,
+                                  Configuration::HuggleConfiguration->UserConfig_SectionKeep);
     Hooks::OnWarning(this->CurrentEdit->User);
 
     return true;
@@ -641,7 +661,7 @@ void MainWindow::FinishRestore()
         {
             this->RestoreQuery->UnregisterConsumer(HUGGLECONSUMER_MAINFORM);
             this->RestoreQuery = NULL;
-            Huggle::Syslog::HuggleLogs->Log("Unable to restore the revision, because there is no text available for it");
+            Huggle::Syslog::HuggleLogs->ErrorLog("Unable to restore the revision, because there is no text available for it");
             this->RestoreEdit->UnregisterConsumer("RestoreEdit");
             this->RestoreEdit = NULL;
             return;
@@ -662,9 +682,14 @@ void MainWindow::FinishRestore()
             return;
         }
         QString sm = Configuration::HuggleConfiguration->LocalConfig_RestoreSummary;
-        sm = sm.replace("$1", QString(this->RestoreEdit->RevID));
+        sm = sm.replace("$1", QString::number(this->RestoreEdit->RevID));
         sm = sm.replace("$2", this->RestoreEdit->User->Username);
+        sm = sm.replace("$3", this->RestoreEdit_RevertReason);
         Core::HuggleCore->EditPage(this->RestoreEdit->Page, text, sm);
+    } else
+    {
+        Syslog::HuggleLogs->DebugLog(this->RestoreQuery->Result->Data);
+        Syslog::HuggleLogs->ErrorLog("Unable to restore the revision because wiki provided no data for selected version");
     }
     this->RestoreQuery->UnregisterConsumer(HUGGLECONSUMER_MAINFORM);
     this->RestoreQuery = NULL;
@@ -758,13 +783,13 @@ void MainWindow::OnTimerTick1()
         }
     }
     /// \todo LOCALIZE ME
-    QString t = "All systems go! - currently processing " + QString::number(Core::HuggleCore->ProcessingEdits.count())
+    QString t = "Currently processing " + QString::number(Core::HuggleCore->ProcessingEdits.count())
             + " edits and " + QString::number(Core::HuggleCore->RunningQueriesGetCount()) + " queries."
             + " I have " + QString::number(Configuration::HuggleConfiguration->WhiteList.size())
             + " whitelisted users and you have " + QString::number(HuggleQueueItemLabel::Count)
             + " edits waiting in queue. Statistics: ";
     // calculate stats, but not if huggle uptime is lower than 50 seconds
-    double Uptime = Core::HuggleCore->GetUptimeInSeconds();
+    double Uptime = Core::HuggleCore->PrimaryFeedProvider->GetUptime();
     if (this->ShuttingDown)
     {
         t += " none";
@@ -775,13 +800,13 @@ void MainWindow::OnTimerTick1()
     {
         double EditsPerMinute = 0;
         double RevertsPerMinute = 0;
-        if (Huggle::Configuration::HuggleConfiguration->EditCounter > 0)
+        if (Core::HuggleCore->PrimaryFeedProvider->EditCounter > 0)
         {
-            EditsPerMinute = Configuration::HuggleConfiguration->EditCounter / (Uptime / 60);
+            EditsPerMinute = Core::HuggleCore->PrimaryFeedProvider->EditCounter / (Uptime / 60);
         }
-        if (Huggle::Configuration::HuggleConfiguration->RvCounter > 0)
+        if (Core::HuggleCore->PrimaryFeedProvider->RvCounter > 0)
         {
-            RevertsPerMinute = Configuration::HuggleConfiguration->RvCounter / (Uptime / 60);
+            RevertsPerMinute = Core::HuggleCore->PrimaryFeedProvider->RvCounter / (Uptime / 60);
         }
         double VandalismLevel = 0;
         if (EditsPerMinute > 0 && RevertsPerMinute > 0)
@@ -884,8 +909,7 @@ void MainWindow::OnTimerTick0()
             list = list.replace("<!-- list -->", "");
             QStringList wl = list.split("|");
             int c=0;
-            /// \todo LOCALIZE ME
-            this->fWaiting->Status(40, "Merging");
+            this->fWaiting->Status(40, Localizations::HuggleLocalizations->Localize("merging"));
             while (c < wl.count())
             {
                 if (wl.at(c) != "")
@@ -1104,6 +1128,7 @@ void MainWindow::CustomRevert()
     QAction *revert = (QAction*) QObject::sender();
     QString k = HuggleParser::GetKeyOfWarningTypeFromWarningName(revert->text());
     QString rs = HuggleParser::GetSummaryOfWarningTypeFromWarningKey(k);
+    rs = Huggle::Configuration::HuggleConfiguration->GenerateSuffix(rs);
     this->Revert(rs);
 }
 
@@ -1122,6 +1147,7 @@ void MainWindow::CustomRevertWarn()
     QAction *revert = (QAction*) QObject::sender();
     QString k = HuggleParser::GetKeyOfWarningTypeFromWarningName(revert->text());
     QString rs = HuggleParser::GetSummaryOfWarningTypeFromWarningKey(k);
+    rs = Huggle::Configuration::HuggleConfiguration->GenerateSuffix(rs);
     RevertQuery *result = this->Revert(rs, true, false);
 
     if (result != NULL)
@@ -1191,7 +1217,7 @@ void MainWindow::ForceWarn(int level)
 
     if (warning == "")
     {
-        /// \todo LOCALIZE ME
+        // this is very rare error no need to translate it
         Syslog::HuggleLogs->Log("There is no such warning template " + __template);
         return;
     }
@@ -1217,8 +1243,14 @@ void MainWindow::ForceWarn(int level)
     }
 
     title = title.replace("$1", this->CurrentEdit->Page->PageName);
-    Core::HuggleCore->MessageUser(this->CurrentEdit->User, warning, "Your edits to " + this->CurrentEdit->Page->PageName,
-                      title, true);
+    QString id = "Your edits to " + this->CurrentEdit->Page->PageName;
+    if (Configuration::HuggleConfiguration->UserConfig_EnforceMonthsAsHeaders)
+    {
+        QDateTime d = QDateTime::currentDateTime();
+        id = Core::HuggleCore->MonthText(d.date().month()) + " " + QString::number(d.date().year());
+    }
+    Core::HuggleCore->MessageUser(this->CurrentEdit->User, warning, id, title, true, NULL, false,
+                                  Configuration::HuggleConfiguration->UserConfig_SectionKeep);
 }
 
 void MainWindow::Exit()
@@ -1232,8 +1264,7 @@ void MainWindow::Exit()
     QFile *layout = new QFile(Configuration::GetConfigurationPath() + "mainwindow_state");
     if (!layout->open(QIODevice::ReadWrite | QIODevice::Truncate))
     {
-        /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->Log("ERROR: Unable to write state to a config file");
+        Syslog::HuggleLogs->ErrorLog("Unable to write state to a config file");
     } else
     {
         layout->write(this->saveState());
@@ -1243,8 +1274,7 @@ void MainWindow::Exit()
     layout = new QFile(Configuration::GetConfigurationPath() + "mainwindow_geometry");
     if (!layout->open(QIODevice::ReadWrite | QIODevice::Truncate))
     {
-        /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->Log("ERROR: Unable to write geometry to a config file");
+        Syslog::HuggleLogs->ErrorLog("Unable to write geometry to a config file");
     } else
     {
         layout->write(this->saveGeometry());
@@ -1284,16 +1314,14 @@ void MainWindow::ReconnectIRC()
     }
     if (!Configuration::HuggleConfiguration->UsingIRC)
     {
-        /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->Log("IRC is disabled by project or huggle configuration, you need to enable it first");
+        Syslog::HuggleLogs->Log(Localizations::HuggleLocalizations->Localize("irc-not"));
         return;
     }
-    Syslog::HuggleLogs->Log("Reconnecting to IRC");
+    Syslog::HuggleLogs->Log(Localizations::HuggleLocalizations->Localize("irc-connecting"));
     Core::HuggleCore->PrimaryFeedProvider->Stop();
     while (!Core::HuggleCore->PrimaryFeedProvider->IsStopped())
     {
-        /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->Log("Waiting for primary feed provider to stop");
+        Syslog::HuggleLogs->Log(Localizations::HuggleLocalizations->Localize("irc-ws"));
         Sleeper::usleep(200000);
     }
     delete Core::HuggleCore->PrimaryFeedProvider;
@@ -1304,7 +1332,7 @@ void MainWindow::ReconnectIRC()
     {
         this->ui->actionIRC->setChecked(false);
         this->ui->actionWiki->setChecked(true);
-        Syslog::HuggleLogs->Log("ERROR: " + Localizations::HuggleLocalizations->Localize("provider-primary-failure"));
+        Syslog::HuggleLogs->ErrorLog(Localizations::HuggleLocalizations->Localize("provider-primary-failure"));
         delete Core::HuggleCore->PrimaryFeedProvider;
         Core::HuggleCore->PrimaryFeedProvider = new HuggleFeedProviderWiki();
         Core::HuggleCore->PrimaryFeedProvider->Start();
@@ -1354,6 +1382,10 @@ void MainWindow::PatrolThis(WikiEdit *e)
         // ignore this
         return;
     }
+    if (!Configuration::HuggleConfiguration->LocalConfig_Patrolling)
+    {
+        return;
+    }
     ApiQuery *query = NULL;
     // if this edit doesn't have the patrol token we need to get one
     if (e->PatrolToken == "")
@@ -1376,6 +1408,7 @@ void MainWindow::PatrolThis(WikiEdit *e)
     query = new ApiQuery();
     query->SetAction(ActionPatrol);
     query->Target = "Patrolling " + e->Page->PageName;
+    query->UsingPOST = true;
     query->Parameters = "revid=" + QString::number(e->RevID) + "&token=" + QUrl::toPercentEncoding(e->PatrolToken);
     Core::HuggleCore->AppendQuery(query);
     Syslog::HuggleLogs->DebugLog("Patrolling " + e->Page->PageName);
@@ -1395,6 +1428,31 @@ void MainWindow::Localize()
     this->ui->actionClear_talk_page_of_user->setText(Localizations::HuggleLocalizations->Localize("main-user-clear-talk"));
     this->ui->actionDelete->setText(Localizations::HuggleLocalizations->Localize("main-page-delete"));
     this->ui->actionExit->setText(Localizations::HuggleLocalizations->Localize("main-system-exit"));
+}
+
+void MainWindow::_BlockUser()
+{
+    if (!CheckExit() || !CheckEditableBrowserPage())
+    {
+        return;
+    }
+
+    if(this->CurrentEdit == NULL)
+    {
+        /// \todo LOCALIZE ME
+        Syslog::HuggleLogs->ErrorLog("No one to block :o");
+        return;
+    }
+
+    if (this->fBlockForm != NULL)
+    {
+        delete this->fBlockForm;
+    }
+
+    this->fBlockForm = new BlockUser(this);
+    this->CurrentEdit->User->Resync();
+    this->fBlockForm->SetWikiUser(this->CurrentEdit->User);
+    this->fBlockForm->show();
 }
 
 void MainWindow::DisplayNext(Query *q)
@@ -1426,6 +1484,39 @@ void MainWindow::DisplayNext(Query *q)
             this->qNext->RegisterConsumer("OnNext");
             return;
     }
+}
+
+void MainWindow::DeletePage()
+{
+    if (!CheckExit() || !CheckEditableBrowserPage())
+    {
+        return;
+    }
+
+    if (this->CurrentEdit == NULL)
+    {
+        Syslog::HuggleLogs->ErrorLog("No, you cannot delete an NULL page :)");
+        return;
+    }
+
+    if (this->fDeleteForm != NULL)
+    {
+        delete this->fDeleteForm;
+    }
+    this->fDeleteForm = new DeleteForm(this);
+    this->fDeleteForm->setPage(this->CurrentEdit->Page, this->CurrentEdit->User);
+    this->fDeleteForm->show();
+}
+
+void MainWindow::DisplayTalk()
+{
+    if (this->CurrentEdit == NULL)
+    {
+        return;
+    }
+    WikiPage *page = new WikiPage(this->CurrentEdit->User->GetTalk());
+    this->Browser->DisplayPreFormattedPage(page);
+    delete page;
 }
 
 bool MainWindow::CheckExit()
@@ -1483,7 +1574,6 @@ void MainWindow::Welcome()
 
     if (Configuration::HuggleConfiguration->LocalConfig_WelcomeTypes.count() == 0)
     {
-        /// \todo LOCALIZE ME
         Syslog::HuggleLogs->Log("There are no welcome messages defined for this project");
         return;
     }
@@ -1492,8 +1582,7 @@ void MainWindow::Welcome()
 
     if (message == "")
     {
-        /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->Log("ERROR: Invalid welcome template, ignored message");
+        Syslog::HuggleLogs->ErrorLog("Invalid welcome template, ignored message");
         return;
     }
 
@@ -1526,10 +1615,7 @@ void MainWindow::on_actionIncrease_badness_score_by_20_triggered()
 
 void MainWindow::on_actionDecrease_badness_score_by_20_triggered()
 {
-    if (this->CurrentEdit != NULL)
-    {
-        this->CurrentEdit->User->setBadnessScore(this->CurrentEdit->User->getBadnessScore() - 200);
-    }
+    this->DecreaseBS();
 }
 
 void MainWindow::on_actionGood_edit_triggered()
@@ -1549,13 +1635,7 @@ void MainWindow::on_actionGood_edit_triggered()
 
 void MainWindow::on_actionTalk_page_triggered()
 {
-    if (this->CurrentEdit == NULL)
-    {
-        return;
-    }
-    WikiPage *page = new WikiPage(this->CurrentEdit->User->GetTalk());
-    this->Browser->DisplayPreFormattedPage(page);
-    delete page;
+    this->DisplayTalk();
 }
 
 void MainWindow::on_actionFlag_as_a_good_edit_triggered()
@@ -1595,8 +1675,7 @@ void MainWindow::on_actionEdit_page_in_browser_triggered()
 {
     if (this->CurrentEdit != NULL)
     {
-        QDesktopServices::openUrl(Core::GetProjectWikiURL() + this->CurrentEdit->Page->PageName
-                                  + "?action=edit");
+        QDesktopServices::openUrl(Core::GetProjectWikiURL() + this->CurrentEdit->Page->PageName + "?action=edit");
     }
 }
 
@@ -1604,8 +1683,7 @@ void MainWindow::on_actionDisplay_history_in_browser_triggered()
 {
     if (this->CurrentEdit != NULL)
     {
-        QDesktopServices::openUrl(Core::GetProjectWikiURL() + this->CurrentEdit->Page->PageName
-                                  + "?action=history");
+        QDesktopServices::openUrl(Core::GetProjectWikiURL() + this->CurrentEdit->Page->PageName + "?action=history");
     }
 }
 
@@ -1711,7 +1789,7 @@ void MainWindow::on_actionReport_user_triggered()
     if (this->CurrentEdit == NULL)
     {
         /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->Log("ERROR: No one to report");
+        Syslog::HuggleLogs->ErrorLog("No one to report");
         return;
     }
     this->_ReportUser();
@@ -1722,7 +1800,7 @@ void MainWindow::on_actionReport_user_2_triggered()
     if(this->CurrentEdit == NULL)
     {
         /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->Log("ERROR: No one to report");
+        Syslog::HuggleLogs->ErrorLog("No one to report");
         return;
     }
     this->_ReportUser();
@@ -1753,7 +1831,7 @@ void MainWindow::on_actionEdit_user_talk_triggered()
     if (this->CurrentEdit != NULL)
     {
         QDesktopServices::openUrl(Core::GetProjectWikiURL() + this->CurrentEdit->User->GetTalk()
-                                  + "?action=edit");
+                                                                              + "?action=edit");
     }
 }
 
@@ -1769,50 +1847,12 @@ void MainWindow::on_actionRequest_speedy_deletion_triggered()
 
 void MainWindow::on_actionDelete_triggered()
 {
-    if (!CheckExit() || !CheckEditableBrowserPage())
-    {
-        return;
-    }
-
-	if (this->CurrentEdit == NULL)
-	{
-        /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->Log("ERROR: No, you cannot delete an NULL page :)");
-		return;
-	}
-
-    if (this->fDeleteForm != NULL)
-    {
-        delete this->fDeleteForm;
-    }
-    this->fDeleteForm = new DeleteForm(this);
-    this->fDeleteForm->setPage(this->CurrentEdit->Page, this->CurrentEdit->User);
-    this->fDeleteForm->show();
+    this->DeletePage();
 }
 
 void Huggle::MainWindow::on_actionBlock_user_triggered()
 {
-    if (!CheckExit() || !CheckEditableBrowserPage())
-    {
-        return;
-    }
-
-    if(this->CurrentEdit == NULL)
-    {
-        /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->Log("ERROR: No one to block :o");
-        return;
-    }
-
-    if (this->fBlockForm != NULL)
-    {
-        delete this->fBlockForm;
-    }
-
-    this->fBlockForm = new BlockUser(this);
-    this->CurrentEdit->User->Resync();
-    this->fBlockForm->SetWikiUser(this->CurrentEdit->User);
-    this->fBlockForm->show();
+    this->_BlockUser();
 }
 
 void Huggle::MainWindow::on_actionIRC_triggered()
@@ -1857,7 +1897,7 @@ void MainWindow::on_actionProtect_triggered()
     if (this->CurrentEdit == NULL)
     {
         /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->Log("ERROR: Cannot protect NULL page");
+        Syslog::HuggleLogs->ErrorLog("Cannot protect NULL page");
         return;
     }
     if (this->fProtectForm != NULL)
@@ -1987,19 +2027,54 @@ void Huggle::MainWindow::on_actionRestore_this_revision_triggered()
         return;
     }
 
+    bool ok;
+    QString reason = QInputDialog::getText(this, "Reason", "Please provide a reason why you want to restore this page to previous revision",
+                                           QLineEdit::Normal, "No reason was provided by user :(", &ok);
+
+    if (!ok)
+    {
+        return;
+    }
+
     this->RestoreQuery = new ApiQuery();
     this->RestoreQuery->RegisterConsumer(HUGGLECONSUMER_MAINFORM);
-    this->RestoreQuery->Parameters = "prop=revisions&rvprop=" +
-            QUrl::toPercentEncoding("timestamp|user|comment|content") + "&titles=" +
-            QUrl::toPercentEncoding(this->CurrentEdit->Page->PageName) + "&rvstartid=";
-            QString::number(this->CurrentEdit->RevID) + "&rvlimit=1";
+    this->RestoreQuery->Parameters = "prop=revisions&revids=" +
+            QString::number(this->CurrentEdit->RevID) + "&rvprop=" +
+            QUrl::toPercentEncoding("ids|content");
     this->RestoreQuery->SetAction(ActionQuery);
     this->RestoreQuery->Process();
     this->CurrentEdit->RegisterConsumer("RestoreEdit");
     this->RestoreEdit = this->CurrentEdit;
+    this->RestoreEdit_RevertReason = reason;
+    Syslog::HuggleLogs->Log("Restoring selected revision of " + this->CurrentEdit->Page->PageName);
 }
 
 void Huggle::MainWindow::on_actionClear_triggered()
 {
     this->Queue1->Clear();
+}
+
+void Huggle::MainWindow::on_actionDelete_page_triggered()
+{
+    this->DeletePage();
+}
+
+void Huggle::MainWindow::on_actionBlock_user_2_triggered()
+{
+    this->_BlockUser();
+}
+
+void Huggle::MainWindow::on_actionDisplay_talk_triggered()
+{
+    this->DisplayTalk();
+}
+
+void Huggle::MainWindow::on_actionIncrease_badness_triggered()
+{
+    this->IncreaseBS();
+}
+
+void Huggle::MainWindow::on_actionDecrease_badness_triggered()
+{
+    this->DecreaseBS();
 }

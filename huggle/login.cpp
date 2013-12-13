@@ -42,7 +42,7 @@ Login::Login(QWidget *parent) :   QDialog(parent),   ui(new Ui::Login)
         this->ui->checkBox->setChecked(false);
     }
     this->ui->ButtonExit->setText(Localizations::HuggleLocalizations->Localize("[[main-system-exit]]"));
-    if (Configuration::HuggleConfiguration->UpdatesEnabled)
+    if (Configuration::HuggleConfiguration->SystemConfig_UpdatesEnabled)
     {
         this->Updater = new UpdateForm();
         this->Updater->Check();
@@ -125,7 +125,13 @@ void Login::Reload()
         this->ui->Project->addItem(Configuration::HuggleConfiguration->ProjectList.at(current)->Name);
         current++;
     }
-    this->ui->Project->setCurrentIndex(0);
+    if (Huggle::Configuration::HuggleConfiguration->IndexOfLastWiki < current)
+    {
+        this->ui->Project->setCurrentIndex(Huggle::Configuration::HuggleConfiguration->IndexOfLastWiki);
+    } else
+    {
+        this->ui->Project->setCurrentIndex(0);
+    }
 }
 
 void Login::DB()
@@ -185,7 +191,8 @@ void Login::PressOK()
         mb.exec();
         return;
     }
-    Configuration::HuggleConfiguration->Project = Configuration::HuggleConfiguration->ProjectList.at(ui->Project->currentIndex());
+    Configuration::HuggleConfiguration->IndexOfLastWiki = this->ui->Project->currentIndex();
+    Configuration::HuggleConfiguration->Project = Configuration::HuggleConfiguration->ProjectList.at(this->ui->Project->currentIndex());
     Configuration::HuggleConfiguration->UsingSSL = ui->checkBox->isChecked();
     if (this->ui->lineEdit_2->text() == "Developer Mode")
     {
@@ -347,16 +354,16 @@ void Login::FinishToken()
 
 void Login::RetrieveWhitelist()
 {
-    if (wq != NULL)
+    if (this->wq != NULL)
     {
-        if (wq->Processed())
+        if (this->wq->Processed())
         {
-            if (wq->Result->Failed)
+            if (this->wq->Result->Failed)
             {
                 Configuration::HuggleConfiguration->WhitelistDisabled = true;
             } else
             {
-                QString list = wq->Result->Data;
+                QString list = this->wq->Result->Data;
                 list = list.replace("<!-- list -->", "");
                 Configuration::HuggleConfiguration->WhiteList = list.split("|");
                 int c = 0;

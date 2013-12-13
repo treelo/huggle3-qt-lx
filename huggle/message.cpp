@@ -56,7 +56,7 @@ void Message::Send()
 void Message::Fail(QString reason)
 {
     /// \todo LOCALIZE ME
-    Huggle::Syslog::HuggleLogs->Log("Error: unable to deliver the message to " + user->Username + "; " + reason);
+    Huggle::Syslog::HuggleLogs->ErrorLog("Unable to deliver the message to " + user->Username + "; " + reason);
     this->Done = true;
     this->Sending = false;
     this->query->UnregisterConsumer(HUGGLECONSUMER_MESSAGE_SEND);
@@ -102,7 +102,7 @@ bool Message::Finished()
 
 void Message::Finish()
 {
-    if (Done)
+    if (this->Done)
     {
         // we really need to quit now because query is null
         return;
@@ -112,7 +112,7 @@ void Message::Finish()
         return;
     }
     // we need to get a token
-    if (token == "none")
+    if (this->token == "none")
     {
         if (!this->query->Processed())
         {
@@ -173,7 +173,7 @@ void Message::Finish()
         if (this->query->Result->Failed)
         {
             /// \todo LOCALIZE ME
-            Fail("unable to retrieve the user talk page");
+            this->Fail("unable to retrieve the user talk page");
             return;
         }
         this->ProcessTalk();
@@ -228,9 +228,9 @@ void Message::Finish()
         Huggle::Syslog::HuggleLogs->DebugLog(query->Result->Data);
     }
 
-    query->UnregisterConsumer(HUGGLECONSUMER_MESSAGE_SEND);
-    Done = true;
-    query = NULL;
+    this->query->UnregisterConsumer(HUGGLECONSUMER_MESSAGE_SEND);
+    this->Done = true;
+    this->query = NULL;
 }
 
 void Message::ProcessSend()
@@ -250,8 +250,17 @@ void Message::ProcessSend()
     }
     if (this->SectionKeep || !this->Section)
     {
-        // original page needs to be included in new value
-        this->text = this->Page + "\n\n" + this->text;
+        if (this->SectionKeep)
+        {
+            this->text = this->Append(this->text, this->Page, this->title);
+        } else
+        {
+            // original page needs to be included in new value
+            if (this->Page != "")
+            {
+                this->text = this->Page + "\n\n" + this->text;
+            }
+        }
         this->query->Parameters = "title=" + QUrl::toPercentEncoding(user->GetTalk()) + "&summary=" + QUrl::toPercentEncoding(s)
                 + "&text=" + QUrl::toPercentEncoding(this->text)
                 + "&token=" + QUrl::toPercentEncoding(this->token);
@@ -307,4 +316,40 @@ void Message::ProcessTalk()
             return;
         }
     }
+}
+
+QString Message::Append(QString Message, QString Text, QString Label)
+{
+    QRegExp regex("\\s*==\\s*" + QRegExp::escape(Label) + "\\s*==");
+    if (!Text.contains(regex))
+    {
+        // there is no section to append to
+        if (Text != "")
+        {
+            Text = Text + "\n\n";
+        }
+        Text = Text + "== " + Label + " ==\n\n" + Message;
+        return Text;
+    }
+    QRegExp header("^\\s*==.*==\\s*$");
+    int Post = Text.lastIndexOf(regex);
+    // we need to check if there is any other section after this one
+    QString Section = Text.mid(Post);
+    if (Section.contains("\n"))
+    {
+        // cut the header text
+        int Diff = Section.indexOf("\n") + 1;
+        Post += Diff;
+        Section = Section.mid(Diff);
+    }
+    // we assume there is no other section and if there is some we change this
+    int StartPoint = Text.length();
+    if (Section.contains(header))
+    {
+        // yes there is some other section, so we need to know where it is
+        StartPoint = Text.indexOf(header, Post);
+    }
+    // write the text exactly after the start point, but leave some space after it
+    Text = Text.insert(StartPoint, "\n\n" + Message + "\n\n");
+    return Text;
 }

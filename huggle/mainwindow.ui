@@ -82,10 +82,19 @@
     <property name="title">
      <string>Help</string>
     </property>
+    <widget class="QMenu" name="menuDebug_2">
+     <property name="title">
+      <string>Debug</string>
+     </property>
+     <addaction name="actionResort_queue"/>
+     <addaction name="actionEdit_info"/>
+     <addaction name="actionList_all_QGC_items"/>
+    </widget>
     <addaction name="actionContents"/>
     <addaction name="separator"/>
     <addaction name="actionFeedback"/>
     <addaction name="actionAbout"/>
+    <addaction name="menuDebug_2"/>
    </widget>
    <widget class="QMenu" name="menuPage">
     <property name="title">
@@ -170,14 +179,6 @@
     <addaction name="menuWhen_queue_is_full"/>
     <addaction name="actionClear"/>
    </widget>
-   <widget class="QMenu" name="menuDebug">
-    <property name="title">
-     <string notr="true">Debug</string>
-    </property>
-    <addaction name="actionList_all_QGC_items"/>
-    <addaction name="actionEdit_info"/>
-    <addaction name="actionResort_queue"/>
-   </widget>
    <widget class="QMenu" name="menuHAN">
     <property name="title">
      <string>HAN</string>
@@ -194,7 +195,6 @@
    <addaction name="menuHAN"/>
    <addaction name="menuUser"/>
    <addaction name="menuHelp"/>
-   <addaction name="menuDebug"/>
   </widget>
   <widget class="QToolBar" name="mainToolBar">
    <property name="windowTitle">
@@ -223,7 +223,13 @@
    <addaction name="separator"/>
    <addaction name="actionGood_edit"/>
    <addaction name="separator"/>
+   <addaction name="actionBlock_user_2"/>
    <addaction name="actionReport_user"/>
+   <addaction name="actionDisplay_talk"/>
+   <addaction name="actionDecrease_badness"/>
+   <addaction name="actionIncrease_badness"/>
+   <addaction name="separator"/>
+   <addaction name="actionDelete_page"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
   <action name="actionPreferences">
@@ -778,6 +784,54 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Space</string>
+   </property>
+  </action>
+  <action name="actionDelete_page">
+   <property name="icon">
+    <iconset resource="pictures.qrc">
+     <normaloff>:/huggle/pictures/Resources/page-delete.png</normaloff>:/huggle/pictures/Resources/page-delete.png</iconset>
+   </property>
+   <property name="text">
+    <string>Delete page</string>
+   </property>
+  </action>
+  <action name="actionBlock_user_2">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="pictures.qrc">
+     <normaloff>:/huggle/pictures/Resources/user-block.png</normaloff>:/huggle/pictures/Resources/user-block.png</iconset>
+   </property>
+   <property name="text">
+    <string>Block user</string>
+   </property>
+  </action>
+  <action name="actionIncrease_badness">
+   <property name="icon">
+    <iconset resource="pictures.qrc">
+     <normaloff>:/huggle/pictures/Resources/user-unwhitelist.png</normaloff>:/huggle/pictures/Resources/user-unwhitelist.png</iconset>
+   </property>
+   <property name="text">
+    <string>Increase badness</string>
+   </property>
+  </action>
+  <action name="actionDecrease_badness">
+   <property name="icon">
+    <iconset resource="pictures.qrc">
+     <normaloff>:/huggle/pictures/Resources/user-whitelist.png</normaloff>:/huggle/pictures/Resources/user-whitelist.png</iconset>
+   </property>
+   <property name="text">
+    <string>Decrease badness</string>
+   </property>
+  </action>
+  <action name="actionDisplay_talk">
+   <property name="icon">
+    <iconset resource="pictures.qrc">
+     <normaloff>:/huggle/pictures/Resources/user-talk.png</normaloff>:/huggle/pictures/Resources/user-talk.png</iconset>
+   </property>
+   <property name="text">
+    <string>Display talk</string>
    </property>
   </action>
  </widget>

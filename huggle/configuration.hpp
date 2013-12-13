@@ -170,6 +170,7 @@ namespace Huggle
 
             Configuration();
             ~Configuration();
+            QString GenerateSuffix(QString text);
             ////////////////////////////////////////////
             // System
             ////////////////////////////////////////////
@@ -206,21 +207,19 @@ namespace Huggle
             int             QueryListTimeLimit;
             //! Number of edits to keep in history stack
             int             HistorySize;
-            //! Number of edits made since you logged in
-            double          EditCounter;
-            //! Number of reverts made since you logged in
-            double          RvCounter;
             //! Ask user if they really want to report someone
             bool            AskUserBeforeReport;
             //! This is experimental feature that removes the old templates from talk pages when they are being read
             bool            TrimOldWarnings;
+            //! User flags on current project, this may be empty if you fail to login
             QStringList     Rights;
-            //! Whether new edits go to top or bottom
+            //! Whether new edits go to top or bottom (if true, they go to up)
             bool            QueueNewEditsUp;
             //! If this is true some functionalities will be disabled
             bool            _SafeMode;
             //! Resolve edit conflict without asking user
             bool            AutomaticallyResolveConflicts;
+            /// \todo This option needs to be implemented to browser so that font size is different when this is changed by user
             //! Size of fonts in diff
             int             FontSize;
             //! Timeout for queries
@@ -231,15 +230,19 @@ namespace Huggle
             bool            WhitelistDisabled;
             //! If this is true huggle will always use software rollback even if user has the rollback privileges
             bool            EnforceManualSoftwareRollback;
+            //! List of characters that separate words from each other, like dot, space etc
             QStringList     Separators;
             //! Huggle will auto revert all edits that were made by same user on auto conflict resolution
             bool            RevertOnMultipleEdits;
-            bool            Log2File;
-            QString         SyslogPath;
-            bool            UpdatesEnabled;
+            //! Changing this to true will make the Syslog write all data to a file
+            bool            SystemConfig_Log2File;
+            //! This path is used when Log2File is true to write the logs to
+            QString         SystemConfig_SyslogPath;
+            bool            SystemConfig_UpdatesEnabled;
             int             Cache_HAN;
             //! Debug mode
             bool            SystemConfig_Dot;
+            int             IndexOfLastWiki;
 
             //////////////////////////////////////////////
             // User
@@ -301,12 +304,14 @@ namespace Huggle
             bool            LocalConfig_ConfirmPage;
             bool            LocalConfig_ConfirmSame;
             bool            LocalConfig_ConfirmWarned;
+            bool            LocalConfig_Patrolling;
 
             // Reverting
             QString         LocalConfig_MultipleRevertSummary;
             QStringList     LocalConfig_RevertSummaries;
             QString         LocalConfig_SoftwareRevertDefaultSummary;
             QString         LocalConfig_RollbackSummary;
+            QString         LocalConfig_RollbackSummaryUnknownTarget;
             QString         LocalConfig_DefaultSummary;
             QString         LocalConfig_SingleRevert;
             QString         LocalConfig_UndoSummary;

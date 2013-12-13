@@ -25,6 +25,7 @@ Configuration::Configuration()
     this->UsingSSL = true;
     this->UserName = "User";
     this->Cache_HAN = 100;
+    this->IndexOfLastWiki = 0;
     this->UserConfig_HistoryLoad = true;
     this->Password = "";
     this->WelcomeMP = "Project:Huggle/Message";
@@ -50,7 +51,7 @@ Configuration::Configuration()
 #else
     this->HomePath = QDesktopServices::storageLocation(QDesktopServices::DataLocation);
 #endif
-    this->UpdatesEnabled = true;
+    this->SystemConfig_UpdatesEnabled = true;
     this->EditSuffixOfHuggle = "([[WP:HG|HG 3]])";
     this->WikiDB = "";
     this->UserConfig_HistoryMax = 50;
@@ -87,6 +88,7 @@ Configuration::Configuration()
     this->LocalConfig_UndoSummary = "Undid edit by [[Special:Contributions/$1|$1]] ([[User talk:$1|talk]])";
     this->LocalConfig_SoftwareRevertDefaultSummary = "Reverted edits by [[Special:Contributions/$1|$1]] ([[User talk:$1|talk]]) to"\
             " last revision by $2 using huggle software rollback (reverted by $3 revisions to revision $4)";
+    this->LocalConfig_RollbackSummaryUnknownTarget = "Reverted edits by [[Special:Contributions/$1|$1]] ([[User talk:$1|talk]])";
 
     // Warnings
 
@@ -120,9 +122,7 @@ Configuration::Configuration()
     this->LocalConfig_IPVTemplateReport = "";
     this->LocalConfig_WhitelistScore = -800;
     this->UserConfig_GoNext = Configuration_OnNext_Next;
-    this->RvCounter = 0;
     this->TrimOldWarnings = true;
-    this->EditCounter = 0;
     this->AskUserBeforeReport = true;
     this->UserConfig_SectionKeep = true;
     this->SystemConfig_Dot = false;
@@ -169,6 +169,7 @@ Configuration::Configuration()
     this->LocalConfig_NSHelpTalk = MEDIAWIKI_DEFAULT_NS_HELPTALK;
     this->LocalConfig_NSPortal = MEDIAWIKI_DEFAULT_NS_PORTAL;
     this->LocalConfig_NSPortalTalk = MEDIAWIKI_DEFAULT_NS_PORTALTALK;
+    this->LocalConfig_Patrolling = false;
 
     this->LocalConfig_TemplateAge = -30;
     this->LocalConfig_ScoreChange = 100;
@@ -204,8 +205,8 @@ Configuration::Configuration()
     this->LocalConfig_UAAPath = "Project:Usernames for administrator attention";
     this->LocalConfig_UAATemplate = "* {{user-uaa|1=$1}} $2 ~~~~";
     this->RevertOnMultipleEdits = false;
-    this->SyslogPath = "huggle.log";
-    this->Log2File = false;
+    this->SystemConfig_SyslogPath = "huggle.log";
+    this->SystemConfig_Log2File = false;
 }
 
 Configuration::~Configuration()
@@ -213,6 +214,16 @@ Configuration::~Configuration()
     delete this->AIVP;
     delete this->Project;
     delete this->UAAP;
+}
+
+QString Configuration::GenerateSuffix(QString text)
+{
+    if (!text.endsWith(this->EditSuffixOfHuggle))
+    {
+        text = text + " " + this->EditSuffixOfHuggle;
+    }
+
+    return text;
 }
 
 QString Configuration::GetURLProtocolPrefix()
@@ -273,7 +284,6 @@ void Configuration::NormalizeConf()
     {
         Configuration::HuggleConfiguration->HistorySize = 2;
     }
-    Configuration::HuggleConfiguration->EditCounter = 0;
 }
 
 
@@ -333,8 +343,8 @@ QString Configuration::MakeLocalUserConfig()
             conf += "        filter-assisted:" + Configuration::Bool2ExcludeRequire(fltr->getIgnoreFriends()) + "\n";
             conf += "        filter-ip:" + Configuration::Bool2ExcludeRequire(fltr->getIgnoreIP()) + "\n";
             conf += "        filter-minor:" + Configuration::Bool2ExcludeRequire(fltr->getIgnoreMinor()) + "\n";
-            conf += "        filter-np:" + Configuration::Bool2ExcludeRequire(fltr->getIgnoreNP()) + "\n";
-            conf += "        filter-self:" + Configuration::Bool2ExcludeRequire(fltr->getIgnoreSelf()) + "\n";
+            conf += "        filter-new-pages:" + Configuration::Bool2ExcludeRequire(fltr->getIgnoreNP()) + "\n";
+            conf += "        filter-me:" + Configuration::Bool2ExcludeRequire(fltr->getIgnoreSelf()) + "\n";
             conf += "        filter-users:" + Configuration::Bool2ExcludeRequire(fltr->getIgnoreUsers()) + "\n";
             conf += "\n";
         }
@@ -432,6 +442,11 @@ void Configuration::LoadConfig()
             Configuration::HuggleConfiguration->UserName = option.attribute("text");
             continue;
         }
+        if (key == "RingLogMaxSize")
+        {
+            Configuration::HuggleConfiguration->RingLogMaxSize = option.attribute("text").toInt();
+            continue;
+        }
         if (key == "WarnUserSpaceRoll")
         {
             Configuration::HuggleConfiguration->WarnUserSpaceRoll = Configuration::SafeBool(option.attribute("text"));
@@ -439,7 +454,17 @@ void Configuration::LoadConfig()
         }
         if (key == "EnableUpdates")
         {
-            Configuration::HuggleConfiguration->UpdatesEnabled = Configuration::SafeBool(option.attribute("text"));
+            Configuration::HuggleConfiguration->SystemConfig_UpdatesEnabled = Configuration::SafeBool(option.attribute("text"));
+            continue;
+        }
+        if (key == "QueueNewEditsUp")
+        {
+            Configuration::HuggleConfiguration->QueueNewEditsUp = Configuration::SafeBool(option.attribute("text"));
+            continue;
+        }
+        if (key == "IndexOfLastWiki")
+        {
+            Configuration::HuggleConfiguration->IndexOfLastWiki = option.attribute("text").toInt();
             continue;
         }
     }
@@ -471,9 +496,10 @@ void Configuration::SaveConfig()
     Configuration::InsertConfig("QueueNewEditsUp", Configuration::Bool2String(Configuration::HuggleConfiguration->QueueNewEditsUp), x);
     Configuration::InsertConfig("RingLogMaxSize", QString::number(Configuration::HuggleConfiguration->RingLogMaxSize), x);
     Configuration::InsertConfig("TrimOldWarnings", Configuration::Bool2String(Configuration::HuggleConfiguration->TrimOldWarnings), x);
-    Configuration::InsertConfig("EnableUpdates", Configuration::Bool2String(Configuration::HuggleConfiguration->UpdatesEnabled), x);
+    Configuration::InsertConfig("EnableUpdates", Configuration::Bool2String(Configuration::HuggleConfiguration->SystemConfig_UpdatesEnabled), x);
     Configuration::InsertConfig("WarnUserSpaceRoll", Configuration::Bool2String(Configuration::HuggleConfiguration->WarnUserSpaceRoll), x);
     Configuration::InsertConfig("UserName", Configuration::HuggleConfiguration->UserName, x);
+    Configuration::InsertConfig("IndexOfLastWiki", QString::number(Configuration::HuggleConfiguration->IndexOfLastWiki), x);
     /////////////////////////////
     // Vandal network
     /////////////////////////////
@@ -630,6 +656,16 @@ QList<HuggleQueueFilter *> Configuration::ConfigurationParseQueueList(QString co
         {
             // this is a queue definition beginning, because it is intended with 4 spaces
             HuggleQueueFilter *filter = new HuggleQueueFilter();
+            // we need to disable all filters because that's how is it expected in config for some reason
+            filter->setIgnoreBots(false);
+            filter->setIgnoreFriends(false);
+            filter->setIgnoreIP(false);
+            filter->setIgnoreMinor(false);
+            filter->setIgnoreNP(false);
+            filter->setIgnoreReverts(false);
+            filter->setIgnoreSelf(false);
+            filter->setIgnoreUsers(false);
+            filter->setIgnoreWL(false);
             ReturnValue.append(filter);
             filter->ProjectSpecific = locked;
             QString name = text;
@@ -693,6 +729,39 @@ QList<HuggleQueueFilter *> Configuration::ConfigurationParseQueueList(QString co
                     } else
                     {
                         filter->setIgnoreIP(false);
+                    }
+                    continue;
+                }
+                if (key == "filter-reverts")
+                {
+                    if (val == "exclude")
+                    {
+                        filter->setIgnoreReverts(true);
+                    } else
+                    {
+                        filter->setIgnoreReverts(false);
+                    }
+                    continue;
+                }
+                if (key == "filter-new-pages")
+                {
+                    if (val == "exclude")
+                    {
+                        filter->setIgnoreNP(true);
+                    } else
+                    {
+                        filter->setIgnoreNP(false);
+                    }
+                    continue;
+                }
+                if (key == "filter-me")
+                {
+                    if (val == "exclude")
+                    {
+                        filter->setIgnoreSelf(true);
+                    } else
+                    {
+                        filter->setIgnoreSelf(false);
                     }
                     continue;
                 }
@@ -769,6 +838,8 @@ bool Configuration::ParseLocalConfig(QString config)
               "Reverted edits by [[Special:Contributions/$1|$1]] to last revision by $2");
     Configuration::HuggleConfiguration->LocalConfig_MultipleRevertSummary = Configuration::ConfigurationParse("multiple-revert-summary-parts", config,
               "Reverted,edit by,edits by,and,other users,to last revision by,to an older version by");
+    Configuration::HuggleConfiguration->LocalConfig_RollbackSummaryUnknownTarget = Configuration::ConfigurationParse("rollback-summary-unknown",
+              config, "Reverted edits by [[Special:Contributions/$1|$1]] ([[User talk:$1|talk]])");
     // Warning types
     Configuration::HuggleConfiguration->LocalConfig_WarningTypes = Configuration::ConfigurationParse_QL("warning-types", config);
     Configuration::HuggleConfiguration->LocalConfig_WarningDefs = Configuration::ConfigurationParse_QL("warning-template-tags", config);
@@ -788,6 +859,8 @@ bool Configuration::ParseLocalConfig(QString config)
             (Configuration::ConfigurationParse("welcome-on-good-edit", config, "true"));
     Configuration::HuggleConfiguration->LocalConfig_WelcomeTypes = Configuration::ConfigurationParse_QL("welcome-messages", config);
     // Reporting
+    Configuration::HuggleConfiguration->LocalConfig_Patrolling = Configuration::SafeBool
+            (Configuration::ConfigurationParse("patrolling-enabled", config));
     Configuration::HuggleConfiguration->LocalConfig_ReportSummary = Configuration::ConfigurationParse("report-summary", config);
     Configuration::HuggleConfiguration->LocalConfig_SpeedyTemplates = Configuration::ConfigurationParse_QL("speedy-options", config);
     // Parsing

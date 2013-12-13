@@ -105,7 +105,7 @@ void HuggleFeedProviderIRC::InsertEdit(WikiEdit *edit)
     {
         throw new Exception("WikiEdit *edit must not be NULL", "void HuggleFeedProviderIRC::InsertEdit(WikiEdit *edit)");
     }
-    Configuration::HuggleConfiguration->EditCounter++;
+    this->EditCounter++;
     Core::HuggleCore->PreProcessEdit(edit);
     if (Core::HuggleCore->Main->Queue1->CurrentFilter->Matches(edit))
     {
@@ -279,6 +279,12 @@ void HuggleFeedProviderIRC::ParseEdit(QString line)
     }
 
     if (flags.contains("move"))
+    {
+        edit->UnregisterConsumer(HUGGLECONSUMER_PROVIDERIRC);
+        return;
+    }
+
+    if (flags.contains("tag"))
     {
         edit->UnregisterConsumer(HUGGLECONSUMER_PROVIDERIRC);
         return;

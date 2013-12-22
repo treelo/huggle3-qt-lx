@@ -78,7 +78,7 @@ Configuration::Configuration()
     this->LocalConfig_RequireEdits = 0;
     this->LocalConfig_ScoreTalk = -800;
     this->LocalConfig_AssociatedDelete = "G8. Page dependent on a non-existent or deleted page.";
-    this->LocalConfig_DeletionSummary = "Deleted page using Huggle";
+    this->LocalConfig_DeletionSummaries << "Deleted page using Huggle";
 
     // Reverting
     this->LocalConfig_MultipleRevertSummary = "Reverted,edit by,edits by,and,other users,to last revision by,to an older version by";
@@ -91,7 +91,6 @@ Configuration::Configuration()
     this->LocalConfig_RollbackSummaryUnknownTarget = "Reverted edits by [[Special:Contributions/$1|$1]] ([[User talk:$1|talk]])";
 
     // Warnings
-
     this->LocalConfig_AgfRevert = "Reverted good faith edits";
     this->LocalConfig_WarnSummary = "Warning (level 1)";
     this->LocalConfig_WarnSummary2 = "Warning (level 2)";
@@ -855,6 +854,8 @@ bool Configuration::ParseLocalConfig(QString config)
     Configuration::HuggleConfiguration->AutomaticallyResolveConflicts = Configuration::SafeBool
          (Configuration::ConfigurationParse("automatically-resolve-conflicts", config), false);
     // Welcoming
+    Configuration::HuggleConfiguration->WelcomeMP = Configuration::ConfigurationParse("startup-message-location",
+                                                    config, "Project:Huggle/Message");
     Configuration::HuggleConfiguration->LocalConfig_WelcomeGood = Configuration::SafeBool
             (Configuration::ConfigurationParse("welcome-on-good-edit", config, "true"));
     Configuration::HuggleConfiguration->LocalConfig_WelcomeTypes = Configuration::ConfigurationParse_QL("welcome-messages", config);
@@ -872,6 +873,18 @@ bool Configuration::ParseLocalConfig(QString config)
     Configuration::HuggleConfiguration->LocalConfig_BlockMessage = Configuration::ConfigurationParse("block-message", config);
     Configuration::HuggleConfiguration->LocalConfig_BlockReason = Configuration::ConfigurationParse("block-reason", config);
     Configuration::HuggleConfiguration->LocalConfig_BlockExpiryOptions.clear();
+    // Templates
+    Configuration::HuggleConfiguration->LocalConfig_Headings = HeadingsStandard;
+    QString headings = Configuration::HuggleConfiguration->ConfigurationParse("headings", config, "standard");
+    if (headings == "page")
+    {
+        Configuration::HuggleConfiguration->LocalConfig_Headings = HeadingsPageName;
+        Configuration::HuggleConfiguration->UserConfig_EnforceMonthsAsHeaders = false;
+    } else if(headings == "none")
+    {
+        Configuration::HuggleConfiguration->LocalConfig_Headings = HeadingsNone;
+        Configuration::HuggleConfiguration->UserConfig_EnforceMonthsAsHeaders = false;
+    }
     QString Options = Configuration::ConfigurationParse("block-expiry-options", config);
     QStringList list = Options.split(",");
     while (list.count() > 0)
@@ -881,6 +894,7 @@ bool Configuration::ParseLocalConfig(QString config)
         Configuration::HuggleConfiguration->LocalConfig_BlockExpiryOptions.append(item);
         list.removeAt(0);
     }
+    Configuration::HuggleConfiguration->LocalConfig_DeletionSummaries = Configuration::ConfigurationParse_QL("deletion-reasons", config, true);
     Configuration::HuggleConfiguration->LocalConfig_BlockSummary = Configuration::ConfigurationParse
                                                  ("block-summary", config, "Notification: Blocked");
     Configuration::HuggleConfiguration->LocalConfig_BlockTime = Configuration::ConfigurationParse("blocktime", config, "indef");

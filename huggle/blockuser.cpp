@@ -103,8 +103,7 @@ void BlockUser::CheckToken()
     }
     if (this->qTokenApi->Result->Failed)
     {
-        /// \todo LOCALIZE ME
-        this->Failed("token can't be retrieved: " + this->qTokenApi->Result->ErrorMessage);
+        this->Failed(Localizations::HuggleLocalizations->Localize("block-token-e1", this->qTokenApi->Result->ErrorMessage));
         return;
     }
     QDomDocument d;
@@ -113,15 +112,13 @@ void BlockUser::CheckToken()
     if (l.count() == 0)
     {
         Huggle::Syslog::HuggleLogs->DebugLog(this->qTokenApi->Result->Data);
-        /// \todo LOCALIZE ME
-        this->Failed("no user info was present in query (are you sysop?)");
+        this->Failed(Localizations::HuggleLocalizations->Localize("block-error-no-info"));
         return;
     }
     QDomElement element = l.at(0).toElement();
     if (!element.attributes().contains("blocktoken"))
     {
-        /// \todo LOCALIZE ME
-        this->Failed("No token");
+        this->Failed(Localizations::HuggleLocalizations->Localize("no-token"));
         return;
     }
     this->BlockToken = element.attribute("blocktoken");
@@ -133,14 +130,39 @@ void BlockUser::CheckToken()
     // let's block them
     this->qUser = new ApiQuery();
     this->Dependency = this->qUser;
+    QString nocreate = "";
+    if (this->ui->checkBox_4->isChecked())
+    {
+        nocreate = "&nocreate=";
+    }
+    QString anononly = "";
+    if (this->ui->checkBox_5->isChecked())
+    {
+        anononly = "&anononly=";
+    }
+    QString noemail = "";
+    if (this->ui->checkBox_2->isChecked())
+    {
+        noemail = "&noemail=";
+    }
+    QString autoblock = "";
+    if (!this->ui->checkBox_3->isChecked())
+    {
+        autoblock = "&autoblock=";
+    }
+    QString allowusertalk = "";
+    if (!this->ui->checkBox->isChecked())
+    {
+        allowusertalk = "&allowusertalk=";
+    }
     this->qUser->SetAction(ActionQuery);
     this->qUser->Parameters = "action=block&user=" +  QUrl::toPercentEncoding(this->user->Username) + "&reason="
             + QUrl::toPercentEncoding(this->ui->comboBox->currentText()) + "&expiry="
-            + QUrl::toPercentEncoding(this->ui->comboBox_2->currentText()) + "&token="
-            + QUrl::toPercentEncoding(BlockToken);
+            + QUrl::toPercentEncoding(this->ui->comboBox_2->currentText())
+            + nocreate + anononly + noemail + autoblock + allowusertalk
+            + "&token=" + QUrl::toPercentEncoding(BlockToken);
 
-    /// \todo LOCALIZE ME
-    this->qUser->Target = "Blocking " + this->user->Username;
+    this->qUser->Target = Localizations::HuggleLocalizations->Localize("blocking", this->user->Username);
     this->qUser->UsingPOST = true;
     this->qUser->RegisterConsumer("BlockUser::on_pushButton_clicked()");
     Core::HuggleCore->AppendQuery(this->qUser);
@@ -182,6 +204,7 @@ void BlockUser::Block()
         mb.setText("Unable to block: " + reason);
         mb.exec();
         this->ui->pushButton->setText("Block");
+        this->qUser->Result->Failed = true;
         this->qUser->UnregisterConsumer("BlockUser::on_pushButton_clicked()");
         this->ui->pushButton->setEnabled(true);
         this->t0->stop();

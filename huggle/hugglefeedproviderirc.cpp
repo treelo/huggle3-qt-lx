@@ -52,13 +52,13 @@ bool HuggleFeedProviderIRC::Start()
     if (!this->Network->Connect())
     {
         Huggle::Syslog::HuggleLogs->Log(Huggle::Localizations::HuggleLocalizations->Localize("irc-error",
-                                                         Configuration::HuggleConfiguration->IRCServer));
+                                        Configuration::HuggleConfiguration->IRCServer));
         delete this->Network;
         this->Network = NULL;
         return false;
     }
     this->Network->Join(Configuration::HuggleConfiguration->Project->IRCChannel);
-    Huggle::Syslog::HuggleLogs->Log("IRC: Successfuly connected to irc rc feed");
+    Huggle::Syslog::HuggleLogs->Log(Huggle::Localizations::HuggleLocalizations->Localize("irc-connected"));
     if (this->thread != NULL)
     {
         delete this->thread;
@@ -92,8 +92,7 @@ void HuggleFeedProviderIRC::Stop()
     this->Network->Disconnect();
     while (!IsStopped())
     {
-        /// \todo LOCALIZE ME
-        Huggle::Syslog::HuggleLogs->Log("Waiting for irc feed provider to stop");
+        Huggle::Syslog::HuggleLogs->Log(Huggle::Localizations::HuggleLocalizations->Localize("irc-stop"));
         Sleeper::usleep(200000);
     }
     this->Connected = false;
@@ -362,6 +361,7 @@ void HuggleFeedProviderIRC::ParseEdit(QString line)
         if (line.contains(")"))
         {
             QString xx = line.mid(0, line.indexOf(")"));
+            xx = xx.replace("\002", "");
             int size = 0;
             if (xx.startsWith("+"))
             {
@@ -373,8 +373,17 @@ void HuggleFeedProviderIRC::ParseEdit(QString line)
                 xx = xx.mid(1);
                 size = xx.toInt() * -1;
                 edit->Size = size;
+            } else
+            {
+                Syslog::HuggleLogs->DebugLog("No size information for " + edit->Page->PageName);
             }
+        }else
+        {
+            Syslog::HuggleLogs->DebugLog("No size information for " + edit->Page->PageName);
         }
+    } else
+    {
+        Syslog::HuggleLogs->DebugLog("No size information for " + edit->Page->PageName);
     }
 
     if (line.contains(QString(QChar(3)) + "10"))

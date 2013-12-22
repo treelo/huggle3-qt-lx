@@ -1,3 +1,9 @@
+huggle (3.0.0.0-ppa11) precise; urgency=medium
+
+  * Updated
+
+ -- Petr Bena <benapetr@gmail.com>  Sun, 22 Dec 2013 16:55:08 +0100
+
 huggle (3.0.0.0-ppa10) precise; urgency=medium
 
   * Fatal bugs and fixes :o

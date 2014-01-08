@@ -124,6 +124,7 @@ namespace Huggle
             void ProcessEdit(WikiEdit *e);
             //! Terminate the process, call this after you release all resources and finish all queries
             void Shutdown();
+            bool IsRevert(QString Summary);
             //! Display a message box telling user that function is not allowed during developer mode
             void DeveloperError();
             //! Check the edit summary and similar in order to
@@ -176,9 +177,11 @@ namespace Huggle
              * \param item Query that is about to be inserted to list of running queries
              */
             void AppendQuery(Query* item);
-            void LoadLocalizations();
+            double GetUptimeInSeconds();
             bool ReportPreFlightCheck();
+            void LoadLocalizations();
             int RunningQueriesGetCount();
+            void LoadResources();
             //! This function is called by main thread and is used to remove edits that were already reverted
             void TruncateReverts();
             // Global variables
@@ -187,8 +190,11 @@ namespace Huggle
             MainWindow *Main;
             //! Login form
             Login *f_Login;
+            QString HtmlIncoming;
             //! This string contains a html header
             QString HtmlHeader;
+            QString DiffHeader;
+            QString DiffFooter;
             //! This string contains a html footer
             QString HtmlFooter;
             //! Pointer to primary feed provider
@@ -205,7 +211,6 @@ namespace Huggle
             QList<HuggleQueueFilter *> FilterDB;
             //! Change this to false when you want to terminate all threads properly (you will need to wait few ms)
             bool Running;
-            double GetUptimeInSeconds();
             //! Garbage collector
             GC *gc;
 #ifdef PYTHONENGINE

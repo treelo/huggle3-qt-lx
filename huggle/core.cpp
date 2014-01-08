@@ -28,17 +28,12 @@ void Core::Init()
     GC::gc = this->gc;
     Query::NetworkManager = new QNetworkAccessManager();
     Core::VersionRead();
-    QFile *vf;
 #if QT_VERSION >= 0x050000
     QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
 #else
     QTextCodec::setCodecForCStrings(QTextCodec::codecForName("UTF-8"));
 #endif
-    vf = new QFile(":/huggle/resources/Resources/Header.txt");
-    vf->open(QIODevice::ReadOnly);
-    this->HtmlHeader = QString(vf->readAll());
-    vf->close();
-    delete vf;
+    this->LoadResources();
     Syslog::HuggleLogs->Log("Huggle 3 QT-LX, version " + Configuration::HuggleConfiguration->HuggleVersion);
     Syslog::HuggleLogs->Log("Loading configuration");
     this->Processor = new ProcessorThread();
@@ -77,7 +72,10 @@ Core::Core()
     this->Python = NULL;
 #endif
     this->HtmlHeader = "";
-    this->HtmlFooter = "</table></body></html>";
+    this->HtmlFooter = "";
+    this->HtmlIncoming = "";
+    this->DiffFooter = "";
+    this->DiffHeader = "";
     this->Main = NULL;
     this->f_Login = NULL;
     this->SecondaryFeedProvider = NULL;
@@ -551,6 +549,23 @@ void Core::Shutdown()
     QApplication::quit();
 }
 
+bool Core::IsRevert(QString Summary)
+{
+    if (Summary != "")
+    {
+        int xx = 0;
+        while (xx < Configuration::HuggleConfiguration->RevertPatterns.count())
+        {
+            if (Summary.contains(Configuration::HuggleConfiguration->RevertPatterns.at(xx)))
+            {
+                return true;
+            }
+            xx++;
+        }
+    }
+    return false;
+}
+
 void Core::DeveloperError()
 {
     QMessageBox *mb = new QMessageBox();
@@ -595,26 +610,17 @@ void Core::PreProcessEdit(WikiEdit *_e)
         x++;
     }
 
-    if (_e->Summary != "")
+    if (this->IsRevert(_e->Summary))
     {
-        int xx = 0;
-        while (xx < Configuration::HuggleConfiguration->RevertPatterns.count())
+        _e->IsRevert = true;
+        if (this->PrimaryFeedProvider != NULL)
         {
-            if (_e->Summary.contains(Configuration::HuggleConfiguration->RevertPatterns.at(xx)))
-            {
-                _e->IsRevert = true;
-                if (this->PrimaryFeedProvider != NULL)
-                {
-                    this->PrimaryFeedProvider->RvCounter++;
-                }
-                if (Configuration::HuggleConfiguration->UserConfig_DeleteEditsAfterRevert)
-                {
-                    _e->RegisterConsumer("UncheckedReverts");
-                    this->UncheckedReverts.append(_e);
-                }
-                break;
-            }
-            xx++;
+            this->PrimaryFeedProvider->RvCounter++;
+        }
+        if (Configuration::HuggleConfiguration->UserConfig_DeleteEditsAfterRevert)
+        {
+            _e->RegisterConsumer("UncheckedReverts");
+            this->UncheckedReverts.append(_e);
         }
     }
 
@@ -826,6 +832,36 @@ bool Core::ReportPreFlightCheck()
 int Core::RunningQueriesGetCount()
 {
     return this->RunningQueries.count();
+}
+
+void Core::LoadResources()
+{
+    QFile *vf;
+    vf = new QFile(":/huggle/resources/Resources/Header.txt");
+    vf->open(QIODevice::ReadOnly);
+    this->HtmlHeader = QString(vf->readAll());
+    vf->close();
+    delete vf;
+    vf = new QFile(":/huggle/resources/Resources/DiffBeginning.txt");
+    vf->open(QIODevice::ReadOnly);
+    this->DiffHeader = QString(vf->readAll());
+    vf->close();
+    delete vf;
+    vf = new QFile(":/huggle/resources/Resources/PageEnd.txt");
+    vf->open(QIODevice::ReadOnly);
+    this->HtmlFooter = QString(vf->readAll());
+    vf->close();
+    delete vf;
+    vf = new QFile(":/huggle/resources/Resources/DiffEnd.txt");
+    vf->open(QIODevice::ReadOnly);
+    this->DiffFooter = QString(vf->readAll());
+    vf->close();
+    delete vf;
+    vf = new QFile(":/huggle/resources/Resources/Message.txt");
+    vf->open(QIODevice::ReadOnly);
+    this->HtmlIncoming = QString(vf->readAll());
+    vf->close();
+    delete vf;
 }
 
 void Core::TruncateReverts()

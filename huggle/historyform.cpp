@@ -20,9 +20,9 @@ HistoryForm::HistoryForm(QWidget *parent) : QDockWidget(parent), ui(new Ui::Hist
     this->ui->setupUi(this);
     this->ui->pushButton->setEnabled(false);
     this->ui->pushButton->setText(Localizations::HuggleLocalizations->Localize("historyform-no-info"));
-    this->ui->tableWidget->setColumnCount(5);
+    this->ui->tableWidget->setColumnCount(6);
     QStringList header;
-    header << Huggle::Localizations::HuggleLocalizations->Localize("user") <<
+    header << "" << Huggle::Localizations::HuggleLocalizations->Localize("user") <<
               Huggle::Localizations::HuggleLocalizations->Localize("size") <<
               Huggle::Localizations::HuggleLocalizations->Localize("summary") <<
               Huggle::Localizations::HuggleLocalizations->Localize("id") <<
@@ -145,8 +145,18 @@ void HistoryForm::onTick01()
     d.setContent(this->query->Result->Data);
     QDomNodeList l = d.elementsByTagName("rev");
     int x=0;
+    QColor xb;
+    bool xt = false;
     while (x < l.count())
     {
+        if (xt)
+        {
+            xb = QColor(206, 202, 250);
+        } else
+        {
+            xb = QColor(224, 222, 250);
+        }
+        xt = !xt;
         QDomElement e = l.at(x).toElement();
         QString RevID;
         if (e.attributes().contains("revid"))
@@ -181,36 +191,71 @@ void HistoryForm::onTick01()
             }
         }
         this->ui->tableWidget->insertRow(x);
+        QIcon icon(":/huggle/pictures/Resources/blob-none.png");
+
+        if (Core::HuggleCore->IsRevert(summary))
+        {
+            icon = QIcon(":/huggle/pictures/Resources/blob-revert.png");
+        } else if (WikiUser::IsIPv6(user) || WikiUser::IsIPv4(user))
+        {
+            icon = QIcon(":/huggle/pictures/Resources/blob-anon.png");
+        } else if (Configuration::HuggleConfiguration->WhiteList.contains(user))
+        {
+            icon = QIcon(":/huggle/pictures/Resources/blob-ignored.png");
+        }
+
         if (this->CurrentEdit->RevID == RevID.toInt())
         {
             QFont font;
             font.setBold(true);
-            QTableWidgetItem *i = new QTableWidgetItem(user);
-            i->setFont(font);
+            QTableWidgetItem *i = new QTableWidgetItem(icon, "");
+            i->setBackgroundColor(xb);
             this->ui->tableWidget->setItem(x, 0, i);
+            i = new QTableWidgetItem(user);
+            i->setFont(font);
+            i->setBackgroundColor(xb);
+            this->ui->tableWidget->setItem(x, 1, i);
             i = new QTableWidgetItem(size);
             i->setFont(font);
-            this->ui->tableWidget->setItem(x, 1, i);
+            i->setBackgroundColor(xb);
+            this->ui->tableWidget->setItem(x, 2, i);
             i = new QTableWidgetItem(summary);
             i->setFont(font);
-            this->ui->tableWidget->setItem(x, 2, i);
+            i->setBackgroundColor(xb);
+            this->ui->tableWidget->setItem(x, 3, i);
             i = new QTableWidgetItem(RevID);
             i->setFont(font);
-            this->ui->tableWidget->setItem(x, 3, i);
+            i->setBackgroundColor(xb);
+            this->ui->tableWidget->setItem(x, 4, i);
             i = new QTableWidgetItem(date);
             i->setFont(font);
-            this->ui->tableWidget->setItem(x, 4, i);
+            i->setBackgroundColor(xb);
+            this->ui->tableWidget->setItem(x, 5, i);
         } else
         {
-            this->ui->tableWidget->setItem(x, 0, new QTableWidgetItem(user));
-            this->ui->tableWidget->setItem(x, 1, new QTableWidgetItem(size));
-            this->ui->tableWidget->setItem(x, 2, new QTableWidgetItem(summary));
-            this->ui->tableWidget->setItem(x, 3, new QTableWidgetItem(RevID));
-            this->ui->tableWidget->setItem(x, 4, new QTableWidgetItem(date));
+            QTableWidgetItem *i = new QTableWidgetItem(icon, "");
+            i->setBackgroundColor(xb);
+            this->ui->tableWidget->setItem(x, 0, i);
+            i = new QTableWidgetItem(user);
+            i->setBackgroundColor(xb);
+            this->ui->tableWidget->setItem(x, 1, i);
+            i = new QTableWidgetItem(size);
+            i->setBackgroundColor(xb);
+            this->ui->tableWidget->setItem(x, 2, i);
+            i = new QTableWidgetItem(summary);
+            i->setBackgroundColor(xb);
+            this->ui->tableWidget->setItem(x, 3, i);
+            i = new QTableWidgetItem(RevID);
+            i->setBackgroundColor(xb);
+            this->ui->tableWidget->setItem(x, 4, i);
+            i = new QTableWidgetItem(date);
+            i->setBackgroundColor(xb);
+            this->ui->tableWidget->setItem(x, 5, i);
         }
         x++;
     }
     this->query->UnregisterConsumer(HUGGLECONSUMER_HISTORYWIDGET);
+    this->ui->tableWidget->resizeRowsToContents();
     this->query = NULL;
     this->t1->stop();
 }

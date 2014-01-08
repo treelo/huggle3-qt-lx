@@ -20,19 +20,28 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->fReportForm = NULL;
     this->fBlockForm = NULL;
     this->fDeleteForm = NULL;
-    this->Shutdown = ShutdownOpRunning;
     this->wlt = NULL;
     this->fProtectForm = NULL;
     this->fWaiting = NULL;
     this->fWhitelist = NULL;
+    this->wq = NULL;
+    this->qNext = NULL;
+    this->RestoreQuery = NULL;
+    this->fUaaReportForm = NULL;
+    this->OnNext_EvPage = NULL;
+    this->fRemove = NULL;
+    this->qTalkPage = NULL;
+    this->eq = NULL;
+    this->RestoreEdit = NULL;
+    this->CurrentEdit = NULL;
+    this->LastTPRevID = WIKI_UNKNOWN_REVID;
+    this->Shutdown = ShutdownOpRunning;
     this->EditablePage = false;
     this->ShuttingDown = false;
     this->ui->setupUi(this);
     this->Localize();
-    this->wq = NULL;
     this->Status = new QLabel();
     this->ui->statusBar->addWidget(this->Status);
-    this->qNext = NULL;
     this->tb = new HuggleTool();
     this->Queries = new ProcessList(this);
     this->SystemLog = new HuggleLog(this);
@@ -40,9 +49,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->Queue1 = new HuggleQueue(this);
     this->_History = new History(this);
     this->wHistory = new HistoryForm(this);
-    this->RestoreQuery = NULL;
-    this->fUaaReportForm = NULL;
-    this->OnNext_EvPage = NULL;
     this->wUserInfo = new UserinfoForm(this);
     this->VandalDock = new VandalNw(this);
     this->addDockWidget(Qt::LeftDockWidgetArea, this->Queue1);
@@ -53,7 +59,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->addDockWidget(Qt::RightDockWidgetArea, this->wUserInfo);
     this->addDockWidget(Qt::BottomDockWidgetArea, this->VandalDock);
     this->preferencesForm = new Preferences(this);
-    this->RestoreEdit = NULL;
     this->aboutForm = new AboutForm(this);
     // we store the value in bool so that we don't need to call expensive string function twice
     bool PermissionBlock = Configuration::HuggleConfiguration->Rights.contains("block");
@@ -65,18 +70,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->ui->actionProtect->setEnabled(Configuration::HuggleConfiguration->Rights.contains("protect"));
     this->addDockWidget(Qt::LeftDockWidgetArea, this->_History);
     this->SystemLog->resize(100, 80);
-    QStringList _log = Syslog::HuggleLogs->RingLogToQStringList();
+    QList<HuggleLog_Line> _log = Syslog::HuggleLogs->RingLogToList();
     if (!Configuration::HuggleConfiguration->WhiteList.contains(Configuration::HuggleConfiguration->UserName))
     {
         Configuration::HuggleConfiguration->WhiteList.append(Configuration::HuggleConfiguration->UserName);
     }
-    int c=0;
-    while (c<_log.count())
-    {
-        this->SystemLog->InsertText(_log.at(c));
-        c++;
-    }
-    this->CurrentEdit = NULL;
     this->setWindowTitle("Huggle 3 QT-LX on " + Configuration::HuggleConfiguration->Project->Name);
     this->ui->verticalLayout->addWidget(this->Browser);
     this->Ignore = NULL;
@@ -134,8 +132,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->ui->actionTag_2->setVisible(false);
     connect(this->timer1, SIGNAL(timeout()), this, SLOT(OnTimerTick1()));
     this->timer1->start(200);
-    this->fRemove = NULL;
-    this->eq = NULL;
     QFile *layout = NULL;
     if (QFile().exists(Configuration::GetConfigurationPath() + "mainwindow_state"))
     {
@@ -181,6 +177,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     Hooks::MainWindowIsLoad(this);
     this->VandalDock->Connect();
+    this->tCheck = new QTimer(this);
+    connect(this->tCheck, SIGNAL(timeout()), this, SLOT(TimerCheckTPOnTick()));
+    this->tCheck->start(20000);
 }
 
 MainWindow::~MainWindow()
@@ -368,7 +367,7 @@ void MainWindow::Render()
 
         QStringList params;
         params << this->CurrentEdit->Page->PageName << QString::number(this->CurrentEdit->Score) + word;
-        this->tb->SetInfo(Huggle::Localizations::HuggleLocalizations->Localize("browser-diff", params));
+        this->tb->SetInfo(Localizations::HuggleLocalizations->Localize("browser-diff", params));
         return;
     }
     this->tb->SetTitle(this->Browser->CurrentPageName());
@@ -487,22 +486,21 @@ RevertQuery *MainWindow::Revert(QString summary, bool nd, bool next)
     bool rollback = true;
     if (this->CurrentEdit == NULL)
     {
-        /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->ErrorLog("Unable to revert, edit is null");
+        Syslog::HuggleLogs->ErrorLog(Localizations::HuggleLocalizations->Localize("main-revert-null"));
         return NULL;
     }
 
     if (!this->CurrentEdit->IsPostProcessed())
     {
-        /// \todo LOCALIZE ME
+        // This shouldn't ever happen, there is no need to translate this message
+        // becase it's nearly impossible to be ever displayed
         Syslog::HuggleLogs->ErrorLog("This edit is still being processed, please wait");
         return NULL;
     }
 
     if (this->CurrentEdit->RollbackToken == "")
     {
-        /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->Log("WARNING: Rollback token for edit " + this->CurrentEdit->Page->PageName + " could not be retrieved, fallback to manual edit");
+        Syslog::HuggleLogs->WarningLog(Localizations::HuggleLocalizations->Localize("main-revert-manual", this->CurrentEdit->Page->PageName));
         rollback = false;
     }
 
@@ -842,7 +840,7 @@ void MainWindow::OnTimerTick1()
     }
     if (Configuration::HuggleConfiguration->Verbosity > 0)
     {
-        t += " QGC: " + QString::number(GC::gc->list.count()) + "U: " + QString::number(WikiUser::ProblematicUsers.count());
+        t += " QGC: " + QString::number(GC::gc->list.count()) + " U: " + QString::number(WikiUser::ProblematicUsers.count());
     }
     this->Status->setText(t);
     // let's refresh the edits that are being post processed
@@ -892,6 +890,7 @@ void MainWindow::OnTimerTick1()
     }
     this->FinishRestore();
     Core::HuggleCore->TruncateReverts();
+    this->SystemLog->Render();
 }
 
 void MainWindow::OnTimerTick0()
@@ -927,8 +926,7 @@ void MainWindow::OnTimerTick0()
                 c++;
             }
             Configuration::HuggleConfiguration->WhiteList.removeDuplicates();
-            /// \todo LOCALIZE ME
-            this->fWaiting->Status(60, "Updating whitelist");
+            this->fWaiting->Status(60, Localizations::HuggleLocalizations->Localize("updating-wl"));
             this->Shutdown = ShutdownOpUpdatingWhitelist;
             this->wq->UnregisterConsumer(HUGGLECONSUMER_MAINFORM);
             this->wq = new WLQuery();
@@ -945,8 +943,7 @@ void MainWindow::OnTimerTick0()
             }
             // we finished writing the wl
             this->wq->UnregisterConsumer(HUGGLECONSUMER_MAINFORM);
-            /// \todo LOCALIZE ME
-            this->fWaiting->Status(80, "Updating user config");
+            this->fWaiting->Status(80, Localizations::HuggleLocalizations->Localize("updating-uc"));
             this->wq = NULL;
             this->Shutdown = ShutdownOpUpdatingConf;
             QString page = Configuration::HuggleConfiguration->GlobalConfig_UserConf;
@@ -1448,8 +1445,7 @@ void MainWindow::_BlockUser()
 
     if(this->CurrentEdit == NULL)
     {
-        /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->ErrorLog("No one to block :o");
+        Syslog::HuggleLogs->ErrorLog(Localizations::HuggleLocalizations->Localize("block-none"));
         return;
     }
 
@@ -1504,7 +1500,7 @@ void MainWindow::DeletePage()
 
     if (this->CurrentEdit == NULL)
     {
-        Syslog::HuggleLogs->ErrorLog("No, you cannot delete an NULL page :)");
+        Syslog::HuggleLogs->ErrorLog("No, you cannot delete a NULL page :)");
         return;
     }
 
@@ -1523,6 +1519,7 @@ void MainWindow::DisplayTalk()
     {
         return;
     }
+    // display a talk page
     WikiPage *page = new WikiPage(this->CurrentEdit->User->GetTalk());
     this->Browser->DisplayPreFormattedPage(page);
     delete page;
@@ -1563,7 +1560,8 @@ void MainWindow::Welcome()
     if (this->CurrentEdit->User->GetContentsOfTalkPage() != "")
     {
         /// \todo LOCALIZE ME
-        if (QMessageBox::question(this, "Welcome :o", "This user doesn't have empty talk page, are you sure you want to send a message to him?", QMessageBox::Yes|QMessageBox::No) == QMessageBox::No)
+        if (QMessageBox::question(this, "Welcome :o", "This user doesn't have empty talk page, are you sure you want to send a message to him?",
+                                  QMessageBox::Yes|QMessageBox::No) == QMessageBox::No)
         {
             return;
         }
@@ -1576,8 +1574,9 @@ void MainWindow::Welcome()
             // write something to talk page so that we don't welcome this user twice
             this->CurrentEdit->User->SetContentsOfTalkPage(Configuration::HuggleConfiguration->LocalConfig_WelcomeAnon);
         }
-        Core::HuggleCore->MessageUser(this->CurrentEdit->User, Configuration::HuggleConfiguration->LocalConfig_WelcomeAnon
-              , Configuration::HuggleConfiguration->LocalConfig_WelcomeTitle, Configuration::HuggleConfiguration->LocalConfig_WelcomeSummary, false);
+        Core::HuggleCore->MessageUser(this->CurrentEdit->User, Configuration::HuggleConfiguration->LocalConfig_WelcomeAnon,
+                                      Configuration::HuggleConfiguration->LocalConfig_WelcomeTitle,
+                                      Configuration::HuggleConfiguration->LocalConfig_WelcomeSummary, false);
         return;
     }
 
@@ -1728,8 +1727,7 @@ void MainWindow::on_actionClear_talk_page_of_user_triggered()
 
     if (!this->CurrentEdit->User->IsIP())
     {
-        /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->Log("This feature is for ip users only");
+        Syslog::HuggleLogs->Log(Localizations::HuggleLocalizations->Localize("feature-nfru"));
         return;
     }
 
@@ -1797,8 +1795,7 @@ void MainWindow::on_actionReport_user_triggered()
 {
     if (this->CurrentEdit == NULL)
     {
-        /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->ErrorLog("No one to report");
+        Syslog::HuggleLogs->ErrorLog(Localizations::HuggleLocalizations->Localize("report-no-user"));
         return;
     }
     this->_ReportUser();
@@ -1808,8 +1805,7 @@ void MainWindow::on_actionReport_user_2_triggered()
 {
     if(this->CurrentEdit == NULL)
     {
-        /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->ErrorLog("No one to report");
+        Syslog::HuggleLogs->ErrorLog(Localizations::HuggleLocalizations->Localize("report-no-user"));
         return;
     }
     this->_ReportUser();
@@ -1840,7 +1836,7 @@ void MainWindow::on_actionEdit_user_talk_triggered()
     if (this->CurrentEdit != NULL)
     {
         QDesktopServices::openUrl(Core::GetProjectWikiURL() + this->CurrentEdit->User->GetTalk()
-                                                                              + "?action=edit");
+                                  + "?action=edit");
     }
 }
 
@@ -1875,15 +1871,13 @@ void Huggle::MainWindow::on_actionWiki_triggered()
     {
         return;
     }
-    /// \todo LOCALIZE ME
-    Syslog::HuggleLogs->Log("Switching to wiki provider");
+    Syslog::HuggleLogs->Log(Localizations::HuggleLocalizations->Localize("irc-switch-rc"));
     Core::HuggleCore->PrimaryFeedProvider->Stop();
     this->ui->actionIRC->setChecked(false);
     this->ui->actionWiki->setChecked(true);
     while (!Core::HuggleCore->PrimaryFeedProvider->IsStopped())
     {
-        /// \todo LOCALIZE ME
-        Syslog::HuggleLogs->Log("Waiting for primary feed provider to stop");
+        Syslog::HuggleLogs->Log(Localizations::HuggleLocalizations->Localize("irc-stop"));
         Sleeper::usleep(200000);
     }
     delete Core::HuggleCore->PrimaryFeedProvider;
@@ -1894,6 +1888,9 @@ void Huggle::MainWindow::on_actionWiki_triggered()
 void Huggle::MainWindow::on_actionShow_talk_triggered()
 {
     this->EditablePage = false;
+    // we switch this to false so that in case we have received a message,
+    // before we display the talk page, it get marked as read
+    Configuration::HuggleConfiguration->NewMessage = false;
     this->Browser->DisplayPreFormattedPage(Core::GetProjectScriptURL() + "index.php?title=User_talk:" + Configuration::HuggleConfiguration->UserName);
 }
 
@@ -2047,6 +2044,7 @@ void Huggle::MainWindow::on_actionRestore_this_revision_triggered()
 
     if (this->RestoreEdit != NULL || this->RestoreQuery != NULL)
     {
+        /// \todo LOCALIZE ME
         Huggle::Syslog::HuggleLogs->Log("I am currently restoring another edit, please wait");
         return;
     }
@@ -2101,4 +2099,107 @@ void Huggle::MainWindow::on_actionIncrease_badness_triggered()
 void Huggle::MainWindow::on_actionDecrease_badness_triggered()
 {
     this->DecreaseBS();
+}
+
+void MainWindow::TimerCheckTPOnTick()
+{
+    if (Configuration::HuggleConfiguration->Restricted || this->ShuttingDown)
+    {
+        this->tCheck->stop();
+        return;
+    }
+    if (this->qTalkPage == NULL)
+    {
+        this->qTalkPage = new ApiQuery();
+        this->qTalkPage->SetAction(ActionQuery);
+        this->qTalkPage->Parameters = "prop=revisions&titles=User_talk:" + QUrl::toPercentEncoding(Configuration::HuggleConfiguration->UserName);
+        this->qTalkPage->RegisterConsumer(HUGGLECONSUMER_MAINFORM);
+        this->qTalkPage->Process();
+        return;
+    } else
+    {
+        if (!this->qTalkPage->Processed())
+        {
+            // we are still waiting for api query to finish
+            return;
+        }
+        // we need to parse the last rev id
+        QDomDocument d;
+        d.setContent(this->qTalkPage->Result->Data);
+        QDomNodeList page = d.elementsByTagName("rev");
+        // check if page exist and if it does we need to parse latest revid
+        if (page.count() > 0)
+        {
+            QDomElement _e = page.at(0).toElement();
+            if (_e.attributes().contains("revid"))
+            {
+                int revid = _e.attribute("revid").toInt();
+                if (revid != 0)
+                {
+                    // if revid is 0 then there is some borked mediawiki
+                    // we now check if we had previous revid, if not we just update it
+                    if (this->LastTPRevID == WIKI_UNKNOWN_REVID)
+                    {
+                        this->LastTPRevID = revid;
+                    } else
+                    {
+                        if (this->LastTPRevID != revid)
+                        {
+                            this->LastTPRevID = revid;
+                            Configuration::HuggleConfiguration->NewMessage = true;
+                        }
+                    }
+                }
+            }
+        }
+        this->qTalkPage->UnregisterConsumer(HUGGLECONSUMER_MAINFORM);
+        this->qTalkPage = NULL;
+    }
+}
+
+void Huggle::MainWindow::on_actionSimulate_message_triggered()
+{
+    Configuration::HuggleConfiguration->NewMessage = true;
+}
+
+void Huggle::MainWindow::on_actionHtml_dump_triggered()
+{
+    bool ok;
+    QString name = QInputDialog::getText(this, "File", "Please provide a file name you want to dump the current source code to",
+                                           QLineEdit::Normal, "huggledump.htm", &ok);
+
+    if (!ok)
+    {
+        return;
+    }
+
+    QFile *f = new QFile(name);
+    if (!f->open(QIODevice::WriteOnly | QIODevice::Truncate))
+    {
+        Syslog::HuggleLogs->ErrorLog("Unable to write to " + name);
+        return;
+    }
+    f->write(this->Browser->RetrieveHtml().toUtf8());
+    f->close();
+}
+
+void Huggle::MainWindow::on_actionEnforce_sysop_rights_triggered()
+{
+    if (!Configuration::HuggleConfiguration->Rights.contains("delete"))
+    {
+        Configuration::HuggleConfiguration->Rights.append("delete");
+    }
+    if (!Configuration::HuggleConfiguration->Rights.contains("protect"))
+    {
+        Configuration::HuggleConfiguration->Rights.append("protect");
+    }
+    if (!Configuration::HuggleConfiguration->Rights.contains("block"))
+    {
+        Configuration::HuggleConfiguration->Rights.append("block");
+    }
+    this->ui->actionBlock_user->setEnabled(true);
+    this->ui->actionBlock_user_2->setEnabled(true);
+    this->ui->actionDelete_page->setEnabled(true);
+    this->ui->actionDelete->setEnabled(true);
+    this->ui->actionProtect->setEnabled(true);
 }

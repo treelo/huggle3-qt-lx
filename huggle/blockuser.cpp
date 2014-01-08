@@ -49,6 +49,7 @@ void BlockUser::SetWikiUser(WikiUser *User)
     {
         this->ui->checkBox_5->setEnabled(true);
         this->ui->comboBox_2->lineEdit()->setText(Huggle::Configuration::HuggleConfiguration->LocalConfig_BlockTimeAnon);
+        this->ui->checkBox_5->setChecked(true);
     } else
     {
         this->ui->comboBox_2->lineEdit()->setText(Huggle::Configuration::HuggleConfiguration->LocalConfig_BlockTime);
@@ -184,8 +185,7 @@ void BlockUser::Block()
 
     if (this->qUser->Result->Failed)
     {
-        /// \todo LOCALIZE ME
-        this->Failed("user can't be blocked: " + this->qUser->Result->ErrorMessage);
+        this->Failed(Huggle::Localizations::HuggleLocalizations->Localize("block-fail", this->qUser->Result->ErrorMessage));
         return;
     }
     QDomDocument d;

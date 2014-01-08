@@ -16,8 +16,7 @@ using namespace Huggle;
 HuggleWeb::HuggleWeb(QWidget *parent) : QFrame(parent), ui(new Ui::HuggleWeb)
 {
     this->ui->setupUi(this);
-    /// \todo LOCALIZE ME
-    this->CurrentPage = "No page is displayed now";
+    this->CurrentPage = Localizations::HuggleLocalizations->Localize("browser-none");
 }
 
 HuggleWeb::~HuggleWeb()
@@ -91,7 +90,7 @@ void HuggleWeb::DisplayDiff(WikiEdit *edit)
     }
     if (edit->DiffText == "")
     {
-        Huggle::Syslog::HuggleLogs->Log("WARNING: unable to retrieve diff for edit " + edit->Page->PageName + " fallback to web rendering");
+        Huggle::Syslog::HuggleLogs->WarningLog("unable to retrieve diff for edit " + edit->Page->PageName + " fallback to web rendering");
         this->ui->webView->setHtml(Localizations::HuggleLocalizations->Localize("browser-load"));
         this->ui->webView->load(Core::GetProjectScriptURL() + "index.php?title=" + edit->Page->PageName + "&diff="
                                 + QString::number(edit->Diff) + "&action=render");
@@ -119,6 +118,21 @@ void HuggleWeb::DisplayDiff(WikiEdit *edit)
 
     Summary += "<b> Size change: " + size + "</b>";
 
-    this->ui->webView->setHtml(Core::HuggleCore->HtmlHeader + "<tr></td colspan=2><b>" + Localizations::HuggleLocalizations->Localize("summary")
-                                                         + ":</b> " + Summary + "</td></tr>" + edit->DiffText + Core::HuggleCore->HtmlFooter);
+    QString HTML = Core::HuggleCore->HtmlHeader;
+
+    if (Configuration::HuggleConfiguration->NewMessage)
+    {
+        // we display a notification that user received a new message
+        HTML += Core::HuggleCore->HtmlIncoming;
+    }
+
+    HTML += Core::HuggleCore->DiffHeader + "<tr></td colspan=2><b>" + Localizations::HuggleLocalizations->Localize("summary")
+          + ":</b> " + Summary + "</td></tr>" + edit->DiffText + Core::HuggleCore->DiffFooter + Core::HuggleCore->HtmlFooter;
+
+    this->ui->webView->setHtml(HTML);
+}
+
+QString HuggleWeb::RetrieveHtml()
+{
+    return this->ui->webView->page()->mainFrame()->toHtml();
 }

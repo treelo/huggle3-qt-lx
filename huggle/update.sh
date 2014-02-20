@@ -6,4 +6,3 @@ else
   c="production build"
   hash=""
 fi
-echo "build: $c $hash" > version.txt

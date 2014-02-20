@@ -84,7 +84,7 @@ void Huggle::Hooks::BadnessScore(Huggle::WikiUser *User, int Score)
     }
 }
 
-void Huggle::Hooks::MainWindowIsLoad(Huggle::MainWindow *window)
+void Huggle::Hooks::MainWindowIsLoaded(Huggle::MainWindow *window)
 {
     int extension = 0;
     while (extension < Huggle::Core::HuggleCore->Extensions.count())
@@ -96,4 +96,7 @@ void Huggle::Hooks::MainWindowIsLoad(Huggle::MainWindow *window)
         }
         extension++;
     }
+#ifdef PYTHONENGINE
+    Huggle::Core::HuggleCore->Python->Hook_MainWindowIsLoaded();
+#endif
 }

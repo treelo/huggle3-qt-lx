@@ -8,18 +8,18 @@
 //MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //GNU General Public License for more details.
 
-// comment this if you want to disable python support
-//#define PYTHONENGINE
-
 #ifndef CONFIGURATION_H
 #define CONFIGURATION_H
-//! Change this to 1 if you want to get in troubles
-//! push 1 there and you will get even bigger troubles :-)
-#define PRODUCTION_BUILD                0
+// Include file with all global defines
+#include "config.hpp"
+// now we need to ensure that python is included first, because it
+// simply suck :P
+#ifdef PYTHONENGINE
+#include <Python.h>
+#endif
+
 //! Minimal score the edit can have
 #define MINIMAL_SCORE                   -999999
-#define HUGGLE_VERSION                  "3.0.0.0"
-#define HUGGLE_BYTE_VERSION             0x3000
 //! Path where the extensions are located
 #define EXTENSION_PATH                  "extensions"
 #define MEDIAWIKI_DEFAULT_NS_MAIN               ""
@@ -94,7 +94,6 @@ namespace Huggle
         HeadingsNone
     };
 
-    class HuggleParser;
     class WikiSite;
     class HuggleQueueFilter;
     class HuggleQueue;
@@ -122,6 +121,7 @@ namespace Huggle
     class Configuration
     {
         public:
+            static QString GetLocalizationDataPath();
             //! Return a prefix for url
             static QString GetURLProtocolPrefix();
             //! Return a configuration path
@@ -172,7 +172,7 @@ namespace Huggle
              */
             static QStringList ConfigurationParse_QL(QString key, QString content, bool CS = false);
             static QStringList ConfigurationParse_QL(QString key, QString content, QStringList list, bool CS = false);
-            static QStringList ConfigurationParseTrimmed_QL(QString key, QString content, bool CS = false);
+            static QStringList ConfigurationParseTrimmed_QL(QString key, QString content, bool CS = false, bool RemoveNull = false);
             static QList<HuggleQueueFilter*> ConfigurationParseQueueList(QString content, bool locked = false);
             static Configuration *HuggleConfiguration;
             /*!
@@ -201,12 +201,12 @@ namespace Huggle
             bool            Restricted;
             //! Where the welcome message is stored
             QString         WelcomeMP;
-            //! Size of info cache
-            int             Cache_InfoSize;
+            //! Maximum number of queue stuff
+            int             SystemConfig_QueueSize;
             //! Whether python is available
             bool            PythonEngine;
             //! Size of feed
-            int             ProviderCache;
+            int             SystemConfig_ProviderCache;
             //! Maximum size of ringlog
             int             RingLogMaxSize;
             //! Path where huggle contains its data
@@ -239,24 +239,36 @@ namespace Huggle
             //! Timeout for queries
             int             ReadTimeout;
             //! Timeout for write / update queries
-            int             WriteTimeout;
+            int             SystemConfig_WriteTimeout;
             //! Whitelist is not useable
-            bool            WhitelistDisabled;
+            bool            SystemConfig_WhitelistDisabled;
             //! If this is true huggle will always use software rollback even if user has the rollback privileges
             bool            EnforceManualSoftwareRollback;
-            //! List of characters that separate words from each other, like dot, space etc
-            QStringList     Separators;
+            //! List of characters that separate words from each other, like dot, space etc, used by score words
+            QStringList     SystemConfig_Separators;
             //! Huggle will auto revert all edits that were made by same user on auto conflict resolution
             bool            RevertOnMultipleEdits;
             //! Changing this to true will make the Syslog write all data to a file
             bool            SystemConfig_Log2File;
             //! This path is used when Log2File is true to write the logs to
             QString         SystemConfig_SyslogPath;
+            //! Whether huggle check for an update on startup
             bool            SystemConfig_UpdatesEnabled;
-            int             Cache_HAN;
+            bool            SystemConfig_LanguageSanity;
+            //! This is a size of cache used by HAN to keep data about other user messages
+
+            //! HAN need this so that changes that are first announced on there, but parsed from slower
+            //! mediawiki later, can be synced. If this cache is too low, some actions reported on HAN
+            //! may be lost and never applied on actual edits, because these are parsed later
+            int             SystemConfig_CacheHAN;
             //! Debug mode
             bool            SystemConfig_Dot;
+            //! This is index for login form so that we can remember which was last wiki user logged to
+
+            //! We are storing index instead of wiki name, because in case it was a wiki that later
+            //! was removed from the list, we would have nonexistent wiki in list
             int             IndexOfLastWiki;
+            QString         SystemConfig_EditToken;
 
             //////////////////////////////////////////////
             // User
@@ -269,6 +281,8 @@ namespace Huggle
             bool                    UserConfig_DeleteEditsAfterRevert;
             bool                    UserConfig_SectionKeep;
             unsigned int            UserConfig_HistoryMax;
+            bool                    UserConfig_TruncateEdits;
+            bool                    UserConfig_RevertNewBySame;
 
             //////////////////////////////////////////////
             // Local config
@@ -363,69 +377,74 @@ namespace Huggle
             // Protecting pages
             QString         LocalConfig_ProtectReason;
 
+            // Templates
+            QString         LocalConfig_SharedIPTemplateTags;
+            QString         LocalConfig_SharedIPTemplate;
+
             // Definitions
             QList<ScoreWord> LocalConfig_ScoreParts;
             QList<ScoreWord> LocalConfig_ScoreWords;
-            int LocalConfig_ScoreFlag;
-            int LocalConfig_ForeignUser;
-            int LocalConfig_ScoreTalk;
+            int              LocalConfig_ScoreFlag;
+            int              LocalConfig_ForeignUser;
+            int              LocalConfig_ScoreTalk;
             //! Score that is added for every edit that has really big size
-            int LocalConfig_ScoreChange;
-            int LocalConfig_ScoreUser;
-            QStringList LocalConfig_Ignores;
-            QStringList LocalConfig_RevertPatterns;
-            QStringList LocalConfig_Assisted;
-            QStringList LocalConfig_Templates;
-            QStringList LocalConfig_IgnorePatterns;
-            int LocalConfig_TalkPageWarningScore;
-            bool LocalConfig_GlobalRequired;
-            QList<QRegExp> RevertPatterns;
+            int              LocalConfig_ScoreChange;
+            int              LocalConfig_ScoreUser;
+            QStringList      LocalConfig_Ignores;
+            QStringList      LocalConfig_RevertPatterns;
+            QStringList      LocalConfig_Assisted;
+            QStringList      LocalConfig_Templates;
+            QStringList      LocalConfig_IgnorePatterns;
+            int              LocalConfig_TalkPageWarningScore;
+            bool             LocalConfig_GlobalRequired;
+            // This is internal only do not prefix it!!
+            QList<QRegExp>   RevertPatterns;
 
-            int LocalConfig_BotScore;
-            int LocalConfig_IPScore;
-            int LocalConfig_WarningScore;
-            QStringList LocalConfig_WarningTypes;
-            QStringList LocalConfig_SpeedyTemplates;
-            QStringList LocalConfig_WelcomeTypes;
-            int LocalConfig_WhitelistScore;
+            int              LocalConfig_BotScore;
+            int              LocalConfig_IPScore;
+            int              LocalConfig_WarningScore;
+            QStringList      LocalConfig_WarningTypes;
+            QStringList      LocalConfig_SpeedyTemplates;
+            QStringList      LocalConfig_WelcomeTypes;
+            int              LocalConfig_WhitelistScore;
 
             // UAA
-            QString LocalConfig_UAAPath;
-            bool LocalConfig_UAAavailable;
-            QString LocalConfig_UAATemplate;
+            QString          LocalConfig_UAAPath;
+            bool             LocalConfig_UAAavailable;
+            QString          LocalConfig_UAATemplate;
 
 
             //////////////////////////////////////////////
             // Global config
             //////////////////////////////////////////////
 
-            bool GlobalConfig_EnableAll;
-            QString GlobalConfig_MinVersion;
-            QString GlobalConfig_LocalConfigWikiPath;
-            QString GlobalConfig_DocumentationPath;
-            QString GlobalConfig_FeedbackPath;
-            QString GlobalConfig_UserConf;
-            bool GlobalConfigWasLoaded;
+            bool        GlobalConfig_EnableAll;
+            QString     GlobalConfig_MinVersion;
+            QString     GlobalConfig_LocalConfigWikiPath;
+            QString     GlobalConfig_DocumentationPath;
+            QString     GlobalConfig_FeedbackPath;
+            QString     GlobalConfig_UserConf;
+            bool        GlobalConfigWasLoaded;
 
             //////////////////////////////////////////////
             // Login
             //////////////////////////////////////////////
 
             //! User name
-            QString UserName;
+            QString     UserName;
             //! If SSL is being used
-            bool UsingSSL;
+            bool        UsingSSL;
             //! Consumer key
-            QString WmfOAuthConsumerKey;
+            QString     WmfOAuthConsumerKey;
             //! Password
-            QString Password;
+            QString     Password;
 
             //////////////////////////////////////////////
             // IRC
             //////////////////////////////////////////////
 
             //! Whether IRC is being used
-            bool UsingIRC;
+            bool    UsingIRC;
             //! Server
             QString IRCServer;
             //! Nick
@@ -433,37 +452,38 @@ namespace Huggle
             //! Ident
             QString IRCIdent;
             //! Port
-            int IRCPort;
-            int IRCConnectionTimeOut;
+            int     IRCPort;
+            int     IRCConnectionTimeOut;
 
             //////////////////////////////////////////////
             // Friends
             //////////////////////////////////////////////
 
             //! Suffix used by huggle
-            QString EditSuffixOfHuggle;
+            QString     LocalConfig_EditSuffixOfHuggle;
             //! Regexes that other tools can be identified with
-            QStringList EditRegexOfTools;
+            QStringList LocalConfig_EditRegexOfTools;
 
             //////////////////////////////////////////////
             // Reverting
             //////////////////////////////////////////////
 
             //! Warn you in case you want to revert a user page
-            bool WarnUserSpaceRoll;
+            bool        WarnUserSpaceRoll;
             QStringList Months;
             //! Send a message to user on good edit
-            bool WelcomeEmpty;
+            bool        WelcomeEmpty;
             //! This is changed to true in case that someone send a message to user
-            bool NewMessage;
-            QString VandalNw_Server;
-            QString VandalNw_Ident;
-            bool VandalNw_Login;
+            bool        NewMessage;
+            QString     VandalNw_Server;
+            QString     VandalNw_Ident;
+            bool        VandalNw_Login;
             //! Pointer to AIV page
-            WikiPage *AIVP;
+            WikiPage    *AIVP;
             //! Pointer to UAA page
-            WikiPage *UAAP;
-            QString Platform;
+            WikiPage    *UAAP;
+            //! Operating system that is sent to update server
+            QString     Platform;
     };
 }
 

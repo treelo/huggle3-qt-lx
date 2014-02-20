@@ -11,6 +11,13 @@
 #ifndef CORE_H
 #define CORE_H
 
+#include "config.hpp"
+// now we need to ensure that python is included first, because it
+// simply suck :P
+#ifdef PYTHONENGINE
+#include <Python.h>
+#endif
+
 #include <QApplication>
 #include <QNetworkAccessManager>
 #include <QList>
@@ -46,7 +53,10 @@ namespace Huggle
 {
     // Predeclaring some types
 #ifdef PYTHONENGINE
-    class PythonEngine;
+    namespace Python
+    {
+        class PythonEngine;
+    }
 #endif
     class Sleeper;
     class Login;
@@ -70,7 +80,7 @@ namespace Huggle
     class Configuration;
     class Localizations;
 
-    //! Overwrite of qapplication so that we can reimplement notify
+    //! Override of qapplication so that we can reimplement notify
     class HgApplication : public QApplication
     {
         public:
@@ -125,6 +135,7 @@ namespace Huggle
             //! Terminate the process, call this after you release all resources and finish all queries
             void Shutdown();
             bool IsRevert(QString Summary);
+            void TestLanguages();
             //! Display a message box telling user that function is not allowed during developer mode
             void DeveloperError();
             //! Check the edit summary and similar in order to
@@ -135,8 +146,6 @@ namespace Huggle
             void PostProcessEdit(WikiEdit *_e);
             //! Check if all running queries are finished and if so it removes them from list
             void CheckQueries();
-            //! Check if we can revert this edit
-            bool PreflightCheck(WikiEdit *_e);
             /*!
              * \brief RevertEdit Reverts the edit
              * \param _e Pointer to edit that needs to be reverted
@@ -157,20 +166,23 @@ namespace Huggle
             QString MonthText(int n);
             /*!
              * \brief MessageUser Message user
-             * \param user Pointer to user
-             * \param message Text of message
-             * \param title Title
-             * \param summary Summary
-             * \param section Whether this message should be created in a new section
-             * \param dependency Query that is used as a dependency, if it's not NULL
+             *
+             * This function will deliver a message to user using Message class which is returned by this function
+             *
+             * \param User Pointer to user
+             * \param Text Text of message
+             * \param Title Title of message
+             * \param Summary Summary
+             * \param InsertSection Whether this message should be created in a new section
+             * \param DependencyRevert Rollback that is used as a dependency, if it's not NULL
              * the system will wait for it to finish before the message is sent
-             * \return
+             * \return NULL on error or instance of Huggle::Message in case it's success
              */
-            Message *MessageUser(WikiUser *user, QString message, QString title, QString summary, bool section = true,
-                                 Query *dependency = NULL, bool nosuffix = false, bool keep = false);
+            Message *MessageUser(WikiUser *User, QString Text, QString Title, QString Summary, bool InsertSection = true, Query *DependencyRevert = NULL,
+                                 bool NoSuffix = false, bool SectionKeep = false, bool autoremove = false, QString bt = "");
             void FinalizeMessages();
             QString RetrieveTemplateToWarn(QString type);
-            EditQuery *EditPage(WikiPage *page, QString text, QString summary = "Edited using huggle", bool minor = false, QString token = "");
+            EditQuery *EditPage(WikiPage *page, QString text, QString summary = "Edited using huggle", bool minor = false, QString BaseTimestamp = "");
             /*!
              * \brief Insert a query to internal list of running queries, so that they can be watched
              * This will insert it to a process list in main form
@@ -189,7 +201,7 @@ namespace Huggle
             //! Pointer to main
             MainWindow *Main;
             //! Login form
-            Login *f_Login;
+            Login *fLogin;
             QString HtmlIncoming;
             //! This string contains a html header
             QString HtmlHeader;
@@ -214,7 +226,7 @@ namespace Huggle
             //! Garbage collector
             GC *gc;
 #ifdef PYTHONENGINE
-            PythonEngine *Python;
+            Python::PythonEngine *Python;
 #endif
         private:
             //! List of all running queries

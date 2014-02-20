@@ -11,6 +11,13 @@
 #ifndef GC_H
 #define GC_H
 
+#include "config.hpp"
+// now we need to ensure that python is included first, because it
+// simply suck :P
+#ifdef PYTHONENGINE
+#include <Python.h>
+#endif
+
 #include <QList>
 #include <QMutex>
 #include "collectable.hpp"
@@ -31,7 +38,11 @@
 #define HUGGLECONSUMER_HISTORYWIDGET            13
 #define HUGGLECONSUMER_USERINFO                 14
 #define HUGGLECONSUMER_DELETIONLOCK             15
+#define HUGGLECONSUMER_BLOCKFORM                16
+//! This is used to lock the message resource before it's passed to parent object
+#define HUGGLECONSUMER_CORE_MESSAGE             17
 #define HUGGLECONSUMER_REPORTFORM               22
+#define HUGGLECONSUMER_CORE                     800
 
 namespace Huggle
 {

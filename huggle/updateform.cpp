@@ -54,7 +54,7 @@ void Huggle::UpdateForm::on_pushButton_2_clicked()
 
 void UpdateForm::OnTick()
 {
-    if (!this->qData->Processed())
+    if (!this->qData->IsProcessed())
     {
         return;
     }
@@ -71,6 +71,7 @@ void UpdateForm::OnTick()
     } else
     {
         QString version = l.at(0).toElement().text();
+        /// \todo LOCALIZE ME
         QString info = "New version of huggle is available: version " + version;
         l = r.elementsByTagName("info");
         if (l.count() > 0)

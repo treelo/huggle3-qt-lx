@@ -21,6 +21,7 @@ HuggleQueue::HuggleQueue(QWidget *parent) : QDockWidget(parent), ui(new Ui::Hugg
     this->layout->setMargin(0);
     this->layout->setSpacing(0);
     this->xx = new QWidget();
+    this->setWindowTitle(Localizations::HuggleLocalizations->Localize("main-queue"));
     this->frame = new QFrame();
     this->ui->scrollArea->setWidget(this->xx);
     this->xx->setLayout(this->layout);
@@ -94,6 +95,13 @@ void HuggleQueue::AddItem(WikiEdit *page)
         }
         WikiEdit::Lock_EditList->unlock();
     }
+
+    if (Configuration::HuggleConfiguration->UserConfig_TruncateEdits)
+    {
+        // if we want to keep only newest edits in queue we can remove all older edits made to this page
+        this->DeleteOlder(page);
+    }
+
     // so we need to insert the item somehow
     HuggleQueueItemLabel *label = new HuggleQueueItemLabel(this);
     page->RegisterConsumer(HUGGLECONSUMER_QUEUE);

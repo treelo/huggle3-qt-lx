@@ -12,8 +12,14 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets webkitwidgets
 
 TARGET = huggle
 TEMPLATE = app
-INCLUDEPATH += "/usr/include/python2.7"
-#LIBS += "-lpython2.7"
+
+#PYTHON SUPPORT - uncomment me if you want to use python
+##################################################################################################################################################
+#QMAKE_CXXFLAGS += -DNDEBUG -g -fwrapv -O2 -Wall -g -fstack-protector --param=ssp-buffer-size=4 -Wformat -Wformat-security -Werror=format-security
+#INCLUDEPATH += "/usr/include/python3.2mu"
+#LIBS += -lpython3.2mu
+# -L/usr/lib/python3.2/config-3.2mu -lpthread -ldl -lutil -lm -lpython3.2mu -Xlinker -export-dynamic -Wl,-O1 -Wl,-Bsymbolic-functions
+##################################################################################################################################################
 
 win32{
     INCLUDEPATH += "C:\\python33\\include"
@@ -86,7 +92,8 @@ SOURCES += main.cpp\
     localization.cpp \
     syslog.cpp \
     huggleparser.cpp \
-    sleeper.cpp
+    sleeper.cpp \
+    warnings.cpp
 
 HEADERS  += mainwindow.hpp \
     login.hpp \
@@ -151,7 +158,9 @@ HEADERS  += mainwindow.hpp \
     localization.hpp \
     syslog.hpp \
     huggleparser.hpp \
-    sleeper.hpp
+    sleeper.hpp \
+    config.hpp \
+    warnings.hpp
 
 FORMS    += mainwindow.ui \
     login.ui \

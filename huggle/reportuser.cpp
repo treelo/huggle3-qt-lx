@@ -15,27 +15,29 @@ using namespace Huggle;
 ReportUser::ReportUser(QWidget *parent) : QDialog(parent), ui(new Ui::ReportUser)
 {
     this->ui->setupUi(this);
-    this->user = NULL;
+    this->ReportedUser = NULL;
     this->qHistory = NULL;
     this->ui->tableWidget->horizontalHeader()->setSelectionBehavior(QAbstractItemView::SelectRows);
     this->ui->pushButton->setEnabled(false);
     this->ui->pushButton->setText(Localizations::HuggleLocalizations->Localize("report-history"));
     QStringList header;
     this->ui->tableWidget->setColumnCount(5);
-    this->diff = new QTimer(this);
-    connect(this->diff, SIGNAL(timeout()), this, SLOT(On_DiffTick()));
+    this->qEdit = NULL;
+    this->tPageDiff = new QTimer(this);
+    connect(this->tPageDiff, SIGNAL(timeout()), this, SLOT(On_DiffTick()));
     header << Localizations::HuggleLocalizations->Localize("page") <<
               Localizations::HuggleLocalizations->Localize("time") <<
               Localizations::HuggleLocalizations->Localize("link") <<
               Localizations::HuggleLocalizations->Localize("diffid") <<
               Localizations::HuggleLocalizations->Localize("report-include");
     this->ui->tableWidget->setHorizontalHeaderLabels(header);
-    this->tq = NULL;
+    this->qReport = NULL;
     this->ui->tableWidget->verticalHeader()->setVisible(false);
     this->ui->tableWidget->setEditTriggers(QAbstractItemView::NoEditTriggers);
     this->Messaging = false;
+    this->ReportTs = "null";
     this->BlockForm = NULL;
-    this->qd = NULL;
+    this->qDiff = NULL;
     this->ReportText = "";
     this->Loading = false;
 #if QT_VERSION >= 0x050000
@@ -68,9 +70,9 @@ ReportUser::ReportUser(QWidget *parent) : QDialog(parent), ui(new Ui::ReportUser
     this->ui->tableWidget_2->horizontalHeader()->setResizeMode(QHeaderView::ResizeToContents);
 #endif
     this->ui->tableWidget_2->setShowGrid(false);
-    this->t2 = NULL;
+    this->tReportPageCheck = NULL;
     this->qBlockHistory = NULL;
-    this->timer = NULL;
+    this->tHistoryUser = NULL;
     /// \todo LOCALIZE ME
     this->ui->webView->setHtml("Please select a diff in list in order to open preview");
 }
@@ -85,15 +87,23 @@ ReportUser::~ReportUser()
     if (this->qBlockHistory != NULL)
     {
         this->qBlockHistory->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
+        this->qBlockHistory = NULL;
     }
-    if (this->qd != NULL)
+    if (this->qDiff != NULL)
     {
-        this->qd->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
+        this->qDiff->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
+        this->qDiff = NULL;
     }
-    delete this->diff;
-    if (this->tq != NULL)
+    delete this->tPageDiff;
+    if (this->qReport != NULL)
     {
-        this->tq->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
+        this->qReport->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
+        this->qReport = NULL;
+    }
+    if (this->qEdit != NULL)
+    {
+        this->qEdit->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
+        this->qEdit = NULL;
     }
     delete this->BlockForm;
     delete this->ui;
@@ -105,7 +115,7 @@ bool ReportUser::SetUser(WikiUser *u)
     {
         this->qHistory->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
     }
-    this->user = u;
+    this->ReportedUser = u;
     this->ui->label->setText(u->Username);
     this->qHistory = new ApiQuery();
     this->qHistory->RegisterConsumer(HUGGLECONSUMER_REPORTFORM);
@@ -124,12 +134,12 @@ bool ReportUser::SetUser(WikiUser *u)
     this->qBlockHistory = new ApiQuery();
     this->qBlockHistory->RegisterConsumer(HUGGLECONSUMER_REPORTFORM);
     this->qBlockHistory->Parameters = "list=logevents&leprop=ids%7Ctitle%7Ctype%7Cuser%7Ctimestamp%7Ccomment%7Cdetails%7Ctags&letype"\
-                                      "=block&ledir=newer&letitle=User:" + QUrl::toPercentEncoding(this->user->Username);
+                                      "=block&ledir=newer&letitle=User:" + QUrl::toPercentEncoding(this->ReportedUser->Username);
     this->qBlockHistory->SetAction(ActionQuery);
     this->qBlockHistory->Process();
-    this->timer = new QTimer(this);
-    connect(this->timer, SIGNAL(timeout()), this, SLOT(Tick()));
-    this->timer->start(200);
+    this->tHistoryUser = new QTimer(this);
+    connect(this->tHistoryUser, SIGNAL(timeout()), this, SLOT(Tick()));
+    this->tHistoryUser->start(200);
     return true;
 }
 
@@ -137,7 +147,7 @@ void ReportUser::Tick()
 {
     if (this->qBlockHistory != NULL)
     {
-        if (this->qBlockHistory->Processed())
+        if (this->qBlockHistory->IsProcessed())
         {
             QDomDocument d;
             d.setContent(this->qBlockHistory->Result->Data);
@@ -228,6 +238,37 @@ void ReportUser::Tick()
         }
     }
 
+    if (this->qEdit != NULL)
+    {
+        // we already reported user and now we need to check if it was written or not
+        if (this->qEdit->IsProcessed())
+        {
+            // it finished, let's check if there was an error or not
+            if (this->qEdit->IsFailed())
+            {
+                this->tHistoryUser->stop();
+                this->ui->pushButton->setText(Localizations::HuggleLocalizations->Localize("report-user"));
+                this->ui->pushButton->setEnabled(true);
+                QMessageBox mb;
+                mb.setText("Failed to report user because: " + this->qEdit->Result->ErrorMessage);
+                Syslog::HuggleLogs->DebugLog("REPORT: " + this->qEdit->Result->Data);
+                mb.exec();
+                this->qEdit->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
+                this->qEdit = NULL;
+                return;
+            }
+
+            // ok
+            this->ReportedUser->IsReported = true;
+            this->ui->pushButton->setText(Localizations::HuggleLocalizations->Localize("report-done"));
+            WikiUser::UpdateUser(this->ReportedUser);
+            this->tHistoryUser->stop();
+            this->qEdit->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
+            this->qEdit = NULL;
+        }
+        return;
+    }
+
     if (this->qHistory == NULL)
     {
         return;
@@ -235,36 +276,38 @@ void ReportUser::Tick()
 
     if (this->Loading)
     {
-        if (this->qHistory->Processed())
+        if (this->qHistory->IsProcessed())
         {
+            // we are now checking the report page for existing report
             QDomDocument d;
             d.setContent(this->qHistory->Result->Data);
             QDomNodeList results = d.elementsByTagName("rev");
             if (results.count() == 0)
             {
-                /// \todo LOCALIZE ME
-                this->ui->pushButton->setText("Error unable to retrieve report page at " + Configuration::HuggleConfiguration->LocalConfig_ReportPath);
+                this->ui->pushButton->setText(Localizations::HuggleLocalizations->Localize("report-fail2",
+                                            Configuration::HuggleConfiguration->LocalConfig_ReportPath));
                 this->qHistory->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
                 this->qHistory = NULL;
                 return;
             }
             QDomElement e = results.at(0).toElement();
-            this->_p = e.text();
+            this->ReportContent = e.text();
             if (!this->CheckUser())
             {
-                /// \todo LOCALIZE ME
-                this->ui->pushButton->setText("This user is already reported");
+                this->ui->pushButton->setText(Localizations::HuggleLocalizations->Localize("report-duplicate"));
                 this->qHistory->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
                 this->qHistory = NULL;
                 return;
             }
             this->InsertUser();
-            Core::HuggleCore->EditPage(Configuration::HuggleConfiguration->AIVP, this->_p, "Reporting " + user->Username);
-            this->timer->stop();
-            this->user->IsReported = true;
-            WikiUser::UpdateUser(this->user);
+            // everything is ok we report user
+            this->qEdit = Core::HuggleCore->EditPage(Configuration::HuggleConfiguration->AIVP,
+                                                     this->ReportContent,
+                                                     "Reporting " + ReportedUser->Username,
+                                                     false, this->ReportTs);
+            this->qEdit->RegisterConsumer(HUGGLECONSUMER_REPORTFORM);
             /// \todo LOCALIZE ME
-            this->ui->pushButton->setText("Reported");
+            this->ui->pushButton->setText("Writing");
             this->qHistory->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
             this->qHistory = NULL;
             return;
@@ -272,7 +315,7 @@ void ReportUser::Tick()
         return;
     }
 
-    if (this->qHistory->Processed())
+    if (this->qHistory->IsProcessed())
     {
         Huggle::Syslog::HuggleLogs->DebugLog(this->qHistory->Result->Data, 2);
         QDomDocument d;
@@ -325,19 +368,18 @@ void ReportUser::Tick()
 
 void ReportUser::On_DiffTick()
 {
-    if (this->qd == NULL)
+    if (this->qDiff == NULL)
     {
         return;
     }
-    if (!this->qd->Processed())
+    if (!this->qDiff->IsProcessed())
     {
         return;
     }
-    if (this->qd->Result->Failed)
+    if (this->qDiff->Result->Failed)
     {
-        /// \todo LOCALIZE ME
-        ui->webView->setHtml("Unable to retrieve diff: " + this->qd->Result->ErrorMessage);
-        this->diff->stop();
+        ui->webView->setHtml(Localizations::HuggleLocalizations->Localize("browser-fail", this->qDiff->Result->ErrorMessage));
+        this->tPageDiff->stop();
         return;
     }
 
@@ -345,7 +387,7 @@ void ReportUser::On_DiffTick()
     QString Diff;
 
     QDomDocument d;
-    d.setContent(this->qd->Result->Data);
+    d.setContent(this->qDiff->Result->Data);
     QDomNodeList l = d.elementsByTagName("rev");
     QDomNodeList diff = d.elementsByTagName("diff");
     if (diff.count() > 0)
@@ -357,11 +399,10 @@ void ReportUser::On_DiffTick()
         }
     } else
     {
-        Huggle::Syslog::HuggleLogs->DebugLog(this->qd->Result->Data);
-        /// \todo LOCALIZE ME
+        Huggle::Syslog::HuggleLogs->DebugLog(this->qDiff->Result->Data);
         this->ui->webView->setHtml("Unable to retrieve diff because api returned no data for it, debug information:<br><hr>" +
-                                HuggleWeb::Encode(this->qd->Result->Data));
-        this->diff->stop();
+                                HuggleWeb::Encode(this->qDiff->Result->Data));
+        this->tPageDiff->stop();
         return;
     }
     // get last id
@@ -379,59 +420,70 @@ void ReportUser::On_DiffTick()
 
     if (Summary == "")
     {
-        /// \todo LOCALIZE ME
-        Summary = "<font color=red>No summary was provided</font>";
+        Summary = "<font color=red>" + Huggle::Localizations::HuggleLocalizations->Localize("browser-miss-summ") + "</font>";
     } else
     {
         Summary = HuggleWeb::Encode(Summary);
     }
 
-    this->ui->webView->setHtml(Core::HuggleCore->HtmlHeader + "<tr></td colspan=2><b>Summary:</b> "
-                         + Summary + "</td></tr>" + Diff + Core::HuggleCore->HtmlFooter);
-    this->diff->stop();
+    this->ui->webView->setHtml(Core::HuggleCore->HtmlHeader + Core::HuggleCore->DiffHeader + "<tr></td colspan=2><b>"
+                               + Localizations::HuggleLocalizations->Localize("summary") + ":</b> " + Summary
+                               + "</td></tr>" + Diff + Core::HuggleCore->DiffFooter + Core::HuggleCore->HtmlFooter);
+    this->tPageDiff->stop();
 }
 
 void ReportUser::Test()
 {
-    if (this->tq == NULL)
+    if (this->qReport == NULL)
     {
-        this->t2->stop();
+        this->tReportPageCheck->stop();
         return;
     }
 
-    if (!this->tq->Processed())
+    if (!this->qReport->IsProcessed())
     {
         return;
     }
 
     QDomDocument d;
-    d.setContent(this->tq->Result->Data);
+    d.setContent(this->qReport->Result->Data);
     QDomNodeList results = d.elementsByTagName("rev");
     this->ui->pushButton_3->setEnabled(true);
     if (results.count() == 0)
     {
         QMessageBox mb;
-        /// \todo LOCALIZE ME
         mb.setText("Error unable to retrieve report page at " + Configuration::HuggleConfiguration->LocalConfig_ReportPath);
         mb.exec();
-        this->timer->stop();
-        delete tq;
-        this->tq = NULL;
+        this->tHistoryUser->stop();
+        this->qReport->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
+        this->qReport = NULL;
         return;
     }
     QDomElement e = results.at(0).toElement();
-    this->_p = e.text();
+    if (e.attributes().contains("timestamp"))
+    {
+        this->ReportTs = e.attribute("timestamp");
+    } else
+    {
+        QMessageBox mb;
+        mb.setText("Unable to retrieve timestamp of current report page, api failure:\n\n" + this->qReport->Result->Data);
+        mb.exec();
+        this->tHistoryUser->stop();
+        this->qReport->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
+        this->qReport = NULL;
+        return;
+    }
+    this->ReportContent = e.text();
     if (!this->CheckUser())
     {
         QMessageBox mb;
-        /// \todo LOCALIZE ME
-        mb.setText("This user is already reported");
+        mb.setText(Localizations::HuggleLocalizations->Localize("report-duplicate"));
         mb.exec();
-        this->timer->stop();
-        delete this->tq;
-        this->user->IsReported = true;
-        WikiUser::UpdateUser(user);
-        this->tq = NULL;
+        this->tHistoryUser->stop();
+        this->qReport->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
+        this->ReportedUser->IsReported = true;
+        WikiUser::UpdateUser(this->ReportedUser);
+        this->qReport = NULL;
         return;
     } else
     {
@@ -439,9 +491,9 @@ void ReportUser::Test()
         /// \todo LOCALIZE ME
         mb.setText("This user is not reported now");
         mb.exec();
-        this->timer->stop();
-        delete tq;
-        this->tq = NULL;
+        this->tHistoryUser->stop();
+        this->qReport->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
+        this->qReport = NULL;
     }
 }
 
@@ -460,8 +512,8 @@ void ReportUser::on_pushButton_clicked()
             {
                 EvidenceID++;
                 reports += "[" + QString(Core::GetProjectScriptURL() + "index.php?title=" +
-                                 QUrl::toPercentEncoding(this->ui->tableWidget->item(xx, 0)->text()) + "&diff="
-                                 + this->ui->tableWidget->item(xx, 3)->text()).toUtf8() + " #" + QString::number(EvidenceID) + "] ";
+                           QUrl::toPercentEncoding(this->ui->tableWidget->item(xx, 0)->text()) + "&diff=" +
+                           this->ui->tableWidget->item(xx, 3)->text()).toUtf8() + " #" + QString::number(EvidenceID) + "] ";
             }
         }
         xx++;
@@ -469,7 +521,6 @@ void ReportUser::on_pushButton_clicked()
     if (reports == "")
     {
         QMessageBox::StandardButton mb;
-        /// \todo LOCALIZE ME
         mb = QMessageBox::question(this, "Question", Huggle::Localizations::HuggleLocalizations->Localize("report-evidence-none-provid")
                                    , QMessageBox::Yes|QMessageBox::No);
         if (mb == QMessageBox::No)
@@ -480,8 +531,7 @@ void ReportUser::on_pushButton_clicked()
     }
     // obtain current page
     this->Loading = true;
-    /// \todo LOCALIZE ME
-    this->ui->pushButton->setText("Retrieving current report page");
+    this->ui->pushButton->setText(Localizations::HuggleLocalizations->Localize("report-retrieving"));
     if (this->qHistory != NULL)
     {
         this->qHistory->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
@@ -494,40 +544,65 @@ void ReportUser::on_pushButton_clicked()
             QUrl::toPercentEncoding(Configuration::HuggleConfiguration->LocalConfig_ReportPath);
     this->qHistory->Process();
     this->ReportText = reports;
-    this->timer->start(800);
+    this->tHistoryUser->start(800);
     return;
 }
 
 void ReportUser::on_pushButton_2_clicked()
 {
     QUrl u = QUrl::fromEncoded(QString(Core::GetProjectWikiURL() + QUrl::toPercentEncoding
-                                   (this->user->GetTalk()) + "?action=render").toUtf8());
+                                   (this->ReportedUser->GetTalk()) + "?action=render").toUtf8());
     this->ui->webView->load(u);
 }
 
 void ReportUser::on_tableWidget_clicked(const QModelIndex &index)
 {
-    /// \todo LOCALIZE ME
-    this->ui->webView->setHtml("Please wait...");
-    this->diff->stop();
-    if (this->qd != NULL)
+    this->ui->webView->setHtml(Localizations::HuggleLocalizations->Localize("wait"));
+    this->tPageDiff->stop();
+    if (this->qDiff != NULL)
     {
-        this->qd->Kill();
-        this->qd->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
+        this->qDiff->Kill();
+        this->qDiff->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
     }
-    this->qd = new ApiQuery();
-    this->qd->RegisterConsumer(HUGGLECONSUMER_REPORTFORM);
-    this->qd->Parameters = "prop=revisions&rvprop=" + QUrl::toPercentEncoding( "ids|user|timestamp|comment" ) + "&rvlimit=1&rvtoken=rollback&rvstartid=" +
+    this->qDiff = new ApiQuery();
+    this->qDiff->RegisterConsumer(HUGGLECONSUMER_REPORTFORM);
+    this->qDiff->Parameters = "prop=revisions&rvprop=" + QUrl::toPercentEncoding( "ids|user|timestamp|comment" ) + "&rvlimit=1&rvtoken=rollback&rvstartid=" +
             this->ui->tableWidget->item(index.row(), 3)->text() + "&rvendid=" + this->ui->tableWidget->item(index.row(), 3)->text() + "&rvdiffto=prev&titles=" +
             QUrl::toPercentEncoding(ui->tableWidget->item(index.row(), 0)->text());
-    this->qd->SetAction(ActionQuery);
-    this->qd->Process();
-    this->diff->start(200);
+    this->qDiff->SetAction(ActionQuery);
+    this->qDiff->Process();
+    this->tPageDiff->start(200);
+}
+
+void Huggle::ReportUser::on_pushButton_5_clicked()
+{
+    int xx = 0;
+    while (xx < this->ui->tableWidget->rowCount())
+    {
+        if (this->CheckBoxes.count() > xx)
+        {
+            this->CheckBoxes.at(xx)->setChecked(true);
+        }
+        xx++;
+    }
+}
+
+void Huggle::ReportUser::on_pushButton_6_clicked()
+{
+    int xx = 0;
+    while (xx < this->ui->tableWidget->rowCount())
+    {
+        if (this->CheckBoxes.count() > xx)
+        {
+            this->CheckBoxes.at(xx)->setChecked(false);
+        }
+        xx++;
+    }
 }
 
 bool ReportUser::CheckUser()
 {
-    if (this->_p.contains(this->user->Username))
+    if (this->ReportContent.contains(this->ReportedUser->Username))
     {
         return false;
     }
@@ -537,35 +612,35 @@ bool ReportUser::CheckUser()
 void ReportUser::InsertUser()
 {
     QString xx = Configuration::HuggleConfiguration->LocalConfig_IPVTemplateReport;
-    if (!this->user->IsIP())
+    if (!this->ReportedUser->IsIP())
     {
         xx = Configuration::HuggleConfiguration->LocalConfig_RUTemplateReport;
     }
-    xx = xx.replace("$1", this->user->Username);
+    xx = xx.replace("$1", this->ReportedUser->Username);
     xx = xx.replace("$2", ReportText);
     xx = xx.replace("$3", ui->lineEdit->text());
-    this->_p = _p + "\n" + xx;
+    this->ReportContent = ReportContent + "\n" + xx;
 }
 
 void ReportUser::on_pushButton_3_clicked()
 {
-    if (this->tq != NULL)
+    if (this->qReport != NULL)
     {
-        this->tq->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
+        this->qReport->UnregisterConsumer(HUGGLECONSUMER_REPORTFORM);
     }
 
-    this->tq = new ApiQuery();
-    this->tq->SetAction(ActionQuery);
-    this->tq->RegisterConsumer(HUGGLECONSUMER_REPORTFORM);
-    this->tq->Parameters = "prop=revisions&rvprop=" + QUrl::toPercentEncoding("timestamp|user|comment|content") + "&titles=" +
+    this->qReport = new ApiQuery();
+    this->qReport->SetAction(ActionQuery);
+    this->qReport->RegisterConsumer(HUGGLECONSUMER_REPORTFORM);
+    this->qReport->Parameters = "prop=revisions&rvprop=" + QUrl::toPercentEncoding("timestamp|user|comment|content") + "&titles=" +
             QUrl::toPercentEncoding(Configuration::HuggleConfiguration->LocalConfig_ReportPath);
-    this->tq->Process();
-    if (this->t2 == NULL)
+    this->qReport->Process();
+    if (this->tReportPageCheck == NULL)
     {
-        this->t2 = new QTimer(this);
+        this->tReportPageCheck = new QTimer(this);
     }
-    connect(this->t2, SIGNAL(timeout()), this, SLOT(Test()));
-    this->t2->start(100);
+    connect(this->tReportPageCheck, SIGNAL(timeout()), this, SLOT(Test()));
+    this->tReportPageCheck->start(100);
 }
 
 void Huggle::ReportUser::on_pushButton_4_clicked()
@@ -575,6 +650,6 @@ void Huggle::ReportUser::on_pushButton_4_clicked()
         delete this->BlockForm;
     }
     this->BlockForm = new BlockUser(this);
-    this->BlockForm->SetWikiUser(this->user);
+    this->BlockForm->SetWikiUser(this->ReportedUser);
     this->BlockForm->show();
 }

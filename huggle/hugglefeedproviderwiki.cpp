@@ -32,10 +32,7 @@ HuggleFeedProviderWiki::~HuggleFeedProviderWiki()
     delete this->Buffer;
     if (this->q != NULL)
     {
-        if (!this->q->IsManaged())
-        {
-            delete this->q;
-        }
+        this->q->SafeDelete();
     }
 }
 
@@ -75,7 +72,7 @@ void HuggleFeedProviderWiki::Refresh()
     if (this->Refreshing)
     {
         // the query is still in progress now
-        if (!this->q->Processed())
+        if (!this->q->IsProcessed())
         {
             return;
         }
@@ -255,9 +252,9 @@ void HuggleFeedProviderWiki::InsertEdit(WikiEdit *edit)
     Core::HuggleCore->PreProcessEdit(edit);
     if (Core::HuggleCore->Main->Queue1->CurrentFilter->Matches(edit))
     {
-        if (this->Buffer->size() > Configuration::HuggleConfiguration->ProviderCache)
+        if (this->Buffer->size() > Configuration::HuggleConfiguration->SystemConfig_ProviderCache)
         {
-            while (this->Buffer->size() > (Configuration::HuggleConfiguration->ProviderCache - 10))
+            while (this->Buffer->size() > (Configuration::HuggleConfiguration->SystemConfig_ProviderCache - 10))
             {
                 this->Buffer->at(0)->UnregisterConsumer(HUGGLECONSUMER_WIKIEDIT);
                 this->Buffer->removeAt(0);

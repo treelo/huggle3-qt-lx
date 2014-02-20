@@ -19,8 +19,8 @@ EditQuery::EditQuery()
     this->qEdit = NULL;
     this->Minor = false;
     this->Page = "";
-    this->_Token = "";
     this->qToken = NULL;
+    this->BaseTimestamp = "";
     this->text = "";
     this->Type = QueryEdit;
 }
@@ -37,7 +37,7 @@ void EditQuery::Process()
 {
     this->Status = StatusProcessing;
     this->StartTime = QDateTime::currentDateTime();
-    if (this->_Token == "")
+    if (Configuration::HuggleConfiguration->SystemConfig_EditToken == "")
     {
         this->qToken = new ApiQuery();
         this->qToken->SetAction(ActionQuery);
@@ -52,7 +52,7 @@ void EditQuery::Process()
     }
 }
 
-bool EditQuery::Processed()
+bool EditQuery::IsProcessed()
 {
     if (this->Result != NULL)
     {
@@ -60,7 +60,7 @@ bool EditQuery::Processed()
     }
     if (this->qToken != NULL)
     {
-        if (!this->qToken->Processed())
+        if (!this->qToken->IsProcessed())
         {
             return false;
         }
@@ -97,7 +97,7 @@ bool EditQuery::Processed()
             this->qToken = NULL;
             return true;
         }
-        this->_Token = element.attribute("edittoken");
+        Configuration::HuggleConfiguration->SystemConfig_EditToken = element.attribute("edittoken");
         this->qToken->Lock();
         this->qToken->UnregisterConsumer(HUGGLECONSUMER_EDITQUERY);
         this->qToken = NULL;
@@ -106,7 +106,7 @@ bool EditQuery::Processed()
     }
     if (this->qEdit != NULL)
     {
-        if (!this->qEdit->Processed())
+        if (!this->qEdit->IsProcessed())
         {
             return false;
         }
@@ -153,8 +153,14 @@ void EditQuery::EditPage()
     this->qEdit->UsingPOST = true;
     this->qEdit->RegisterConsumer(HUGGLECONSUMER_EDITQUERY);
     this->qEdit->SetAction(ActionEdit);
+    QString base = "";
+    if (this->BaseTimestamp != "")
+    {
+        base = "&basetimestamp=" + QUrl::toPercentEncoding(this->BaseTimestamp);
+    }
     this->qEdit->Parameters = "title=" + QUrl::toPercentEncoding(Page) + "&text=" + QUrl::toPercentEncoding(this->text) +
-                      "&summary=" + QUrl::toPercentEncoding(this->Summary) + "&token=" + QUrl::toPercentEncoding(this->_Token);
+                      "&summary=" + QUrl::toPercentEncoding(this->Summary) + base + "&token=" +
+                      QUrl::toPercentEncoding(Configuration::HuggleConfiguration->SystemConfig_EditToken);
     Core::HuggleCore->AppendQuery(qEdit);
     this->qEdit->Process();
 }

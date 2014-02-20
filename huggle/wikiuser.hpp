@@ -11,10 +11,21 @@
 #ifndef WIKIUSER_H
 #define WIKIUSER_H
 
+#include "config.hpp"
+// now we need to ensure that python is included first, because it
+// simply suck :P
+// seriously, Python.h is shitty enough that it requires to be
+// included first. Don't believe it? See this:
+// http://stackoverflow.com/questions/20300201/why-python-h-of-python-3-2-must-be-included-as-first-together-with-qt4
+#ifdef PYTHONENGINE
+#include <Python.h>
+#endif
+
 #include <QList>
 #include <QMutex>
 #include <QString>
 #include <QRegExp>
+#include "huggleparser.hpp"
 #include "configuration.hpp"
 #include "wikiedit.hpp"
 
@@ -67,12 +78,12 @@ namespace Huggle
              * of calling this function repeatedly
              * \return a precached content of this users talk page
              */
-            QString GetContentsOfTalkPage();
+            QString TalkPage_GetContents();
             /*!
              * \brief SetContentsOfTalkPage Change a cache for talk page in local and global cache
              * \param text New content of talk page
              */
-            void SetContentsOfTalkPage(QString text);
+            void TalkPage_SetContents(QString text);
             //! Call UpdateUser on current user
             void Update(bool MatchingOnly = false);
             void Sanitize();
@@ -82,6 +93,10 @@ namespace Huggle
             void ForceIP();
             //! Returns true in case the current user is IP user
             bool IsIP() const;
+            //! This function will reparse whole talk page of user in order to figure out which level they have
+
+            //! This function needs to be called after the content of talk page has changed
+            void ParseTP();
             //! Update the information of this user based on global user list
 
             //! This is useful when you created user in past and since then a global user has changed
@@ -89,11 +104,17 @@ namespace Huggle
             void Resync();
             //! Return a link to talk page of this user (like User talk:Jimbo)
             QString GetTalk();
+            bool TalkPage_WasRetrieved();
+            bool TalkPage_ContainsSharedIPTemplate();
             //! Returns true if this user is wl
             bool IsWhitelisted();
-            //! Retrieve a badness score for current user, see WikiUser::BadnessScore for more
-            long getBadnessScore(bool _resync = true);
-            void setBadnessScore(long value);
+            /*!
+             * \brief Retrieve a badness score for current user, see WikiUser::BadnessScore for more
+             * \param _resync If true the user will be resynced before the score is returned
+             * \return badness score
+             */
+            long GetBadnessScore(bool _resync = true);
+            void SetBadnessScore(long value);
             //! Flags
 
             //! w - is warned
@@ -116,6 +137,11 @@ namespace Huggle
             bool IsReported;
 
     private:
+            //! Matches only IPv4
+            static QRegExp IPv4Regex;
+            //! Matches all IP
+            static QRegExp IPv6Regex;
+
             /*!
              * \brief Badness score of current user
              *
@@ -123,13 +149,11 @@ namespace Huggle
              * in case you want to change the score, don't forget to call WikiUser::UpdateUser(WikiUser *user)
              */
             long BadnessScore;
-            //! Matches only IPv4
-            static QRegExp IPv4Regex;
-            //! Matches all IP
-            static QRegExp IPv6Regex;
+            //! Status of whitelist 0 means user is not whitelisted, 1 that it is and different value means we don't know
             int WhitelistInfo;
             //! In case that we retrieved the talk page during parse of warning level, this string contains it
             QString ContentsOfTalkPage;
+            bool _talkPageWasRetrieved;
             QMutex *UserLock;
             bool Bot;
             bool IP;

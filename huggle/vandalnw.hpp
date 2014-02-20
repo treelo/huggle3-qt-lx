@@ -11,6 +11,16 @@
 #ifndef VANDALNW_H
 #define VANDALNW_H
 
+#include "config.hpp"
+// now we need to ensure that python is included first, because it
+// simply suck :P
+// seriously, Python.h is shitty enough that it requires to be
+// included first. Don't believe it? See this:
+// http://stackoverflow.com/questions/20300201/why-python-h-of-python-3-2-must-be-included-as-first-together-with-qt4
+#ifdef PYTHONENGINE
+#include <Python.h>
+#endif
+
 #include <QDockWidget>
 #include <QTimer>
 #include "syslog.hpp"
@@ -31,8 +41,16 @@ namespace Huggle
         class NetworkIrc;
     }
 
+    //! This namespace contains HAN classes
+
+    //! Huggle Antivandalism Network is a system that allows users of huggle and other tools
+    //! cooperate with each other so that they are more effective
     namespace HAN
     {
+        //! This is base class that can be used to store information about HAN items
+
+        //! These "HAN items" are for example information about rollbacks, because they
+        //! share common properties, they are all inherited from this GenericItem :o
         class GenericItem
         {
             public:
@@ -40,7 +58,7 @@ namespace Huggle
                 GenericItem(int _revID, QString _user);
                 GenericItem(const GenericItem &i);
                 GenericItem(GenericItem *i);
-                //! User who scored the edit
+                //! User who changed the edit
                 QString User;
                 //! ID of edit
                 int RevID;
@@ -96,7 +114,7 @@ namespace Huggle
             void Rescore(WikiEdit *edit);
             void Message();
             //! Prefix to special commands that are being sent to network to other users
-            QString pref;
+            QString Prefix;
             //! Timer that is used to connect to network
             QTimer *tm;
             QList<HAN::RescoreItem> UnparsedScores;

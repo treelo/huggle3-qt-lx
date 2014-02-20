@@ -11,10 +11,21 @@
 #ifndef MESSAGE_H
 #define MESSAGE_H
 
+#include "config.hpp"
+// now we need to ensure that python is included first, because it
+// simply suck :P
+// seriously, Python.h is shitty enough that it requires to be
+// included first. Don't believe it? See this:
+// http://stackoverflow.com/questions/20300201/why-python-h-of-python-3-2-must-be-included-as-first-together-with-qt4
+#ifdef PYTHONENGINE
+#include <Python.h>
+#endif
+
 #include <QString>
 #include <QtXml>
 #include "core.hpp"
 #include "history.hpp"
+#include "collectable.hpp"
 #include "apiquery.hpp"
 #include "wikiuser.hpp"
 
@@ -22,45 +33,84 @@ namespace Huggle
 {
     class Query;
 
+    enum MessageStatus
+    {
+        MessageStatus_None,
+        MessageStatus_Done,
+        MessageStatus_Failed,
+        MessageStatus_RetrievingToken,
+        MessageStatus_RetrievingTalkPage,
+        MessageStatus_SendingMessage
+    };
+
+    enum MessageError
+    {
+        MessageError_NoError,
+        MessageError_Dependency,
+        MessageError_Obsolete,
+        MessageError_Unknown
+    };
+
     //! This is similar to query, just it's more simple, you can use it to deliver messages to users
-    class Message
+    class Message : public Collectable
     {
         public:
-            Message(WikiUser *target, QString Message, QString Summary);
+            //! Creates a new instance of message class that is used to deliver a message to users
+            Message(WikiUser *target, QString MessageText, QString MessageSummary);
             ~Message();
+            void RetrieveToken();
             //! Send a message to user
             void Send();
             //! Returns true in case that message was sent
-            bool Finished();
+            bool IsFinished();
+            bool IsFailed();
+            MessageStatus _Status;
             //! If this dependency is not a NULL then a message is sent after it is Processed (see Query::Processed())
             Query *Dependency;
             //! Title
-            QString title;
-            //! Token that is needed in order to write to page
-            QString token;
+            QString Title;
             //! If edit will be created in new section
             bool Section;
             //! Set this to false to remove huggle suffix from summary
             bool Suffix;
             //! User to deliver a message to
             WikiUser *user;
+            //! This is a time for base revision which is used to resolve edit conflicts of edit
+            QString BaseTimestamp;
             //! Text of message that will be appended to talk page
-            QString text;
-            QString summary;
+            QString Text;
+            QString Summary;
+            MessageError Error;
+            QString ErrorText;
             //! Changing this to true will make the message be appended to existing section of same name
             bool SectionKeep;
         private:
+            bool Done();
             void Fail(QString reason);
+            //! This is a generic finish that either finishes whole message sending, or call respective finish function
+            //! that is needed to finish the current step
             void Finish();
+            //! Finish parsing the token
+            bool FinishToken();
+            //! Returns true if there is a valid token in memory
+
+            //! Valid token means that it is syntactically correct, not that it isn't expired
+            bool HasValidEditToken();
+            bool RetrievingToken();
+            bool IsSending();
+            //! This function perform several checks and if everything is ok, it automatically calls next functions that send the message
+            void PreflightCheck();
+            //! This function write the new text to a talk page assuming that all checks were passed
+
+            //! If you call this function before performing the checks, you will get in serious troubles
             void ProcessSend();
             void ProcessTalk();
-            QString Append(QString Message, QString Text, QString Label);
+            QString Append(QString text, QString OriginalText, QString Label);
+            ApiQuery *qToken;
             ApiQuery *query;
-            bool Sending;
             //! This is a text of talk page that was present before we change it
             QString Page;
             bool PreviousTalkPageRetrieved;
-            bool Done;
     };
 }
 

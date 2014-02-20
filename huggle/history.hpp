@@ -11,6 +11,16 @@
 #ifndef HISTORY_H
 #define HISTORY_H
 
+#include "config.hpp"
+// now we need to ensure that python is included first, because it
+// simply suck :P
+// seriously, Python.h is shitty enough that it requires to be
+// included first. Don't believe it? See this:
+// http://stackoverflow.com/questions/20300201/why-python-h-of-python-3-2-must-be-included-as-first-together-with-qt4
+#ifdef PYTHONENGINE
+#include <Python.h>
+#endif
+
 #include <QString>
 #include <QList>
 #include <QDockWidget>
@@ -54,8 +64,11 @@ namespace Huggle
     /// \todo It should be possible to go back in history to review what you have you done
     /// currently nothing happens when you click on history items
     /// \todo Function to revert your own changes
+    /// \todo Option to remove the items / trim them etc so that operating memory is not cluttered by these
 
     //! History of actions done by user
+
+    //! This is a widget that displays the user history
     class History : public QDockWidget
     {
             Q_OBJECT

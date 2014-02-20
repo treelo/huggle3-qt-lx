@@ -11,11 +11,22 @@
 #ifndef LOCALIZATION_HPP
 #define LOCALIZATION_HPP
 
+#include "config.hpp"
+// now we need to ensure that python is included first, because it
+// simply suck :P
+// seriously, Python.h is shitty enough that it requires to be
+// included first. Don't believe it? See this:
+// http://stackoverflow.com/questions/20300201/why-python-h-of-python-3-2-must-be-included-as-first-together-with-qt4
+#ifdef PYTHONENGINE
+#include <Python.h>
+#endif
+
 #include <QStringList>
 #include <QString>
 #include <QFile>
 #include <QList>
 #include <QMap>
+#include "configuration.hpp"
 #include "exception.hpp"
 
 namespace Huggle
@@ -59,6 +70,7 @@ namespace Huggle
             QString Localize(QString key);
             QString Localize(QString key, QStringList parameters);
             QString Localize(QString key, QString parameters);
+            QString Localize(QString key, QString par1, QString par2);
             //! Languages
             QList<Language*> LocalizationData;
             //! Language selected by user this is only a language of interface

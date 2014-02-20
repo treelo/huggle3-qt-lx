@@ -14,6 +14,7 @@ using namespace Huggle;
 WLQuery::WLQuery()
 {
     this->Result = NULL;
+    this->Progress = 0;
     Save = false;
 }
 
@@ -30,6 +31,7 @@ void WLQuery::Process()
     this->Result = new QueryResult();
     QUrl url("http://huggle.wmflabs.org/data/wl.php?action=read&wp=" + Configuration::HuggleConfiguration->Project->WhiteList);
     QString params = "";
+    QByteArray data;
     if (Save)
     {
         url = QUrl("http://huggle.wmflabs.org/data/wl.php?action=save&wp=" + Configuration::HuggleConfiguration->Project->WhiteList);
@@ -50,6 +52,9 @@ void WLQuery::Process()
         }
         whitelist += "||EOW||";
         params = "wl=" + QUrl::toPercentEncoding(whitelist);
+        data = params.toUtf8();
+        long size = (long)data.size();
+        Syslog::HuggleLogs->DebugLog("Sending whitelist data of size: " + QString::number(size / 1024) + " kb");
     }
     QNetworkRequest request(url);
     if (!Save)
@@ -58,8 +63,10 @@ void WLQuery::Process()
     } else
     {
         request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
-        this->r = Query::NetworkManager->post(request, params.toUtf8());
+        this->r = Query::NetworkManager->post(request, data);
     }
+    QObject::connect(this->r, SIGNAL(downloadProgress(qint64,qint64)), this, SLOT(WriteProgress(qint64,qint64)));
+    QObject::connect(this->r, SIGNAL(uploadProgress(qint64,qint64)), this, SLOT(WriteProgress(qint64,qint64)));
     QObject::connect(this->r, SIGNAL(finished()), this, SLOT(Finished()));
     QObject::connect(this->r, SIGNAL(readyRead()), this, SLOT(ReadData()));
 }
@@ -84,4 +91,18 @@ void WLQuery::Finished()
     this->r->deleteLater();
     this->r = NULL;
     this->Status = StatusDone;
+}
+
+void WLQuery::WriteProgress(qint64 n, qint64 m)
+{
+    if (m < 0 || n < 0)
+    {
+        // we don't know the target size
+        return;
+    }
+    if (n == 0 || m == 0)
+    {
+        return;
+    }
+    this->Progress = (n / m) * 100;
 }

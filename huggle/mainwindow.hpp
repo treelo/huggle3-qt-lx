@@ -11,12 +11,20 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include "config.hpp"
+// now we need to ensure that python is included first, because it
+// simply suck :P
+#ifdef PYTHONENGINE
+#include <Python.h>
+#endif
+
 #include <QMainWindow>
 #include <QTimer>
 #include <QInputDialog>
 #include <QLabel>
 #include <QDesktopServices>
 #include <QMutex>
+#include <QToolTip>
 #include <QThread>
 #include <QSplitter>
 #include <QDockWidget>
@@ -53,6 +61,7 @@
 #include "historyform.hpp"
 #include "scorewordsdbform.hpp"
 #include "deleteform.hpp"
+#include "warnings.hpp"
 #include "protectpage.hpp"
 #include "uaareport.hpp"
 #include "localization.hpp"
@@ -82,6 +91,8 @@ namespace Huggle
     class EditQuery;
     class ProcessList;
     class WhitelistForm;
+    class Message;
+    class PendingWarning;
     class Preferences;
     class SessionForm;
     class IgnoreList;
@@ -94,7 +105,6 @@ namespace Huggle
     class BlockUser;
     class ProtectPage;
     class UAAReport;
-    class HuggleParser;
     class ScoreWordsDbForm;
 
     /*!
@@ -120,9 +130,10 @@ namespace Huggle
         public:
             explicit MainWindow(QWidget *parent = 0);
             ~MainWindow();
-            void _ReportUser();
+            void DisplayReportUserWindow(WikiUser *User = NULL);
             void ProcessEdit(WikiEdit *e, bool IgnoreHistory = false, bool KeepHistory = false, bool KeepUser = false);
             RevertQuery *Revert(QString summary = "", bool nd = false, bool next = true);
+            //! Warn a current user
             bool Warn(QString WarningType, RevertQuery *dependency);
             QString GetSummaryKey(QString item);
             QString GetSummaryText(QString text);
@@ -140,6 +151,10 @@ namespace Huggle
             void SuspiciousEdit();
             void PatrolThis(WikiEdit *e = NULL);
             void Localize();
+            //! Checks all warnings that weren't sent and try to send them
+
+            //! This is used on talk pages of users which changed while we tried to send them a warning
+            void ResendWarning();
             void _BlockUser();
             void DisplayNext(Query *q = NULL);
             void DeletePage();
@@ -199,6 +214,9 @@ namespace Huggle
             UAAReport *fUaaReportForm;
             WhitelistForm *fWhitelist;
             int LastTPRevID;
+            //! This is a query for rollback of current edit which we need to keep in case
+            //! that user wants to display their own revert instead of next page
+            Query *qNext;
             //! Timer that is used to check if there are new messages on talk page
             QTimer *tCheck;
             //! Query that is used to check if talk page contains new messages
@@ -209,7 +227,7 @@ namespace Huggle
             void on_actionPreferences_triggered();
             void on_actionContents_triggered();
             void on_actionAbout_triggered();
-            void OnTimerTick1();
+            void OnMainTimerTick();
             void OnTimerTick0();
             void on_actionNext_triggered();
             void on_actionNext_2_triggered();
@@ -276,8 +294,8 @@ namespace Huggle
             void TimerCheckTPOnTick();
             void on_actionSimulate_message_triggered();
             void on_actionHtml_dump_triggered();
-
             void on_actionEnforce_sysop_rights_triggered();
+            void on_actionFeedback_triggered();
 
         private:
             //! Check if huggle is shutting down or not, in case it is, message box is shown as well
@@ -285,6 +303,8 @@ namespace Huggle
             bool CheckExit();
             void DisplayWelcomeMessage();
             void FinishRestore();
+            //! Check if we can revert this edit
+            bool PreflightCheck(WikiEdit *_e);
             //! Welcome user
             void Welcome();
             //! Recreate interface, should be called everytime you do anything with main form
@@ -295,19 +315,20 @@ namespace Huggle
             void FinishPatrols();
             void DecreaseBS();
             void IncreaseBS();
-            QTimer *timer1;
+            //! This timer periodically executes various jobs that needs to be executed in main thread loop
+            QTimer *GeneralTimer;
             QString RestoreEdit_RevertReason;
             // Whitelist
             QTimer *wlt;
             //! Status bar
             QLabel *Status;
             bool EditablePage;
+            QList <PendingWarning*> PendingWarnings;
             WaitingForm *fWaiting;
             //! List of all edits that are kept in history, so that we can track them and delete them
             QList <WikiEdit*> Historical;
             ApiQuery *RestoreQuery;
             WikiEdit *RestoreEdit;
-            Query *qNext;
             //! This is a page that is going to be displayed if users request their latest action to be
             //! reviewed when it's done (for example when they rollback an edit and they want to
             //! display it, instead of next one)

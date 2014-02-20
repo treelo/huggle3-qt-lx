@@ -20,7 +20,6 @@ BlockUser::BlockUser(QWidget *parent) : QDialog(parent), ui(new Ui::BlockUser)
     this->BlockToken = "";
     this->user = NULL;
     this->qTokenApi = NULL;
-    this->Dependency = NULL;
     this->t0 = NULL;
     this->qUser = NULL;
     this->ui->comboBox->addItem(Configuration::HuggleConfiguration->LocalConfig_BlockReason);
@@ -64,7 +63,7 @@ void BlockUser::GetToken()
     this->qTokenApi->Parameters = "prop=info&intoken=block&titles=User:" +
             QUrl::toPercentEncoding(this->user->Username);
     this->qTokenApi->Target = Localizations::HuggleLocalizations->Localize("block-token-1", this->user->Username);
-    this->qTokenApi->RegisterConsumer("BlockUser::GetToken");
+    this->qTokenApi->RegisterConsumer(HUGGLECONSUMER_BLOCKFORM);
     Core::HuggleCore->AppendQuery(this->qTokenApi);
     this->qTokenApi->Process();
     this->t0 = new QTimer(this);
@@ -98,7 +97,7 @@ void BlockUser::CheckToken()
     {
         return;
     }
-    if (!this->qTokenApi->Processed())
+    if (!this->qTokenApi->IsProcessed())
     {
         return;
     }
@@ -124,13 +123,12 @@ void BlockUser::CheckToken()
     }
     this->BlockToken = element.attribute("blocktoken");
     this->QueryPhase++;
-    this->qTokenApi->UnregisterConsumer("BlockUser::GetToken");
+    this->qTokenApi->UnregisterConsumer(HUGGLECONSUMER_BLOCKFORM);
     this->qTokenApi = NULL;
     Huggle::Syslog::HuggleLogs->DebugLog("Block token for " + this->user->Username + ": " + this->BlockToken);
 
     // let's block them
     this->qUser = new ApiQuery();
-    this->Dependency = this->qUser;
     QString nocreate = "";
     if (this->ui->checkBox_4->isChecked())
     {
@@ -162,13 +160,12 @@ void BlockUser::CheckToken()
             + QUrl::toPercentEncoding(this->ui->comboBox_2->currentText())
             + nocreate + anononly + noemail + autoblock + allowusertalk
             + "&token=" + QUrl::toPercentEncoding(BlockToken);
-
     this->qUser->Target = Localizations::HuggleLocalizations->Localize("blocking", this->user->Username);
     this->qUser->UsingPOST = true;
-    this->qUser->RegisterConsumer("BlockUser::on_pushButton_clicked()");
+    this->qUser->RegisterConsumer(HUGGLECONSUMER_BLOCKFORM);
     Core::HuggleCore->AppendQuery(this->qUser);
     this->qUser->Process();
-    this->sendBlockNotice(this->Dependency);
+    this->sendBlockNotice(this->qUser);
 }
 
 void BlockUser::Block()
@@ -178,7 +175,7 @@ void BlockUser::Block()
         return;
     }
 
-    if (!this->qUser->Processed())
+    if (!this->qUser->IsProcessed())
     {
         return;
     }
@@ -201,11 +198,12 @@ void BlockUser::Block()
         }
         QMessageBox mb;
         mb.setWindowTitle(Localizations::HuggleLocalizations->Localize("error"));
-        mb.setText("Unable to block: " + reason);
+        mb.setText(Localizations::HuggleLocalizations->Localize("block-fail", reason));
         mb.exec();
         this->ui->pushButton->setText("Block");
         this->qUser->Result->Failed = true;
-        this->qUser->UnregisterConsumer("BlockUser::on_pushButton_clicked()");
+        this->qUser->Result->ErrorMessage = "Unable to block: " + reason;
+        this->qUser->UnregisterConsumer(HUGGLECONSUMER_BLOCKFORM);
         this->ui->pushButton->setEnabled(true);
         this->t0->stop();
         return;
@@ -214,7 +212,7 @@ void BlockUser::Block()
     Huggle::Syslog::HuggleLogs->DebugLog(this->qUser->Result->Data);
     this->ui->pushButton->setText("Blocked");
     Huggle::Syslog::HuggleLogs->DebugLog("block result: " + this->qUser->Result->Data, 2);
-    this->qUser->UnregisterConsumer("BlockUser::on_pushButton_clicked()");
+    this->qUser->UnregisterConsumer(HUGGLECONSUMER_BLOCKFORM);
     this->t0->stop();
 }
 
@@ -231,11 +229,11 @@ void BlockUser::Failed(QString reason)
     this->ui->pushButton->setEnabled(true);
     if (this->qTokenApi != NULL)
     {
-        this->qTokenApi->UnregisterConsumer("BlockUser::GetToken");
+        this->qTokenApi->UnregisterConsumer(HUGGLECONSUMER_BLOCKFORM);
     }
     if (this->qUser != NULL)
     {
-        this->qUser->UnregisterConsumer("BlockUser::on_pushButton_clicked()");
+        this->qUser->UnregisterConsumer(HUGGLECONSUMER_BLOCKFORM);
     }
     this->qUser = NULL;
     this->qTokenApi = NULL;
@@ -261,6 +259,6 @@ void BlockUser::sendBlockNotice(ApiQuery *dependency)
     QString blocksum = Configuration::HuggleConfiguration->LocalConfig_BlockSummary;
     blocknotice = blocknotice.replace("$1", this->ui->comboBox_2->currentText());
     blocknotice = blocknotice.replace("$2", this->ui->comboBox->currentText());
-    Core::HuggleCore->MessageUser(user, blocknotice, "Blocked", blocksum, true, dependency);
+    Core::HuggleCore->MessageUser(user, blocknotice, "Blocked", blocksum, true, dependency, false, false, true);
 }
 

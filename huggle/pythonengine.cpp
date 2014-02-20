@@ -15,10 +15,140 @@
 #include "pythonengine.hpp"
 
 using namespace Huggle;
+using namespace Huggle::Python;
 
-PythonEngine::PythonEngine()
+// let's define huggle api for python here
+namespace Huggle
+{
+    namespace Python
+    {
+// Disable compiler warnings because we always need to use unused parameters when we use python
+#if _MSC_VER
+#pragma warning ( push )
+#pragma warning ( disable )
+#else
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#endif
+        static PyObject *ApiVersion(PyObject *self, PyObject *args)
+        {
+            PyObject *v = PyUnicode_FromString(Configuration::HuggleConfiguration->HuggleVersion.toUtf8().data());
+            return v;
+        }
+
+        static PyObject *DebugLog(PyObject *self, PyObject *args)
+        {
+            PyObject *py_verbosity_ = NULL;
+            PyObject *text_ = NULL;
+            PyObject *result_ = PyBool_FromLong(0);
+            if (PyArg_UnpackTuple(args, "debug_log", 1, 2, &text_, &py_verbosity_) && PyBytes_Check(text_))
+            {
+                Py_DECREF(result_);
+                result_ = PyBool_FromLong(1);
+                unsigned int verbosity = 1;
+                if (py_verbosity_ != NULL && PyLong_Check(py_verbosity_))
+                {
+                    verbosity = (unsigned int)PyLong_AsLong(py_verbosity_);
+                    Py_DECREF(py_verbosity_);
+                }
+                if (verbosity < 1)
+                {
+                    verbosity = 1;
+                }
+                PyObject *uni_ = PyUnicode_AsUTF8String(text_);
+                Py_DECREF(text_);
+                if (uni_ == NULL || !PyBytes_Check(uni_))
+                {
+                    Syslog::HuggleLogs->DebugLog("Log@unkown: parameter text must be of a string type");
+                } else
+                {
+                    QString qs_text_(PyBytes_AsString(text_));
+                    Syslog::HuggleLogs->DebugLog(qs_text_, verbosity);
+                    Py_DECREF(text_);
+                }
+            }
+            return result_;
+        }
+
+        static PyObject *Log(PyObject *self, PyObject *args)
+        {
+            PyObject *text_ = NULL;
+            PyObject *result_ = PyBool_FromLong(0);
+            if (PyArg_UnpackTuple(args, "log", 1, 1, &text_))
+            {
+                PyObject *uni_ = PyUnicode_AsUTF8String(text_);
+                Py_DECREF(text_);
+                if (uni_ == NULL || !PyBytes_Check(uni_))
+                {
+                    Syslog::HuggleLogs->DebugLog("Log@unkown: parameter text must be of a string type");
+                } else
+                {
+                    Py_DECREF(result_);
+                    result_ = PyBool_FromLong(1);
+                    QString qs_text_(PyBytes_AsString(uni_));
+                    Py_DECREF(uni_);
+                    Syslog::HuggleLogs->Log(qs_text_);
+                }
+            }
+            return result_;
+        }
+
+        static PyObject *ErrorLog(PyObject *self, PyObject *args)
+        {
+            //PyObject *text_ = NULL;
+            PyObject *result_ = PyBool_FromLong(0);
+
+            return result_;
+        }
+#if _MSC_VER
+#pragma warning ( pop )
+#else
+#pragma GCC diagnostic pop
+#endif
+
+        static PyMethodDef Methods[] = {
+            {"huggle_version", ApiVersion, METH_VARARGS, "Return a huggle version"},
+            {"debug_log", DebugLog, METH_VARARGS, "Write to debug log"},
+            {"log", Log, METH_VARARGS, "Write to a log"},
+            {NULL, NULL, 0, NULL}
+        };
+
+        static PyModuleDef Module = {
+            PyModuleDef_HEAD_INIT, "huggle", NULL, -1, Methods, NULL, NULL, NULL, NULL
+        };
+
+        static PyObject *PyInit_emb()
+        {
+            return PyModule_Create(&Module);
+        }
+
+        static bool ContainsFunction(QString function, QString string)
+        {
+            QStringList lines = string.split('\n');
+            QRegExp *regex_ = new QRegExp("^[\\s\\t]*def " + function + ".*:[\\s\\t]*$");
+            int ln = 0;
+            while (ln < lines.count())
+            {
+                if (lines.at(ln).contains(*regex_))
+                {
+                    delete regex_;
+                    return true;
+                }
+                ln++;
+            }
+
+            delete regex_;
+            return false;
+        }
+    }
+}
+
+PythonEngine::PythonEngine(QString ExtensionsFolder_)
 {
     Py_Initialize();
+    // define hooks
+    PyImport_AppendInittab("huggle", &PyInit_emb);
+    PyRun_SimpleString(QString("import sys; sys.path.append('" + ExtensionsFolder_ + "')").toUtf8().data());
 }
 
 bool PythonEngine::LoadScript(QString path)
@@ -27,17 +157,64 @@ bool PythonEngine::LoadScript(QString path)
     this->Scripts.append(p);
     if (p->Init())
     {
+        p->SetEnabled(true);
         return true;
     }
     return false;
 }
 
+void PythonEngine::Hook_MainWindowIsLoaded()
+{
+    int x = 0;
+    while (x < this->Scripts.count())
+    {
+        this->Scripts.at(x)->Hook_MainWindowIsLoaded();
+        x++;
+    }
+}
+
 PythonScript::PythonScript(QString name)
 {
-    this->Text = "";
+    this->SourceCode = "";
     this->Name = name;
     this->object = NULL;
+    this->ptr_Hook_MainLoaded = NULL;
     this->Enabled = false;
+}
+
+PythonScript::~PythonScript()
+{
+    if (this->ptr_Hook_MainLoaded != NULL)
+    {
+        Py_DECREF(this->ptr_Hook_MainLoaded);
+    }
+    if (this->object != NULL)
+    {
+        Py_DECREF(this->object);
+    }
+}
+
+PyObject *PythonScript::Hook(QString function)
+{
+    PyObject *ptr_python_ = NULL;
+    if (Huggle::Python::ContainsFunction(function, this->SourceCode))
+    {
+        Syslog::HuggleLogs->DebugLog("Loading hook symbols of " + function + " " + this->Name, 2);
+        ptr_python_ = PyObject_GetAttrString(this->object, function.toUtf8().data());
+        if (ptr_python_ != NULL && !PyCallable_Check(ptr_python_))
+        {
+            // we loaded the symbol but it's not callable function
+            // so we remove it
+            Py_DECREF(ptr_python_);
+            Syslog::HuggleLogs->WarningLog("Function " + function + "@" + this->Name
+                                           + " isn't callable, hook is disabled now");
+            ptr_python_ = NULL;
+        } else if (ptr_python_ == NULL)
+        {
+            Syslog::HuggleLogs->DebugLog("There is no override for " + function);
+        }
+    }
+    return ptr_python_;
 }
 
 QString PythonScript::GetName() const
@@ -45,7 +222,7 @@ QString PythonScript::GetName() const
     return this->Name;
 }
 
-bool PythonScript::GetEnabled() const
+bool PythonScript::IsEnabled() const
 {
     return this->Enabled;
 }
@@ -53,6 +230,15 @@ bool PythonScript::GetEnabled() const
 void PythonScript::SetEnabled(bool value)
 {
     this->Enabled = value;
+}
+
+void PythonScript::Hook_MainWindowIsLoaded()
+{
+    if (this->ptr_Hook_MainLoaded)
+    {
+        Syslog::HuggleLogs->DebugLog("Calling hook Hook_MainWindowIsLoaded @" + this->Name, 2);
+        PyObject_CallObject(this->ptr_Hook_MainLoaded, NULL);
+    }
 }
 
 bool PythonScript::Init()
@@ -66,21 +252,42 @@ bool PythonScript::Init()
             delete file;
             return false;
         }
-        this->Text = QString(file->readAll());
+        this->SourceCode = QString(file->readAll());
         file->close();
         delete file;
-        PyObject *name = PyString_FromString(this->Name.toUtf8().data());
+        QString ModuleName = (this->Name.toUtf8().data());
+        if (ModuleName.contains("/"))
+        {
+            ModuleName = ModuleName.mid(ModuleName.indexOf("/") + 1);
+            ModuleName = ModuleName.replace(".py", "");
+        }
+        PyObject *name = PyUnicode_FromString(ModuleName.toUtf8().data());
+        if (name == NULL)
+        {
+            PyErr_Print();
+            return false;
+        }
         this->object = PyImport_Import(name);
+        // remove name
         Py_DECREF(name);
+        if (this->object == NULL)
+        {
+            PyErr_Print();
+            return false;
+        }
+        Syslog::HuggleLogs->DebugLog("Loading hook symbols for python " + this->Name);
+        // load symbols for hooks now
+        this->ptr_Hook_MainLoaded = this->Hook("hook_main_window_is_loaded");
+
         return true;
     }
     delete file;
     return false;
 }
 
-QString PythonScript::RetrieveText() const
+QString PythonScript::RetrieveSourceCode() const
 {
-    return this->Text;
+    return this->SourceCode;
 }
 
 #endif

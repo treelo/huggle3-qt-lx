@@ -11,6 +11,13 @@
 #ifndef EDITQUERY_H
 #define EDITQUERY_H
 
+#include "config.hpp"
+// now we need to ensure that python is included first, because it
+// simply suck :P
+#ifdef PYTHONENGINE
+#include <Python.h>
+#endif
+
 #include <QString>
 #include <QUrl>
 #include "apiquery.hpp"
@@ -28,17 +35,17 @@ namespace Huggle
             EditQuery();
             ~EditQuery();
             void Process();
-            bool Processed();
+            bool IsProcessed();
             //! Page that is going to be edited
             QString Page;
             //! Text a page will be replaced with
             QString text;
             //! Edit summary
             QString Summary;
+            //! base https://www.mediawiki.org/wiki/API:Edit#Parameters
+            QString BaseTimestamp;
             //! Whether the edit is minor or not
             bool Minor;
-            //! Edit token, will be retrieved during request
-            QString _Token;
         private:
             void EditPage();
             ApiQuery *qToken;

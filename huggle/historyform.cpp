@@ -19,6 +19,7 @@ HistoryForm::HistoryForm(QWidget *parent) : QDockWidget(parent), ui(new Ui::Hist
     this->RetrievingEdit = false;
     this->ui->setupUi(this);
     this->ui->pushButton->setEnabled(false);
+    this->setWindowTitle(Localizations::HuggleLocalizations->Localize("History"));
     this->ui->pushButton->setText(Localizations::HuggleLocalizations->Localize("historyform-no-info"));
     this->ui->tableWidget->setColumnCount(6);
     QStringList header;
@@ -128,7 +129,7 @@ void HistoryForm::onTick01()
     {
         return;
     }
-    if (!this->query->Processed())
+    if (!this->query->IsProcessed())
     {
         return;
     }
@@ -141,6 +142,7 @@ void HistoryForm::onTick01()
         this->t1->stop();
         return;
     }
+    bool IsLatest = false;
     QDomDocument d;
     d.setContent(this->query->Result->Data);
     QDomNodeList l = d.elementsByTagName("rev");
@@ -204,8 +206,38 @@ void HistoryForm::onTick01()
             icon = QIcon(":/huggle/pictures/Resources/blob-ignored.png");
         }
 
+        WikiUser *wu = WikiUser::RetrieveUser(user);
+        if (wu != NULL)
+        {
+            if (wu->IsReported)
+            {
+                icon = QIcon(":/huggle/pictures/Resources/blob-reported.png");
+            } else if (wu->WarningLevel > 0)
+            {
+                switch(wu->WarningLevel)
+                {
+                    case 1:
+                        icon = QIcon(":/huggle/pictures/Resources/blob-warn-1.png");
+                        break;
+                    case 2:
+                        icon = QIcon(":/huggle/pictures/Resources/blob-warn-2.png");
+                        break;
+                    case 3:
+                        icon = QIcon(":/huggle/pictures/Resources/blob-warn-3.png");
+                        break;
+                    case 4:
+                        icon = QIcon(":/huggle/pictures/Resources/blob-warn-4.png");
+                        break;
+                }
+            }
+        }
+
         if (this->CurrentEdit->RevID == RevID.toInt())
         {
+            if (x == 0)
+            {
+                IsLatest = true;
+            }
             QFont font;
             font.setBold(true);
             QTableWidgetItem *i = new QTableWidgetItem(icon, "");
@@ -254,6 +286,19 @@ void HistoryForm::onTick01()
         }
         x++;
     }
+    if (!IsLatest)
+    {
+        QPoint pntr(0, this->pos().y());
+        if (this->pos().x() > 400)
+        {
+            pntr.setX(this->pos().x() - 200);
+        } else
+        {
+            pntr.setX(this->pos().x() + 100);
+        }
+        QToolTip::showText(pntr, "<b><big>" +Localizations::HuggleLocalizations->Localize("historyform-not-latest-tip")
+                           + "</big></b>", this);
+    }
     this->query->UnregisterConsumer(HUGGLECONSUMER_HISTORYWIDGET);
     this->ui->tableWidget->resizeRowsToContents();
     this->query = NULL;
@@ -281,7 +326,7 @@ void HistoryForm::on_tableWidget_clicked(const QModelIndex &index)
     this->RetrievingEdit = true;
     // check if we don't have this edit in a buffer
     int x = 0;
-    int revid = this->ui->tableWidget->item(index.row(), 3)->text().toInt();
+    int revid = this->ui->tableWidget->item(index.row(), 4)->text().toInt();
     if (revid == 0)
     {
         this->RetrievingEdit = false;
@@ -303,7 +348,7 @@ void HistoryForm::on_tableWidget_clicked(const QModelIndex &index)
     WikiEdit::Lock_EditList->unlock();
     // there is no such edit, let's get it
     WikiEdit *w = new WikiEdit();
-    w->User = new WikiUser(this->ui->tableWidget->item(index.row(), 0)->text());
+    w->User = new WikiUser(this->ui->tableWidget->item(index.row(), 1)->text());
     w->Page = new WikiPage(this->CurrentEdit->Page);
     w->RevID = revid;
     w->RegisterConsumer(HUGGLECONSUMER_HISTORYWIDGET);

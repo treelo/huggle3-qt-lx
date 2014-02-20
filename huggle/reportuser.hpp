@@ -12,6 +12,16 @@
 #ifndef REPORTUSER_H
 #define REPORTUSER_H
 
+#include "config.hpp"
+// now we need to ensure that python is included first, because it
+// simply suck :P
+// seriously, Python.h is shitty enough that it requires to be
+// included first. Don't believe it? See this:
+// http://stackoverflow.com/questions/20300201/why-python-h-of-python-3-2-must-be-included-as-first-together-with-qt4
+#ifdef PYTHONENGINE
+#include <Python.h>
+#endif
+
 #include <QDialog>
 #include <QTimer>
 #include <QWebView>
@@ -22,6 +32,7 @@
 #include <QList>
 #include "core.hpp"
 #include "blockuser.hpp"
+#include "editquery.hpp"
 #include "apiquery.hpp"
 #include "huggleweb.hpp"
 #include "configuration.hpp"
@@ -36,6 +47,7 @@ namespace Huggle
 {
     class WikiUser;
     class ApiQuery;
+    class EditQuery;
     class BlockUser;
 
     //! Report user
@@ -58,33 +70,38 @@ namespace Huggle
             void on_tableWidget_clicked(const QModelIndex &index);
             void on_pushButton_3_clicked();
             void on_pushButton_4_clicked();
+            void on_pushButton_6_clicked();
+            void on_pushButton_5_clicked();
 
         private:
             bool CheckUser();
             void InsertUser();
             Ui::ReportUser *ui;
             //! Reported user
-            WikiUser *user;
+            WikiUser *ReportedUser;
             //! This query is used to retrieve a history of user
             ApiQuery *qHistory;
             //! Timer is used to retrieve a history for user
-            QTimer *timer;
+            QTimer *tHistoryUser;
             //! Timer to check the report page
-            QTimer *t2;
+            QTimer *tReportPageCheck;
             //! Used to retrieve a diff of page
-            QTimer *diff;
+            QTimer *tPageDiff;
+            EditQuery *qEdit;
             QList <QCheckBox*> CheckBoxes;
             //! Text of report to send to AIV page
             QString ReportText;
             //! Content of report
-            QString _p;
+            QString ReportContent;
+            QString ReportTs;
             bool Loading;
             bool Messaging;
             BlockUser *BlockForm;
             //! This query is used to get a block history
             ApiQuery *qBlockHistory;
-            ApiQuery *tq;
-            ApiQuery *qd;
+            //! This is used to retrieve current report page and write to it
+            ApiQuery *qReport;
+            ApiQuery *qDiff;
     };
 }
 

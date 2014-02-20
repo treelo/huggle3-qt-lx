@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>852</width>
-    <height>418</height>
+    <height>423</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -35,7 +35,7 @@
          <x>0</x>
          <y>7</y>
          <width>811</width>
-         <height>254</height>
+         <height>321</height>
         </rect>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -57,6 +57,13 @@
          <widget class="QCheckBox" name="checkBox_4">
           <property name="text">
            <string>Ask if you revert edit of whitelisted user</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="checkBox_11">
+          <property name="text">
+           <string>Ask if you revert a talk page</string>
           </property>
          </widget>
         </item>
@@ -114,13 +121,19 @@
             </item>
            </layout>
           </widget>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="checkBox_11">
-          <property name="text">
-           <string>Ask if you revert a talk page</string>
-          </property>
+          <widget class="QCheckBox" name="checkBox_20">
+           <property name="geometry">
+            <rect>
+             <x>10</x>
+             <y>90</y>
+             <width>781</width>
+             <height>17</height>
+            </rect>
+           </property>
+           <property name="text">
+            <string>Revert newer edits to page than displayed diff in case they were made by same user (same vandal)</string>
+           </property>
+          </widget>
          </widget>
         </item>
        </layout>
@@ -157,7 +170,7 @@
          <x>0</x>
          <y>0</y>
          <width>811</width>
-         <height>60</height>
+         <height>80</height>
         </rect>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -172,6 +185,13 @@
          <widget class="QCheckBox" name="checkBox_15">
           <property name="text">
            <string>Remove edits that were already reverted by someone else</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="checkBox_19">
+          <property name="text">
+           <string>Remove old edits if newer edit to same page is parsed</string>
           </property>
          </widget>
         </item>

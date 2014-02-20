@@ -128,10 +128,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         this->ui->actionRevert_and_warn->setMenu(this->RevertWarn);
     }
 
-    this->timer1 = new QTimer(this);
+    this->tabifyDockWidget(this->SystemLog, this->Queries);
+    this->GeneralTimer = new QTimer(this);
     this->ui->actionTag_2->setVisible(false);
-    connect(this->timer1, SIGNAL(timeout()), this, SLOT(OnTimerTick1()));
-    this->timer1->start(200);
+    connect(this->GeneralTimer, SIGNAL(timeout()), this, SLOT(OnMainTimerTick()));
+    this->GeneralTimer->start(200);
     QFile *layout = NULL;
     if (QFile().exists(Configuration::GetConfigurationPath() + "mainwindow_state"))
     {
@@ -175,7 +176,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         this->ui->menuHelp->removeAction(debugm);
     }
 
-    Hooks::MainWindowIsLoad(this);
+    Hooks::MainWindowIsLoaded(this);
     this->VandalDock->Connect();
     this->tCheck = new QTimer(this);
     connect(this->tCheck, SIGNAL(timeout()), this, SLOT(TimerCheckTPOnTick()));
@@ -214,9 +215,9 @@ MainWindow::~MainWindow()
     delete this->tb;
 }
 
-void MainWindow::_ReportUser()
+void MainWindow::DisplayReportUserWindow(WikiUser *User)
 {
-    if (!this->CheckExit())
+    if (!this->CheckExit() || this->CurrentEdit == NULL)
     {
         return;
     }
@@ -227,7 +228,17 @@ void MainWindow::_ReportUser()
         return;
     }
 
-    if (this->CurrentEdit->User->IsReported)
+    if (User == NULL)
+    {
+        User = this->CurrentEdit->User;
+    }
+
+    if (User == NULL)
+    {
+        throw new Huggle::Exception("WikiUser must not be NULL", "void MainWindow::DisplayReportUserWindow(WikiUser *User)");
+    }
+
+    if (User->IsReported)
     {
         Syslog::HuggleLogs->ErrorLog(Localizations::HuggleLocalizations->Localize("report-duplicate"));
         return;
@@ -243,11 +254,6 @@ void MainWindow::_ReportUser()
         return;
     }
 
-    if (this->CurrentEdit == NULL)
-    {
-        return;
-    }
-
     if (this->fReportForm != NULL)
     {
         delete this->fReportForm;
@@ -256,14 +262,21 @@ void MainWindow::_ReportUser()
 
     this->fReportForm = new ReportUser(this);
     this->fReportForm->show();
-    this->fReportForm->SetUser(this->CurrentEdit->User);
+    this->fReportForm->SetUser(User);
 }
 
 void MainWindow::ProcessEdit(WikiEdit *e, bool IgnoreHistory, bool KeepHistory, bool KeepUser)
 {
     if (e == NULL || this->ShuttingDown)
     {
+        // Huggle is either shutting down or edit is NULL so we can't do anything here
         return;
+    }
+    if (this->qNext != NULL)
+    {
+        // we need to delete this because it's related to an old edit
+        this->qNext->UnregisterConsumer("OnNext");
+        this->qNext = NULL;
     }
     if (e->Page == NULL || e->User == NULL)
     {
@@ -274,8 +287,6 @@ void MainWindow::ProcessEdit(WikiEdit *e, bool IgnoreHistory, bool KeepHistory, 
     {
         delete this->OnNext_EvPage;
         this->OnNext_EvPage = NULL;
-        this->qNext->UnregisterConsumer("OnNext");
-        this->qNext = NULL;
     }
     // we need to safely delete the edit later
     e->RegisterConsumer(HUGGLECONSUMER_MAINFORM);
@@ -426,7 +437,7 @@ void MainWindow::FinishPatrols()
             continue;
         }
         // check if it's done
-        if (query->Processed())
+        if (query->IsProcessed())
         {
             // wheeee now we have a token
             WikiEdit *edit = (WikiEdit*) query->CallbackResult;
@@ -469,7 +480,7 @@ void MainWindow::DecreaseBS()
 {
     if (this->CurrentEdit != NULL)
     {
-        this->CurrentEdit->User->setBadnessScore(this->CurrentEdit->User->getBadnessScore() - 200);
+        this->CurrentEdit->User->SetBadnessScore(this->CurrentEdit->User->GetBadnessScore() - 200);
     }
 }
 
@@ -477,7 +488,7 @@ void MainWindow::IncreaseBS()
 {
     if (this->CurrentEdit != NULL)
     {
-        this->CurrentEdit->User->setBadnessScore(this->CurrentEdit->User->getBadnessScore() + 200);
+        this->CurrentEdit->User->SetBadnessScore(this->CurrentEdit->User->GetBadnessScore() + 200);
     }
 }
 
@@ -504,10 +515,10 @@ RevertQuery *MainWindow::Revert(QString summary, bool nd, bool next)
         rollback = false;
     }
 
-    if (Core::HuggleCore->PreflightCheck(this->CurrentEdit))
+    if (this->PreflightCheck(this->CurrentEdit))
     {
         this->CurrentEdit->User->Resync();
-        this->CurrentEdit->User->setBadnessScore(this->CurrentEdit->User->getBadnessScore(false) - 10);
+        this->CurrentEdit->User->SetBadnessScore(this->CurrentEdit->User->GetBadnessScore(false) - 10);
         Hooks::OnRevert(this->CurrentEdit);
         RevertQuery *q = Core::HuggleCore->RevertEdit(this->CurrentEdit, summary, false, rollback, nd);
         if (next)
@@ -519,85 +530,68 @@ RevertQuery *MainWindow::Revert(QString summary, bool nd, bool next)
     return NULL;
 }
 
+bool MainWindow::PreflightCheck(WikiEdit *_e)
+{
+    if (this->qNext != NULL)
+    {
+        QMessageBox *mb = new QMessageBox();
+        mb->setWindowTitle("This edit is already being reverted");
+        mb->setText("You can't revert this edit, because it's already being reverted. Please wait!");
+        mb->exec();
+        return false;
+    }
+    if (_e == NULL)
+    {
+        throw new Huggle::Exception("NULL edit in PreflightCheck(WikiEdit *_e) is not a valid edit");
+    }
+    bool Warn = false;
+    QString type = "unknown";
+    if (Configuration::HuggleConfiguration->WarnUserSpaceRoll && _e->Page->IsUserpage())
+    {
+        Warn = true;
+        type = "in userspace";
+    } else if (Configuration::HuggleConfiguration->LocalConfig_ConfirmOnSelfRevs
+               &&(_e->User->Username.toLower() == Configuration::HuggleConfiguration->UserName.toLower()))
+    {
+        type = "made by you";
+        Warn = true;
+    } else if (Configuration::HuggleConfiguration->LocalConfig_ConfirmTalk && _e->Page->IsTalk())
+    {
+        type = "made on talk page";
+        Warn = true;
+    }
+    if (Warn)
+    {
+        QMessageBox::StandardButton q = QMessageBox::question(NULL, "Revert edit"
+                      , "This edit is " + type + ", so even if it looks like it is a vandalism,"\
+                      " it may not be, are you sure you want to revert it?"
+                      , QMessageBox::Yes|QMessageBox::No);
+        if (q == QMessageBox::No)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool MainWindow::Warn(QString WarningType, RevertQuery *dependency)
 {
     if (this->CurrentEdit == NULL)
     {
-        Syslog::HuggleLogs->DebugLog("NULL");
         return false;
     }
-
-    if (Configuration::HuggleConfiguration->Restricted)
+    bool Report_ = false;
+    PendingWarning *ptr_Warning_ = Warnings::WarnUser(WarningType, dependency, this->CurrentEdit, &Report_);
+    if (Report_)
     {
-        Core::HuggleCore->DeveloperError();
-        return false;
+        this->DisplayReportUserWindow(this->CurrentEdit->User);
     }
-
-    // check if user wasn't changed and if was, let's update the info
-    this->CurrentEdit->User->Resync();
-
-    // get a template
-    this->CurrentEdit->User->WarningLevel++;
-
-    if (this->CurrentEdit->User->WarningLevel > 4)
+    if (ptr_Warning_ != NULL)
     {
-        if (this->CurrentEdit->User->IsReported)
-        {
-            return false;
-        }
-        if (Core::HuggleCore->ReportPreFlightCheck())
-        {
-            this->_ReportUser();
-        }
-        return false;
+        this->PendingWarnings.append(ptr_Warning_);
+        return true;
     }
-
-    QString __template = WarningType + QString::number(this->CurrentEdit->User->WarningLevel);
-
-    QString warning = Core::HuggleCore->RetrieveTemplateToWarn(__template);
-
-    if (warning == "")
-    {
-        // This is very rare error, no need to localize it
-        Syslog::HuggleLogs->Log("There is no such warning template " + __template);
-        return false;
-    }
-
-    warning = warning.replace("$2", this->CurrentEdit->GetFullUrl()).replace("$1", this->CurrentEdit->Page->PageName);
-
-    QString title = "Message re " + this->CurrentEdit->Page->PageName;
-
-    switch (this->CurrentEdit->User->WarningLevel)
-    {
-        case 1:
-            title = Configuration::HuggleConfiguration->LocalConfig_WarnSummary;
-            break;
-        case 2:
-            title = Configuration::HuggleConfiguration->LocalConfig_WarnSummary2;
-            break;
-        case 3:
-            title = Configuration::HuggleConfiguration->LocalConfig_WarnSummary3;
-            break;
-        case 4:
-            title = Configuration::HuggleConfiguration->LocalConfig_WarnSummary4;
-            break;
-    }
-
-    title = title.replace("$1", this->CurrentEdit->Page->PageName);
-    QString id = "Your edits to " + this->CurrentEdit->Page->PageName;
-    if (Configuration::HuggleConfiguration->LocalConfig_Headings == HeadingsStandard)
-    {
-        QDateTime d = QDateTime::currentDateTime();
-        id = Core::HuggleCore->MonthText(d.date().month()) + " " + QString::number(d.date().year());
-    } else if (Configuration::HuggleConfiguration->LocalConfig_Headings == HeadingsNone)
-    {
-        id = "";
-    }
-    Core::HuggleCore->MessageUser(this->CurrentEdit->User, warning, id, title, true, dependency, false,
-                                  Configuration::HuggleConfiguration->UserConfig_SectionKeep);
-    Hooks::OnWarning(this->CurrentEdit->User);
-
-    return true;
+    return false;
 }
 
 QString MainWindow::GetSummaryKey(QString item)
@@ -646,7 +640,7 @@ void MainWindow::FinishRestore()
         return;
     }
 
-    if (!this->RestoreQuery->Processed())
+    if (!this->RestoreQuery->IsProcessed())
     {
         return;
     }
@@ -713,7 +707,7 @@ void MainWindow::on_actionAbout_triggered()
     this->aboutForm->show();
 }
 
-void MainWindow::OnTimerTick1()
+void MainWindow::OnMainTimerTick()
 {
     Core::HuggleCore->FinalizeMessages();
     bool RetrieveEdit = true;
@@ -726,7 +720,7 @@ void MainWindow::OnTimerTick1()
     // if there is no working feed, let's try to fix it
     if (Core::HuggleCore->PrimaryFeedProvider->IsWorking() != true && this->ShuttingDown != true)
     {
-        Syslog::HuggleLogs->Log("Failure of primary feed provider, trying to recover");
+        Syslog::HuggleLogs->Log(Localizations::HuggleLocalizations->Localize("provider-failure"));
         if (!Core::HuggleCore->PrimaryFeedProvider->Restart())
         {
             delete Core::HuggleCore->PrimaryFeedProvider;
@@ -734,8 +728,9 @@ void MainWindow::OnTimerTick1()
             Core::HuggleCore->PrimaryFeedProvider->Start();
         }
     }
+    this->ResendWarning();
     // check if queue isn't full
-    if (this->Queue1->Items.count() > Configuration::HuggleConfiguration->Cache_InfoSize)
+    if (this->Queue1->Items.count() > Configuration::HuggleConfiguration->SystemConfig_QueueSize)
     {
         if (this->ui->actionStop_feed->isChecked())
         {
@@ -876,9 +871,9 @@ void MainWindow::OnTimerTick1()
     }
     Syslog::HuggleLogs->lUnwrittenLogs.unlock();
     this->Queries->RemoveExpired();
-    if (this->OnNext_EvPage != NULL)
+    if (this->OnNext_EvPage != NULL && this->qNext != NULL)
     {
-        if (this->qNext->Processed())
+        if (this->qNext->IsProcessed())
         {
             this->tb->SetPage(this->OnNext_EvPage);
             this->tb->RenderEdit();
@@ -903,12 +898,12 @@ void MainWindow::OnTimerTick0()
         }
         if (this->Shutdown == ShutdownOpRetrievingWhitelist)
         {
-            if (Configuration::HuggleConfiguration->WhitelistDisabled)
+            if (Configuration::HuggleConfiguration->SystemConfig_WhitelistDisabled)
             {
                 this->Shutdown = ShutdownOpUpdatingWhitelist;
                 return;
             }
-            if (!this->wq->Processed())
+            if (!this->wq->IsProcessed())
             {
                 return;
             }
@@ -937,13 +932,14 @@ void MainWindow::OnTimerTick0()
         }
         if (this->Shutdown == ShutdownOpUpdatingWhitelist)
         {
-            if (!Configuration::HuggleConfiguration->WhitelistDisabled && !this->wq->Processed())
+            if (!this->wq->IsProcessed())
             {
+                this->fWaiting->Status(60 + int((this->wq->Progress / 100) * 30));
                 return;
             }
             // we finished writing the wl
             this->wq->UnregisterConsumer(HUGGLECONSUMER_MAINFORM);
-            this->fWaiting->Status(80, Localizations::HuggleLocalizations->Localize("updating-uc"));
+            this->fWaiting->Status(90, Localizations::HuggleLocalizations->Localize("updating-uc"));
             this->wq = NULL;
             this->Shutdown = ShutdownOpUpdatingConf;
             QString page = Configuration::HuggleConfiguration->GlobalConfig_UserConf;
@@ -957,15 +953,14 @@ void MainWindow::OnTimerTick0()
     } else
     {
         // we need to check if config was written
-        if (!this->eq->Processed())
+        if (!this->eq->IsProcessed())
         {
             return;
         }
-        Syslog::HuggleLogs->Log(this->eq->Result->Data);
         this->eq->UnregisterConsumer(HUGGLECONSUMER_MAINFORM);
         this->eq = NULL;
         this->wlt->stop();
-        this->timer1->stop();
+        this->GeneralTimer->stop();
         Core::HuggleCore->Shutdown();
     }
 }
@@ -1039,10 +1034,10 @@ void MainWindow::on_actionRevert_currently_displayed_edit_and_warn_the_user_trig
     if (result != NULL)
     {
         this->Warn("warning", result);
-        this->DisplayNext();
+        this->DisplayNext(result);
     } else
     {
-        this->DisplayNext();
+        this->DisplayNext(result);
     }
 }
 
@@ -1063,10 +1058,10 @@ void MainWindow::on_actionRevert_and_warn_triggered()
     if (result != NULL)
     {
         this->Warn("warning", result);
-        this->DisplayNext();
+        this->DisplayNext(result);
     } else
     {
-        this->DisplayNext();
+        this->DisplayNext(result);
     }
 }
 
@@ -1159,10 +1154,10 @@ void MainWindow::CustomRevertWarn()
     if (result != NULL)
     {
         this->Warn(k, result);
-        this->DisplayNext();
+        this->DisplayNext(result);
     } else
     {
-        this->DisplayNext();
+        this->DisplayNext(result);
     }
 }
 
@@ -1206,57 +1201,7 @@ void MainWindow::ForceWarn(int level)
         return;
     }
 
-    if (Configuration::HuggleConfiguration->Restricted)
-    {
-        Core::HuggleCore->DeveloperError();
-        return;
-    }
-
-    if (this->CurrentEdit == NULL)
-    {
-        return;
-    }
-
-    QString __template = "warning" + QString::number(level);
-
-    QString warning = Core::HuggleCore->RetrieveTemplateToWarn(__template);
-
-    if (warning == "")
-    {
-        // this is very rare error no need to translate it
-        Syslog::HuggleLogs->Log("There is no such warning template " + __template);
-        return;
-    }
-
-    warning = warning.replace("$2", this->CurrentEdit->GetFullUrl()).replace("$1", this->CurrentEdit->Page->PageName);
-
-    QString title = "Message re " + Configuration::HuggleConfiguration->EditSuffixOfHuggle;
-
-    switch (level)
-    {
-        case 1:
-            title = Configuration::HuggleConfiguration->LocalConfig_WarnSummary;
-            break;
-        case 2:
-            title = Configuration::HuggleConfiguration->LocalConfig_WarnSummary2;
-            break;
-        case 3:
-            title = Configuration::HuggleConfiguration->LocalConfig_WarnSummary3;
-            break;
-        case 4:
-            title = Configuration::HuggleConfiguration->LocalConfig_WarnSummary4;
-            break;
-    }
-
-    title = title.replace("$1", this->CurrentEdit->Page->PageName);
-    QString id = "Your edits to " + this->CurrentEdit->Page->PageName;
-    if (Configuration::HuggleConfiguration->UserConfig_EnforceMonthsAsHeaders)
-    {
-        QDateTime d = QDateTime::currentDateTime();
-        id = Core::HuggleCore->MonthText(d.date().month()) + " " + QString::number(d.date().year());
-    }
-    Core::HuggleCore->MessageUser(this->CurrentEdit->User, warning, id, title, true, NULL, false,
-                                  Configuration::HuggleConfiguration->UserConfig_SectionKeep);
+    Warnings::ForceWarn(level, this->CurrentEdit);
 }
 
 void MainWindow::Exit()
@@ -1372,7 +1317,7 @@ void MainWindow::SuspiciousEdit()
     if (this->CurrentEdit != NULL)
     {
         Hooks::Suspicious(this->CurrentEdit);
-        this->CurrentEdit->User->setBadnessScore(this->CurrentEdit->User->getBadnessScore() + 1);
+        this->CurrentEdit->User->SetBadnessScore(this->CurrentEdit->User->GetBadnessScore() + 1);
     }
     this->DisplayNext();
 }
@@ -1434,6 +1379,168 @@ void MainWindow::Localize()
     this->ui->actionClear_talk_page_of_user->setText(Localizations::HuggleLocalizations->Localize("main-user-clear-talk"));
     this->ui->actionDelete->setText(Localizations::HuggleLocalizations->Localize("main-page-delete"));
     this->ui->actionExit->setText(Localizations::HuggleLocalizations->Localize("main-system-exit"));
+    this->ui->menuTools->setTitle(Localizations::HuggleLocalizations->Localize("main-tools"));
+    this->ui->actionShow_ignore_list_of_current_wiki->setText(Localizations::HuggleLocalizations->Localize("main-tools-il"));
+    this->ui->actionDisplay_a_session_data->setText(Localizations::HuggleLocalizations->Localize("main-tools-sess"));
+    this->ui->actionClear->setText(Localizations::HuggleLocalizations->Localize("main-queue-clear"));
+    this->ui->actionClear_talk_page_of_user->setText(Localizations::HuggleLocalizations->Localize("main-user-clear-tp"));
+    this->ui->actionDecrease_badness_score_by_20->setText(Localizations::HuggleLocalizations->Localize("main-user-db"));
+    this->ui->actionDelete->setText(Localizations::HuggleLocalizations->Localize("main-page-delete"));
+    this->ui->actionDelete_page->setText(Localizations::HuggleLocalizations->Localize("main-page-delete"));
+    this->ui->actionDisplay_a_session_data->setText(Localizations::HuggleLocalizations->Localize("main-display-session-data"));
+    this->ui->actionDisplay_history_in_browser->setText(Localizations::HuggleLocalizations->Localize("main-page-historypage"));
+    this->ui->actionDisplay_this_page_in_browser->setText(Localizations::HuggleLocalizations->Localize("main-browser-open"));
+    this->ui->actionFeedback->setText(Localizations::HuggleLocalizations->Localize("main-help-feedback"));
+    this->ui->actionReport_user->setText(Localizations::HuggleLocalizations->Localize("main-user-report"));
+}
+
+void MainWindow::ResendWarning()
+{
+    int x = 0;
+    while (x < this->PendingWarnings.count())
+    {
+        PendingWarning *warning = this->PendingWarnings.at(x);
+        if (warning->Query != NULL)
+        {
+            // we are already getting talk page so we need to check if it finished here
+            if (warning->Query->IsProcessed())
+            {
+                // this query is done so we check if it fallen to error now
+                if (warning->Query->IsFailed())
+                {
+                    // there was some error, which suck, we print it to console and delete this warning, there is a little point
+                    // in doing anything else to fix it.
+                    Syslog::HuggleLogs->ErrorLog("Unable to retrieve a new version of talk page for user " + warning->Warning->user->Username
+                                     + " the warning will not be delivered to this user");
+                    this->PendingWarnings.removeAt(x);
+                    delete warning;
+                    continue;
+                }
+                // we get the new talk page
+                QDomDocument d;
+                d.setContent(warning->Query->Result->Data);
+                QDomNodeList page = d.elementsByTagName("rev");
+                QDomNodeList code = d.elementsByTagName("page");
+                QString TPRevBaseTime = "";
+                if (code.count() > 0)
+                {
+                    QDomElement e = code.at(0).toElement();
+                    if (e.attributes().contains("missing"))
+                    {
+                        // the talk page which existed was probably deleted by someone
+                        Syslog::HuggleLogs->ErrorLog("Unable to retrieve a new version of talk page for user " + warning->Warning->user->Username
+                                         + " because it was deleted meanwhile, the warning will not be delivered to this user");
+                        this->PendingWarnings.removeAt(x);
+                        delete warning;
+                        continue;
+                    }
+                }
+                // get last id
+                if (page.count() > 0)
+                {
+                    QDomElement e = page.at(0).toElement();
+                    if (e.nodeName() == "rev")
+                    {
+                        if (!e.attributes().contains("timestamp"))
+                        {
+                            Huggle::Syslog::HuggleLogs->ErrorLog("Talk page timestamp of " + warning->Warning->user->Username +
+                                                                 " couldn't be retrieved, mediawiki returned no data for it");
+                            this->PendingWarnings.removeAt(x);
+                            delete warning;
+                            continue;
+                        } else
+                        {
+                            TPRevBaseTime = e.attribute("timestamp");
+                        }
+                        warning->Warning->user->TalkPage_SetContents(e.text());
+                    } else
+                    {
+                        // there was some error, which suck, we print it to console and delete this warning, there is a little point
+                        // in doing anything else to fix it.
+                        Syslog::HuggleLogs->ErrorLog("Unable to retrieve a new version of talk page for user " + warning->Warning->user->Username
+                                         + " the warning will not be delivered to this user, check debug logs for more");
+                        Syslog::HuggleLogs->DebugLog(warning->Query->Result->Data);
+                        this->PendingWarnings.removeAt(x);
+                        delete warning;
+                        continue;
+                    }
+                } else
+                {
+                    // there was some error, which suck, we print it to console and delete this warning, there is a little point
+                    // in doing anything else to fix it.
+                    Syslog::HuggleLogs->ErrorLog("Unable to retrieve a new version of talk page for user " + warning->Warning->user->Username
+                                     + " the warning will not be delivered to this user, check debug logs for more");
+                    Syslog::HuggleLogs->DebugLog(warning->Query->Result->Data);
+                    this->PendingWarnings.removeAt(x);
+                    delete warning;
+                    continue;
+                }
+
+                // so we now have the new talk page content so we need to reclassify the user
+                warning->Warning->user->ParseTP();
+
+                // now when we have the new level of warning we can try to send a new warning and hope that talk page wasn't
+                // changed meanwhile again lol :D
+                warning->RelatedEdit->TPRevBaseTime = TPRevBaseTime;
+                bool Report_;
+                PendingWarning *ptr_warning_ = Warnings::WarnUser(warning->Template, NULL, warning->RelatedEdit, &Report_);
+                if (Report_)
+                {
+                    this->DisplayReportUserWindow(this->CurrentEdit->User);
+                }
+                if (ptr_warning_ != NULL)
+                {
+                    this->PendingWarnings.append(ptr_warning_);
+                }
+
+                // we can delete this warning now because we created another one
+                this->PendingWarnings.removeAt(x);
+                delete warning;
+                continue;
+            }
+            // in case that it isn't processed yet we can continue on next warning
+            x++;
+            continue;
+        }
+
+        if (warning->Warning->IsFinished())
+        {
+            if (!warning->Warning->IsFailed())
+            {
+                // we no longer need to care about this one
+                this->PendingWarnings.removeAt(x);
+                delete warning;
+                continue;
+            }
+            Syslog::HuggleLogs->DebugLog("Failed to deliver message to " + warning->Warning->user->Username);
+            // check if the warning wasn't delivered because someone edited the page
+            if (warning->Warning->Error == Huggle::MessageError_Obsolete)
+            {
+                Syslog::HuggleLogs->DebugLog("Someone changed the content of " + warning->Warning->user->Username + " reparsing it now");
+                // we need to fetch the talk page again and later we need to issue new warning
+                if (warning->Query != NULL)
+                {
+                    Syslog::HuggleLogs->DebugLog("Possible memory leak in MainWindow::ResendWarning: warning->Query != NULL");
+                }
+                warning->Query = new Huggle::ApiQuery();
+                warning->Query->SetAction(ActionQuery);
+                warning->Query->Parameters = "prop=revisions&rvprop=" + QUrl::toPercentEncoding("timestamp|user|comment|content") + "&titles=" +
+                        QUrl::toPercentEncoding(warning->Warning->user->GetTalk());
+                warning->Query->RegisterConsumer(HUGGLECONSUMER_MAINFORM);
+                Core::HuggleCore->AppendQuery(warning->Query);
+                //! \todo LOCALIZE ME
+                warning->Query->Target = "Retrieving tp of " + warning->Warning->user->GetTalk();
+                warning->Query->Process();
+            } else
+            {
+                this->PendingWarnings.removeAt(x);
+                delete warning;
+                continue;
+            }
+        }
+        x++;
+        continue;
+    }
 }
 
 void MainWindow::_BlockUser()
@@ -1470,6 +1577,7 @@ void MainWindow::DisplayNext(Query *q)
             this->Queue1->Next();
             return;
         case Configuration_OnNext_Revert:
+            //! \bug This doesn't seem to work
             if (this->CurrentEdit == NULL)
             {
                 return;
@@ -1482,6 +1590,9 @@ void MainWindow::DisplayNext(Query *q)
             if (this->OnNext_EvPage != NULL)
             {
                 delete this->OnNext_EvPage;
+            }
+            if (this->qNext != NULL)
+            {
                 this->qNext->UnregisterConsumer("OnNext");
             }
             this->OnNext_EvPage = new WikiPage(this->CurrentEdit->Page);
@@ -1557,10 +1668,16 @@ void MainWindow::Welcome()
 
     this->CurrentEdit->User->Resync();
 
-    if (this->CurrentEdit->User->GetContentsOfTalkPage() != "")
+    if (this->CurrentEdit->User->TalkPage_GetContents() != "")
     {
-        /// \todo LOCALIZE ME
-        if (QMessageBox::question(this, "Welcome :o", "This user doesn't have empty talk page, are you sure you want to send a message to him?",
+        if (QMessageBox::question(this, "Welcome :o", Localizations::HuggleLocalizations->Localize("welcome-tp-empty-fail"),
+                                  QMessageBox::Yes|QMessageBox::No) == QMessageBox::No)
+        {
+            return;
+        }
+    } else if (!this->CurrentEdit->User->TalkPage_WasRetrieved())
+    {
+        if (QMessageBox::question(this, "Welcome :o", Localizations::HuggleLocalizations->Localize("welcome-page-miss-fail"),
                                   QMessageBox::Yes|QMessageBox::No) == QMessageBox::No)
         {
             return;
@@ -1569,19 +1686,21 @@ void MainWindow::Welcome()
 
     if (this->CurrentEdit->User->IsIP())
     {
-        if (this->CurrentEdit->User->GetContentsOfTalkPage() == "")
+        if (this->CurrentEdit->User->TalkPage_GetContents() == "")
         {
             // write something to talk page so that we don't welcome this user twice
-            this->CurrentEdit->User->SetContentsOfTalkPage(Configuration::HuggleConfiguration->LocalConfig_WelcomeAnon);
+            this->CurrentEdit->User->TalkPage_SetContents(Configuration::HuggleConfiguration->LocalConfig_WelcomeAnon);
         }
         Core::HuggleCore->MessageUser(this->CurrentEdit->User, Configuration::HuggleConfiguration->LocalConfig_WelcomeAnon,
                                       Configuration::HuggleConfiguration->LocalConfig_WelcomeTitle,
-                                      Configuration::HuggleConfiguration->LocalConfig_WelcomeSummary, false);
+                                      Configuration::HuggleConfiguration->LocalConfig_WelcomeSummary,
+                                      false, NULL, false, false, true, this->CurrentEdit->TPRevBaseTime);
         return;
     }
 
     if (Configuration::HuggleConfiguration->LocalConfig_WelcomeTypes.count() == 0)
     {
+        // This error should never happen so we don't need to localize this
         Syslog::HuggleLogs->Log("There are no welcome messages defined for this project");
         return;
     }
@@ -1590,14 +1709,16 @@ void MainWindow::Welcome()
 
     if (message == "")
     {
+        // This error should never happen so we don't need to localize this
         Syslog::HuggleLogs->ErrorLog("Invalid welcome template, ignored message");
         return;
     }
 
     // write something to talk page so that we don't welcome this user twice
-    this->CurrentEdit->User->SetContentsOfTalkPage(message);
+    this->CurrentEdit->User->TalkPage_SetContents(message);
     Core::HuggleCore->MessageUser(this->CurrentEdit->User, message, Configuration::HuggleConfiguration->LocalConfig_WelcomeTitle,
-                      Configuration::HuggleConfiguration->LocalConfig_WelcomeSummary, false);
+                                  Configuration::HuggleConfiguration->LocalConfig_WelcomeSummary, false, NULL,
+                                  false, false, true, this->CurrentEdit->TPRevBaseTime);
 }
 
 void MainWindow::on_actionWelcome_user_triggered()
@@ -1617,7 +1738,7 @@ void MainWindow::on_actionIncrease_badness_score_by_20_triggered()
 {
     if (this->CurrentEdit != NULL)
     {
-        this->CurrentEdit->User->setBadnessScore(this->CurrentEdit->User->getBadnessScore() + 200);
+        this->CurrentEdit->User->SetBadnessScore(this->CurrentEdit->User->GetBadnessScore() + 200);
     }
 }
 
@@ -1630,10 +1751,10 @@ void MainWindow::on_actionGood_edit_triggered()
 {
     if (this->CurrentEdit != NULL)
     {
-        this->CurrentEdit->User->setBadnessScore(this->CurrentEdit->User->getBadnessScore() - 200);
+        this->CurrentEdit->User->SetBadnessScore(this->CurrentEdit->User->GetBadnessScore() - 200);
         Hooks::OnGood(this->CurrentEdit);
         this->PatrolThis();
-        if (Configuration::HuggleConfiguration->LocalConfig_WelcomeGood && this->CurrentEdit->User->GetContentsOfTalkPage() == "")
+        if (Configuration::HuggleConfiguration->LocalConfig_WelcomeGood && this->CurrentEdit->User->TalkPage_GetContents() == "")
         {
             this->Welcome();
         }
@@ -1656,8 +1777,8 @@ void MainWindow::on_actionFlag_as_a_good_edit_triggered()
     {
         Hooks::OnGood(this->CurrentEdit);
         this->PatrolThis();
-        this->CurrentEdit->User->setBadnessScore(this->CurrentEdit->User->getBadnessScore() - 200);
-        if (Configuration::HuggleConfiguration->LocalConfig_WelcomeGood && this->CurrentEdit->User->GetContentsOfTalkPage() == "")
+        this->CurrentEdit->User->SetBadnessScore(this->CurrentEdit->User->GetBadnessScore() - 200);
+        if (Configuration::HuggleConfiguration->LocalConfig_WelcomeGood && this->CurrentEdit->User->TalkPage_GetContents() == "")
         {
             this->Welcome();
         }
@@ -1736,7 +1857,7 @@ void MainWindow::on_actionClear_talk_page_of_user_triggered()
     /// \todo LOCALIZE ME
     Core::HuggleCore->EditPage(page, Configuration::HuggleConfiguration->LocalConfig_ClearTalkPageTemp
                    + "\n" + Configuration::HuggleConfiguration->LocalConfig_WelcomeAnon,
-                   "Cleaned old templates from talk page " + Configuration::HuggleConfiguration->EditSuffixOfHuggle);
+                   "Cleaned old templates from talk page " + Configuration::HuggleConfiguration->LocalConfig_EditSuffixOfHuggle);
 
     delete page;
 }
@@ -1798,7 +1919,7 @@ void MainWindow::on_actionReport_user_triggered()
         Syslog::HuggleLogs->ErrorLog(Localizations::HuggleLocalizations->Localize("report-no-user"));
         return;
     }
-    this->_ReportUser();
+    this->DisplayReportUserWindow();
 }
 
 void MainWindow::on_actionReport_user_2_triggered()
@@ -1808,7 +1929,7 @@ void MainWindow::on_actionReport_user_2_triggered()
         Syslog::HuggleLogs->ErrorLog(Localizations::HuggleLocalizations->Localize("report-no-user"));
         return;
     }
-    this->_ReportUser();
+    this->DisplayReportUserWindow();
 }
 
 void MainWindow::on_actionWarning_1_triggered()
@@ -1902,7 +2023,7 @@ void MainWindow::on_actionProtect_triggered()
     }
     if (this->CurrentEdit == NULL)
     {
-        /// \todo LOCALIZE ME
+        // This doesn't need to be localized
         Syslog::HuggleLogs->ErrorLog("Cannot protect NULL page");
         return;
     }
@@ -1917,6 +2038,7 @@ void MainWindow::on_actionProtect_triggered()
 
 void Huggle::MainWindow::on_actionEdit_info_triggered()
 {
+    // don't localize this please
     Syslog::HuggleLogs->Log("Current number of edits in memory: " + QString::number(WikiEdit::EditList.count()));
 }
 
@@ -1988,7 +2110,8 @@ void Huggle::MainWindow::on_actionRevert_AGF_triggered()
         return;
     }
     bool ok;
-    QString reason = QInputDialog::getText(this, "Reason", "Please provide a reason why you want to revert this edit to previous revision",
+    QString reason = QInputDialog::getText(this, Localizations::HuggleLocalizations->Localize("reason"),
+                                           Localizations::HuggleLocalizations->Localize("main-revert-custom-reson"),
                                            QLineEdit::Normal, "No reason was provided by this lame user :(", &ok);
 
     if (!ok)
@@ -2050,7 +2173,8 @@ void Huggle::MainWindow::on_actionRestore_this_revision_triggered()
     }
 
     bool ok;
-    QString reason = QInputDialog::getText(this, "Reason", "Please provide a reason why you want to restore this page to previous revision",
+    QString reason = QInputDialog::getText(this, Localizations::HuggleLocalizations->Localize("reason"),
+                                           Localizations::HuggleLocalizations->Localize("main-revert-custom-reson"),
                                            QLineEdit::Normal, "No reason was provided by user :(", &ok);
 
     if (!ok)
@@ -2068,7 +2192,7 @@ void Huggle::MainWindow::on_actionRestore_this_revision_triggered()
     this->CurrentEdit->RegisterConsumer("RestoreEdit");
     this->RestoreEdit = this->CurrentEdit;
     this->RestoreEdit_RevertReason = reason;
-    Syslog::HuggleLogs->Log("Restoring selected revision of " + this->CurrentEdit->Page->PageName);
+    Syslog::HuggleLogs->Log(Localizations::HuggleLocalizations->Localize("main-log1", this->CurrentEdit->Page->PageName));
 }
 
 void Huggle::MainWindow::on_actionClear_triggered()
@@ -2118,7 +2242,7 @@ void MainWindow::TimerCheckTPOnTick()
         return;
     } else
     {
-        if (!this->qTalkPage->Processed())
+        if (!this->qTalkPage->IsProcessed())
         {
             // we are still waiting for api query to finish
             return;
@@ -2202,4 +2326,9 @@ void Huggle::MainWindow::on_actionEnforce_sysop_rights_triggered()
     this->ui->actionDelete_page->setEnabled(true);
     this->ui->actionDelete->setEnabled(true);
     this->ui->actionProtect->setEnabled(true);
+}
+
+void Huggle::MainWindow::on_actionFeedback_triggered()
+{
+    QDesktopServices::openUrl(Configuration::HuggleConfiguration->GlobalConfig_FeedbackPath);
 }

@@ -11,6 +11,13 @@
 #ifndef BLOCKUSER_H
 #define BLOCKUSER_H
 
+#include "config.hpp"
+// now we need to ensure that python is included first, because it
+// simply suck :P
+#ifdef PYTHONENGINE
+#include <Python.h>
+#endif
+
 #include <QDialog>
 #include <QCheckBox>
 #include <QString>
@@ -56,8 +63,6 @@ namespace Huggle
             //! Query to exec api to block user
             ApiQuery *qUser;
             ApiQuery *qTokenApi;
-            //! This is api query that is used to block user and used as dependency to deliver the message
-            ApiQuery *Dependency;
             QString BlockToken;
             int QueryPhase;
     };

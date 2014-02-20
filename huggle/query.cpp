@@ -42,7 +42,7 @@ Query::~Query()
     this->Result = NULL;
 }
 
-bool Query::Processed()
+bool Query::IsProcessed()
 {
     if (this->Status == StatusDone || this->Status == StatusInError)
     {
@@ -137,7 +137,7 @@ unsigned int Query::QueryID()
     return this->ID;
 }
 
-bool Query::Failed()
+bool Query::IsFailed()
 {
     if (this->Result != NULL)
     {

@@ -40,6 +40,7 @@ WikiEdit::WikiEdit()
     this->Priority = 20;
     this->Score = 0;
     this->IsRevert = false;
+    this->TPRevBaseTime = "";
     this->PatrolToken = "";
     this->Previous = NULL;
     this->Time = QDateTime::currentDateTime();
@@ -97,7 +98,7 @@ bool WikiEdit::FinalizePostProcessing()
     if (this->ProcessingRevs)
     {
         // check if api was processed
-        if (!this->ProcessingQuery->Processed())
+        if (!this->ProcessingQuery->IsProcessed())
         {
             return false;
         }
@@ -128,7 +129,14 @@ bool WikiEdit::FinalizePostProcessing()
                 QDomElement e = page.at(0).toElement();
                 if (e.nodeName() == "rev")
                 {
-                    this->User->SetContentsOfTalkPage(e.text());
+                    if (!e.attributes().contains("timestamp"))
+                    {
+                        Huggle::Syslog::HuggleLogs->ErrorLog("Talk page timestamp of " + this->User->Username + " couldn't be retrieved, mediawiki returned no data for it");
+                    } else
+                    {
+                        this->TPRevBaseTime = e.attribute("timestamp");
+                    }
+                    this->User->TalkPage_SetContents(e.text());
                 } else
                 {
                     /// \todo LOCALIZE ME
@@ -136,7 +144,11 @@ bool WikiEdit::FinalizePostProcessing()
                 }
             } else
             {
-                if (!missing)
+                if (missing)
+                {
+                    // we set an empty talk page so that we know we do have the contents of this page
+                    this->User->TalkPage_SetContents("");
+                } else
                 {
                     /// \todo LOCALIZE ME
                     Huggle::Syslog::HuggleLogs->Log("Unable to retrieve " + this->User->GetTalk() + " warning level will not be scored by it");
@@ -150,7 +162,7 @@ bool WikiEdit::FinalizePostProcessing()
     if (this->ProcessingDiff)
     {
         // check if api was processed
-        if (!this->DifferenceQuery->Processed())
+        if (!this->DifferenceQuery->IsProcessed())
         {
             return false;
         }
@@ -275,23 +287,23 @@ void WikiEdit::ProcessWords()
         {
             found = true;
         }
-        while (!found && SD < Configuration::HuggleConfiguration->Separators.count())
+        while (!found && SD < Configuration::HuggleConfiguration->SystemConfig_Separators.count())
         {
-            if (text.startsWith(w + Configuration::HuggleConfiguration->Separators.at(SD)))
+            if (text.startsWith(w + Configuration::HuggleConfiguration->SystemConfig_Separators.at(SD)))
             {
                 found = true;
                 break;
             }
-            if (text.endsWith(Configuration::HuggleConfiguration->Separators.at(SD) + w))
+            if (text.endsWith(Configuration::HuggleConfiguration->SystemConfig_Separators.at(SD) + w))
             {
                 found = true;
                 break;
             }
             int SL = 0;
-            while (SL <Configuration::HuggleConfiguration->Separators.count())
+            while (SL <Configuration::HuggleConfiguration->SystemConfig_Separators.count())
             {
-                if (text.contains(Configuration::HuggleConfiguration->Separators.at(SD) +
-                             w + Configuration::HuggleConfiguration->Separators.at(SL)))
+                if (text.contains(Configuration::HuggleConfiguration->SystemConfig_Separators.at(SD) +
+                             w + Configuration::HuggleConfiguration->SystemConfig_Separators.at(SL)))
                 {
                     found = true;
                     break;
@@ -323,7 +335,7 @@ void WikiEdit::PostProcess()
     this->ProcessingQuery = new ApiQuery();
     this->ProcessingQuery->SetAction(ActionQuery);
     this->ProcessingQuery->Parameters = "prop=revisions&rvprop=" + QUrl::toPercentEncoding("timestamp|user|comment|content") + "&titles=" +
-            QUrl::toPercentEncoding(this->User->GetTalk());
+                                        QUrl::toPercentEncoding(this->User->GetTalk());
     this->ProcessingQuery->RegisterConsumer("WikiEdit::PostProcess()");
     Core::HuggleCore->AppendQuery(this->ProcessingQuery);
     this->ProcessingQuery->Target = "Retrieving tp " + this->User->GetTalk();
@@ -340,7 +352,8 @@ void WikiEdit::PostProcess()
     } else
     {
         this->DifferenceQuery->Parameters = "prop=revisions&rvprop=" + QUrl::toPercentEncoding( "ids|user|timestamp|comment" ) +
-                            "&rvlimit=1&rvtoken=rollback&rvdiffto=prev&titles=" + QUrl::toPercentEncoding(this->Page->PageName);
+                                            "&rvlimit=1&rvtoken=rollback&rvdiffto=prev&titles=" +
+                                            QUrl::toPercentEncoding(this->Page->PageName);
     }
     this->DifferenceQuery->Target = Page->PageName;
     //this->DifferenceQuery->UsingPOST = true;
@@ -432,17 +445,13 @@ void ProcessorThread::Process(WikiEdit *edit)
         edit->Score += Configuration::HuggleConfiguration->LocalConfig_WhitelistScore;
     }
 
-    edit->Score += edit->User->getBadnessScore();
+    edit->Score += edit->User->GetBadnessScore();
     if (!IgnoreWords)
     {
         edit->ProcessWords();
     }
-    QString TalkPage = edit->User->GetContentsOfTalkPage();
 
-    if (TalkPage != "")
-    {
-        edit->User->WarningLevel = WikiEdit::GetLevel(TalkPage);
-    }
+    edit->User->ParseTP();
 
     switch(edit->User->WarningLevel)
     {
@@ -470,128 +479,4 @@ void ProcessorThread::Process(WikiEdit *edit)
     edit->ProcessedByWorkerThread = true;
     edit->RegisterConsumer(HUGGLECONSUMER_DELETIONLOCK);
     edit->Status = StatusPostProcessed;
-}
-
-int WikiEdit::GetLevel(QString page)
-{
-    if (Configuration::HuggleConfiguration->TrimOldWarnings)
-    {
-        // we need to get rid of old warnings now
-        QString orig = page;
-        // first we split the page by sections
-        QStringList sections;
-        int CurrentIndex = 0;
-        while (CurrentIndex < page.length())
-        {
-            if (!page.startsWith("==") && !page.contains("\n=="))
-            {
-                // no sections
-                sections.append(page);
-                break;
-            }
-
-            // we need to get to start of section now
-            CurrentIndex = 0;
-            if (!page.startsWith("==") && page.contains("\n=="))
-            {
-                page = page.mid(page.indexOf("\n==") + 1);
-            }
-
-            // get to bottom of it
-            int bottom = 0;
-            if (!page.mid(CurrentIndex).contains("\n=="))
-            {
-                sections.append(page);
-                break;
-            }
-            bottom = page.indexOf("\n==", CurrentIndex);
-
-            QString section = page.mid(0, bottom);
-            page = page.mid(bottom);
-            sections.append(section);
-        }
-
-        // now we browse all sections and remove these with no current date
-
-        CurrentIndex = 0;
-
-        page = orig;
-
-        while (CurrentIndex < sections.count())
-        {
-            // we need to find a date in this section
-            if (!sections.at(CurrentIndex).contains("(UTC)"))
-            {
-                // there is none
-                page = page.replace(sections.at(CurrentIndex), "");
-                CurrentIndex++;
-                continue;
-            }
-            QString section = sections.at(CurrentIndex);
-            section = section.mid(0, section.indexOf("(UTC)"));
-            if (section.endsWith(" "))
-            {
-                // we remove trailing white space
-                section = section.mid(0, section.length() - 1);
-            }
-
-            if (!section.contains(","))
-            {
-                // this is some borked date let's remove it
-                page = page.replace(sections.at(CurrentIndex), "");
-                CurrentIndex++;
-                continue;
-            }
-
-            QString time = section.mid(section.lastIndexOf(","));
-            if (time.length() < 2)
-            {
-                // what the fuck
-                page = page.replace(sections.at(CurrentIndex), "");
-                CurrentIndex++;
-                continue;
-            }
-
-            // we remove the comma
-            time = time.mid(2);
-            QDate date = QDate::fromString(time, "d MMMM yyyy");
-            if (!date.isValid())
-            {
-                page = page.replace(sections.at(CurrentIndex), "");
-                CurrentIndex++;
-                continue;
-            } else
-            {
-                // now check if it's at least 1 month old
-                if (QDate::currentDate().addDays(Configuration::HuggleConfiguration->LocalConfig_TemplateAge) > date)
-                {
-                    // we don't want to parse this thing
-                    page = page.replace(sections.at(CurrentIndex), "");
-                    CurrentIndex++;
-                    continue;
-                }
-            }
-            CurrentIndex++;
-        }
-    }
-
-    int level = 4;
-    while (level > 0)
-    {
-        int xx=0;
-        while (xx<Configuration::HuggleConfiguration->LocalConfig_WarningDefs.count())
-        {
-            QString defs=Configuration::HuggleConfiguration->LocalConfig_WarningDefs.at(xx);
-            if (HuggleParser::GetKeyFromValue(defs).toInt() == level)
-            {
-                if (page.contains(HuggleParser::GetValueFromKey(defs)))
-                {
-                    return level;
-                }
-            }
-            xx++;
-        }
-        level--;
-    }
-    return 0;
 }

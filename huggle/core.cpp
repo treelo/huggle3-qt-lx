@@ -46,14 +46,14 @@ void Core::Init()
                                                                            "identified as test edits");
 #ifdef PYTHONENGINE
     Syslog::HuggleLogs->Log("Loading python engine");
-    this->Python = new PythonEngine();
+    this->Python = new Python::PythonEngine(EXTENSION_PATH);
 #endif
     Syslog::HuggleLogs->DebugLog("Loading wikis");
     this->LoadDB();
     Syslog::HuggleLogs->DebugLog("Loading queue");
     // these are separators that we use to parse words, less we have, faster huggle will be, despite it will fail more to detect vandals
     // keep it low but precise enough
-    Configuration::HuggleConfiguration->Separators << " " << "." << "," << "(" << ")" << ":" << ";" << "!" << "?" << "/" << "<" << ">" << "[" << "]";
+    Configuration::HuggleConfiguration->SystemConfig_Separators << " " << "." << "," << "(" << ")" << ":" << ";" << "!" << "?" << "/" << "<" << ">" << "[" << "]";
     HuggleQueueFilter::Filters.append(HuggleQueueFilter::DefaultFilter);
     if (!Configuration::HuggleConfiguration->_SafeMode)
     {
@@ -77,7 +77,7 @@ Core::Core()
     this->DiffFooter = "";
     this->DiffHeader = "";
     this->Main = NULL;
-    this->f_Login = NULL;
+    this->fLogin = NULL;
     this->SecondaryFeedProvider = NULL;
     this->PrimaryFeedProvider = NULL;
     this->Processor = NULL;
@@ -89,7 +89,7 @@ Core::Core()
 Core::~Core()
 {
     delete this->Main;
-    delete this->f_Login;
+    delete this->fLogin;
     delete this->SecondaryFeedProvider;
     delete this->PrimaryFeedProvider;
     delete this->gc;
@@ -223,7 +223,7 @@ void Core::SaveDefs()
     while (x<WikiUser::ProblematicUsers.count())
     {
         xx += "<user name=\"" + WikiUser::ProblematicUsers.at(x)->Username + "\" badness=\"" +
-                QString::number(WikiUser::ProblematicUsers.at(x)->getBadnessScore()) +"\"></user>\n";
+                QString::number(WikiUser::ProblematicUsers.at(x)->GetBadnessScore()) +"\"></user>\n";
         x++;
     }
     WikiUser::ProblematicUserListLock.unlock();
@@ -243,28 +243,35 @@ QString Core::MonthText(int n)
     return Configuration::HuggleConfiguration->Months.at(n);
 }
 
-Message *Core::MessageUser(WikiUser *user, QString message, QString title, QString summary, bool section, Query *dependency, bool nosuffix, bool keep)
+Message *Core::MessageUser(WikiUser *User, QString Text, QString Title, QString Summary, bool InsertSection,
+                           Query *DependencyRevert, bool NoSuffix, bool SectionKeep, bool autoremove, QString bt)
 {
-    if (user == NULL)
+    if (User == NULL)
     {
         Huggle::Syslog::HuggleLogs->Log("Cowardly refusing to message NULL user");
         return NULL;
     }
 
-    if (title == "")
+    if (Title == "")
     {
-        section = false;
+        InsertSection = false;
     }
 
-    Message *m = new Message(user, message, summary);
-    m->title = title;
-    m->Dependency = dependency;
-    m->Section = section;
-    m->SectionKeep = keep;
-    m->Suffix = !nosuffix;
+    Message *m = new Message(User, Text, Summary);
+    m->Title = Title;
+    m->Dependency = DependencyRevert;
+    m->Section = InsertSection;
+    m->BaseTimestamp = bt;
+    m->SectionKeep = SectionKeep;
+    m->Suffix = !NoSuffix;
     Core::Messages.append(m);
+    m->RegisterConsumer(HUGGLECONSUMER_CORE);
+    if (!autoremove)
+    {
+        m->RegisterConsumer(HUGGLECONSUMER_CORE_MESSAGE);
+    }
     m->Send();
-    Huggle::Syslog::HuggleLogs->Log("Sending message to user " + user->Username);
+    Huggle::Syslog::HuggleLogs->Log("Sending message to user " + User->Username);
 
     return m;
 }
@@ -311,7 +318,7 @@ void Core::LoadDefs()
             user->Username = e.attribute("name");
             if (e.attributes().contains("badness"))
             {
-                user->setBadnessScore(e.attribute("badness").toInt());
+                user->SetBadnessScore(e.attribute("badness").toInt());
             }
             WikiUser::ProblematicUsers.append(user);
             i++;
@@ -331,7 +338,7 @@ void Core::FinalizeMessages()
     QList<Message*> list;
     while (x<this->Messages.count())
     {
-        if (this->Messages.at(x)->Finished())
+        if (this->Messages.at(x)->IsFinished())
         {
             list.append(this->Messages.at(x));
         }
@@ -340,7 +347,9 @@ void Core::FinalizeMessages()
     x=0;
     while (x<list.count())
     {
-        Core::Messages.removeOne(list.at(x));
+        Message *message = list.at(x);
+        message->UnregisterConsumer(HUGGLECONSUMER_CORE);
+        Core::Messages.removeOne(message);
         x++;
     }
 }
@@ -359,30 +368,27 @@ QString Core::RetrieveTemplateToWarn(QString type)
     return "";
 }
 
-EditQuery *Core::EditPage(WikiPage *page, QString text, QString summary, bool minor, QString token)
+EditQuery *Core::EditPage(WikiPage *page, QString text, QString summary, bool minor, QString BaseTimestamp)
 {
     if (page == NULL)
     {
         return NULL;
     }
     // retrieve a token
-    EditQuery *_e = new EditQuery();
-    if (!summary.endsWith(Configuration::HuggleConfiguration->EditSuffixOfHuggle))
+    EditQuery *eq = new EditQuery();
+    if (!summary.endsWith(Configuration::HuggleConfiguration->LocalConfig_EditSuffixOfHuggle))
     {
-        summary = summary + " " + Configuration::HuggleConfiguration->EditSuffixOfHuggle;
+        summary = summary + " " + Configuration::HuggleConfiguration->LocalConfig_EditSuffixOfHuggle;
     }
-    _e->RegisterConsumer("Core::EditPage");
-    _e->Page = page->PageName;
-    this->PendingMods.append(_e);
-    _e->text = text;
-    if (token != "")
-    {
-        _e->_Token = token;
-    }
-    _e->Summary = summary;
-    _e->Minor = minor;
-    _e->Process();
-    return _e;
+    eq->RegisterConsumer("Core::EditPage");
+    eq->Page = page->PageName;
+    eq->BaseTimestamp = BaseTimestamp;
+    this->PendingMods.append(eq);
+    eq->text = text;
+    eq->Summary = summary;
+    eq->Minor = minor;
+    eq->Process();
+    return eq;
 }
 
 void Core::AppendQuery(Query *item)
@@ -566,6 +572,34 @@ bool Core::IsRevert(QString Summary)
     return false;
 }
 
+void Core::TestLanguages()
+{
+    if (Configuration::HuggleConfiguration->SystemConfig_LanguageSanity)
+    {
+        Language *english = Localizations::HuggleLocalizations->LocalizationData.at(0);
+        QList<QString> keys = english->Messages.keys();
+        int language = 1;
+        while (language < Localizations::HuggleLocalizations->LocalizationData.count())
+        {
+            Language *l = Localizations::HuggleLocalizations->LocalizationData.at(language);
+            int x = 0;
+            while (x < keys.count())
+            {
+                if (!l->Messages.contains(keys.at(x)))
+                {
+                    Syslog::HuggleLogs->WarningLog("Language " + l->LanguageName + " is missing key " + keys.at(x));
+                } else if (english->Messages[keys.at(x)] == l->Messages[keys.at(x)])
+                {
+                    Syslog::HuggleLogs->WarningLog("Language " + l->LanguageName + " has key " + keys.at(x)
+                            + " but its content is identical to english version");
+                }
+                x++;
+            }
+            language++;
+        }
+    }
+}
+
 void Core::DeveloperError()
 {
     QMessageBox *mb = new QMessageBox();
@@ -597,7 +631,7 @@ void Core::PreProcessEdit(WikiEdit *_e)
         _e->User->SetBot(true);
     }
 
-    _e->EditMadeByHuggle = _e->Summary.contains(Configuration::HuggleConfiguration->EditSuffixOfHuggle);
+    _e->EditMadeByHuggle = _e->Summary.contains(Configuration::HuggleConfiguration->LocalConfig_EditSuffixOfHuggle);
 
     int x = 0;
     while (x < Configuration::HuggleConfiguration->LocalConfig_Assisted.count())
@@ -646,7 +680,7 @@ void Core::CheckQueries()
     {
         while (curr < Core::PendingMods.count())
         {
-            if (Core::PendingMods.at(curr)->Processed())
+            if (Core::PendingMods.at(curr)->IsProcessed())
             {
                 EditQuery *e = Core::PendingMods.at(curr);
                 Core::PendingMods.removeAt(curr);
@@ -667,7 +701,7 @@ void Core::CheckQueries()
     {
         Query *q = Core::RunningQueries.at(curr);
         Core::Main->Queries->UpdateQuery(q);
-        if (q->Processed())
+        if (q->IsProcessed())
         {
             Finished.append(q);
             Huggle::Syslog::HuggleLogs->DebugLog("Query finished with: " + q->Result->Data, 6);
@@ -686,42 +720,6 @@ void Core::CheckQueries()
         item->SafeDelete();
         curr++;
     }
-}
-
-bool Core::PreflightCheck(WikiEdit *_e)
-{
-    if (_e == NULL)
-    {
-        throw new Exception("NULL edit in PreflightCheck(WikiEdit *_e) is not a valid edit");
-    }
-    bool Warn = false;
-    QString type = "unknown";
-    if (Configuration::HuggleConfiguration->WarnUserSpaceRoll && _e->Page->IsUserpage())
-    {
-        Warn = true;
-        type = "in userspace";
-    } else if (Configuration::HuggleConfiguration->LocalConfig_ConfirmOnSelfRevs
-               &&(_e->User->Username.toLower() == Configuration::HuggleConfiguration->UserName.toLower()))
-    {
-        type = "made by you";
-        Warn = true;
-    } else if (Configuration::HuggleConfiguration->LocalConfig_ConfirmTalk && _e->Page->IsTalk())
-    {
-        type = "made on talk page";
-        Warn = true;
-    }
-    if (Warn)
-    {
-        QMessageBox::StandardButton q = QMessageBox::question(NULL, "Revert edit"
-                      , "This edit is " + type + ", so even if it looks like it is a vandalism,"\
-                      " it may not be, are you sure you want to revert it?"
-                      , QMessageBox::Yes|QMessageBox::No);
-        if (q == QMessageBox::No)
-        {
-            return false;
-        }
-    }
-    return true;
 }
 
 RevertQuery *Core::RevertEdit(WikiEdit *_e, QString summary, bool minor, bool rollback, bool keep)
@@ -806,6 +804,7 @@ void Core::LoadLocalizations()
     Localizations::HuggleLocalizations->LocalInit("ru");
     Localizations::HuggleLocalizations->LocalInit("sv");
     Localizations::HuggleLocalizations->LocalInit("zh");
+    this->TestLanguages();
 }
 
 bool Core::ReportPreFlightCheck()

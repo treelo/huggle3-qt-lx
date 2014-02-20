@@ -26,6 +26,12 @@ Language *Localizations::MakeLanguage(QString text, QString name)
     int p = 0;
     while (p < keys.count())
     {
+        if (keys.at(p).startsWith("//") || keys.at(p).startsWith("<"))
+        {
+            // this is comment in language file
+            p++;
+            continue;
+        }
         if (keys.at(p).contains(":"))
         {
             QString line = keys.at(p);
@@ -35,6 +41,14 @@ Language *Localizations::MakeLanguage(QString text, QString name)
             }
             QString key = line.mid(0, line.indexOf(":"));
             QString lang = line.mid(line.indexOf(":") + 1);
+            if (keys.at(p).startsWith("@"))
+            {
+                // this language is using identical text purposefuly so we replace
+                // text with at symbol which means "use english locs"
+                l->Messages.insert(key, "@");
+                p++;
+                continue;
+            }
             while (lang.startsWith(" "))
             {
                 lang = lang.mid(1);
@@ -55,7 +69,22 @@ Language *Localizations::MakeLanguage(QString text, QString name)
 
 void Localizations::LocalInit(QString name)
 {
-    QFile *f = new QFile(":/huggle/text/Localization/" + name + ".txt");
+    QFile *f;
+    if (Configuration::HuggleConfiguration->_SafeMode)
+    {
+        // we don't want to load custom files in safe mode
+        f = new QFile(":/huggle/text/Localization/" + name + ".txt");
+    } else
+    {
+        if (QFile().exists(Configuration::GetLocalizationDataPath() + name + ".txt"))
+        {
+            // there is a custom localization file in directory
+            f = new QFile(Configuration::GetLocalizationDataPath() + name + ".txt");
+        } else
+        {
+            f = new QFile(":/huggle/text/Localization/" + name + ".txt");
+        }
+    }
     f->open(QIODevice::ReadOnly);
     this->LocalizationData.append(Localizations::MakeLanguage(QString(f->readAll()), name));
     f->close();
@@ -83,7 +112,13 @@ QString Localizations::Localize(QString key)
                 Language *l = this->LocalizationData.at(c);
                 if (l->Messages.contains(id))
                 {
-                    return l->Messages[id];
+                    QString result = l->Messages[id];
+                    if (result == "@")
+                    {
+                        // reference to english
+                        break;
+                    }
+                    return result;
                 }
                 // performance tweak
                 break;
@@ -146,6 +181,13 @@ QString Localizations::Localize(QString key, QStringList parameters)
         }
     }
     return key;
+}
+
+QString Localizations::Localize(QString key, QString par1, QString par2)
+{
+    QStringList list;
+    list << par1 << par2;
+    return Localize(key, list);
 }
 
 QString Localizations::Localize(QString key, QString parameters)

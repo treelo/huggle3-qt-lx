@@ -141,7 +141,7 @@ void Login::DB()
         return;
     }
 
-    if (this->LoginQuery->Processed())
+    if (this->LoginQuery->IsProcessed())
     {
         Syslog::HuggleLogs->DebugLog(LoginQuery->Result->Data, 2);
         QDomDocument d;
@@ -157,8 +157,9 @@ void Login::DB()
             if (wiki.open(QIODevice::WriteOnly))
             {
                 wiki.write(l.at(0).toElement().text().toUtf8());
-                Core::HuggleCore->LoadDB();
+                wiki.close();
             }
+            Core::HuggleCore->LoadDB();
             Reload();
         }
         this->timer->stop();
@@ -185,8 +186,7 @@ void Login::PressOK()
     if (this->ui->tab->isVisible())
     {
         QMessageBox mb;
-        mb.setWindowTitle("Function not supported");
-        /// \todo LOCALIZE ME
+        mb.setWindowTitle(Localizations::HuggleLocalizations->Localize("function-miss"));
         mb.setText("This function is not available for wmf wikis in this moment");
         mb.exec();
         return;
@@ -224,7 +224,7 @@ void Login::PerformLogin()
 
 void Login::FinishLogin()
 {
-    if (!this->LoginQuery->Processed())
+    if (!this->LoginQuery->IsProcessed())
     {
         return;
     }
@@ -264,7 +264,7 @@ void Login::RetrieveGlobalConfig()
 {
     if (this->LoginQuery != NULL)
     {
-        if (this->LoginQuery->Processed())
+        if (this->LoginQuery->IsProcessed())
         {
             if (this->LoginQuery->Result->Failed)
             {
@@ -292,8 +292,7 @@ void Login::RetrieveGlobalConfig()
             {
                 if (!Configuration::HuggleConfiguration->GlobalConfig_EnableAll)
                 {
-                    /// \todo LOCALIZE ME
-                    this->ui->label_6->setText("Login failed because huggle is globally disabled");
+                    this->ui->label_6->setText(Localizations::HuggleLocalizations->Localize("login-error-alldisabled"));
                     this->Progress(0);
                     this->_Status = LoginFailed;
                     this->LoginQuery->SafeDelete();
@@ -305,8 +304,7 @@ void Login::RetrieveGlobalConfig()
                 this->_Status = RetrievingWhitelist;
                 return;
             }
-            /// \todo LOCALIZE ME
-            this->ui->label_6->setText("Login failed unable to parse the global config, see debug log for more details");
+            this->ui->label_6->setText(Localizations::HuggleLocalizations->Localize("login-error-global"));
             Syslog::HuggleLogs->DebugLog(data.text());
             this->Progress(0);
             this->_Status = LoginFailed;
@@ -327,7 +325,7 @@ void Login::RetrieveGlobalConfig()
 
 void Login::FinishToken()
 {
-    if (!this->LoginQuery->Processed())
+    if (!this->LoginQuery->IsProcessed())
     {
         return;
     }
@@ -356,11 +354,11 @@ void Login::RetrieveWhitelist()
 {
     if (this->wq != NULL)
     {
-        if (this->wq->Processed())
+        if (this->wq->IsProcessed())
         {
             if (this->wq->Result->Failed)
             {
-                Configuration::HuggleConfiguration->WhitelistDisabled = true;
+                Configuration::HuggleConfiguration->SystemConfig_WhitelistDisabled = true;
             } else
             {
                 QString list = this->wq->Result->Data;
@@ -397,12 +395,11 @@ void Login::RetrieveLocalConfig()
 {
     if (this->LoginQuery != NULL)
     {
-        if (this->LoginQuery->Processed())
+        if (this->LoginQuery->IsProcessed())
         {
             if (this->LoginQuery->Result->Failed)
             {
-                /// \todo LOCALIZE ME
-                this->ui->label_6->setText("Login failed unable to retrieve local config: " + this->LoginQuery->Result->ErrorMessage);
+                this->ui->label_6->setText(Localizations::HuggleLocalizations->Localize("login-error-config", this->LoginQuery->Result->ErrorMessage));
                 this->Progress(0);
                 this->_Status = LoginFailed;
                 this->LoginQuery->SafeDelete();
@@ -414,8 +411,7 @@ void Login::RetrieveLocalConfig()
             QDomNodeList l = d.elementsByTagName("rev");
             if (l.count() == 0)
             {
-                /// \todo LOCALIZE ME
-                this->ui->label_6->setText("Login failed unable to retrieve local config, the api query returned no data");
+                this->ui->label_6->setText(Localizations::HuggleLocalizations->Localize("login-error-config", "the api query returned no data"));
                 this->Progress(0);
                 this->_Status = LoginFailed;
                 this->LoginQuery->SafeDelete();
@@ -461,7 +457,7 @@ void Login::RetrievePrivateConfig()
 {
     if (this->LoginQuery != NULL)
     {
-        if (this->LoginQuery->Processed())
+        if (this->LoginQuery->IsProcessed())
         {
             if (this->LoginQuery->Result->Failed)
             {
@@ -531,7 +527,7 @@ void Login::RetrieveUserInfo()
 {
     if (this->LoginQuery != NULL)
     {
-        if (this->LoginQuery->Processed())
+        if (this->LoginQuery->IsProcessed())
         {
             if (this->LoginQuery->Result->Failed)
             {
@@ -630,7 +626,7 @@ bool Login::ProcessOutput()
     QString Result = this->LoginQuery->Result->Data;
     if (!Result.contains(("<login result")))
     {
-        /// \todo LOCALIZE ME
+        Syslog::HuggleLogs->DebugLog(Result);
         this->DisplayError("ERROR: The api.php responded with invalid text (webserver is down?), please check debug log for precise information");
         return false;
     }
@@ -638,7 +634,7 @@ bool Login::ProcessOutput()
     Result = Result.mid(Result.indexOf("result=\"") + 8);
     if (!Result.contains("\""))
     {
-        /// \todo LOCALIZE ME
+        Syslog::HuggleLogs->DebugLog(Result);
         this->DisplayError("ERROR: The api.php responded with invalid text (webserver is broken), please check debug log for precise information");
         return false;
     }
@@ -659,9 +655,9 @@ bool Login::ProcessOutput()
 
     if (Result == "WrongPass")
     {
+        /// \bug This sometimes doesn't work properly
         this->ui->lineEdit_3->setFocus();
-        /// \todo LOCALIZE ME
-        this->DisplayError("Your password is not correct");
+        this->DisplayError(Localizations::HuggleLocalizations->Localize("login-error-password"));
         return false;
     }
 
@@ -682,7 +678,6 @@ QString Login::GetToken()
     QString token = this->Token;
     if (!token.contains(Login::Test))
     {
-        // this is invalid token?
         /// \todo LOCALIZE ME
         Syslog::HuggleLogs->Log("WARNING: the result of api request doesn't contain valid token");
         Syslog::HuggleLogs->DebugLog("The token didn't contain the correct string, token was " + token);
@@ -691,7 +686,6 @@ QString Login::GetToken()
     token = token.mid(token.indexOf(Login::Test) + Login::Test.length());
     if (!token.contains("\""))
     {
-        // this is invalid token?
         /// \todo LOCALIZE ME
         Syslog::HuggleLogs->Log("WARNING: the result of api request doesn't contain valid token");
         Syslog::HuggleLogs->DebugLog("The token didn't contain the closing mark, token was " + token);
@@ -758,7 +752,6 @@ void Login::OnTimerTick()
         case LoginDone:
             break;
     }
-
 
     if (this->_Status == LoginFailed)
     {

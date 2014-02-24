@@ -33,8 +33,8 @@ void Core::Init()
 #else
     QTextCodec::setCodecForCStrings(QTextCodec::codecForName("UTF-8"));
 #endif
-    this->LoadResources();
     Syslog::HuggleLogs->Log("Huggle 3 QT-LX, version " + Configuration::HuggleConfiguration->HuggleVersion);
+    Resources::Init();
     Syslog::HuggleLogs->Log("Loading configuration");
     this->Processor = new ProcessorThread();
     this->Processor->start();
@@ -42,23 +42,21 @@ void Core::Init()
     Configuration::LoadConfig();
     Syslog::HuggleLogs->DebugLog("Loading defs");
     this->LoadDefs();
-    Configuration::HuggleConfiguration->LocalConfig_RevertSummaries.append("Test edits;Reverted edits by [[Special:Contributions/$1|$1]] "\
-                                                                           "identified as test edits");
-#ifdef PYTHONENGINE
-    Syslog::HuggleLogs->Log("Loading python engine");
-    this->Python = new Python::PythonEngine(EXTENSION_PATH);
-#endif
     Syslog::HuggleLogs->DebugLog("Loading wikis");
     this->LoadDB();
     Syslog::HuggleLogs->DebugLog("Loading queue");
     // these are separators that we use to parse words, less we have, faster huggle will be, despite it will fail more to detect vandals
     // keep it low but precise enough
-    Configuration::HuggleConfiguration->SystemConfig_Separators << " " << "." << "," << "(" << ")" << ":" << ";" << "!" << "?" << "/" << "<" << ">" << "[" << "]";
+    Configuration::HuggleConfiguration->SystemConfig_WordSeparators << " " << "." << "," << "(" << ")" << ":" << ";" << "!" << "?" << "/" << "<" << ">" << "[" << "]";
     HuggleQueueFilter::Filters.append(HuggleQueueFilter::DefaultFilter);
     if (!Configuration::HuggleConfiguration->_SafeMode)
     {
-        Syslog::HuggleLogs->Log("Loading plugins");
+        Syslog::HuggleLogs->Log("Loading plugins in " + Configuration::GetExtensionsRootPath());
         this->ExtensionLoad();
+#ifdef PYTHONENGINE
+    Syslog::HuggleLogs->Log("Loading python engine");
+    this->Python = new Python::PythonEngine(Configuration::GetExtensionsRootPath());
+#endif
     } else
     {
         Syslog::HuggleLogs->Log("Not loading plugins in a safe mode");
@@ -71,11 +69,6 @@ Core::Core()
 #ifdef PYTHONENGINE
     this->Python = NULL;
 #endif
-    this->HtmlHeader = "";
-    this->HtmlFooter = "";
-    this->HtmlIncoming = "";
-    this->DiffFooter = "";
-    this->DiffHeader = "";
     this->Main = NULL;
     this->fLogin = NULL;
     this->SecondaryFeedProvider = NULL;
@@ -271,7 +264,7 @@ Message *Core::MessageUser(WikiUser *User, QString Text, QString Title, QString 
         m->RegisterConsumer(HUGGLECONSUMER_CORE_MESSAGE);
     }
     m->Send();
-    Huggle::Syslog::HuggleLogs->Log("Sending message to user " + User->Username);
+    Huggle::Syslog::HuggleLogs->DebugLog("Sending message to user " + User->Username);
 
     return m;
 }
@@ -399,9 +392,10 @@ void Core::AppendQuery(Query *item)
 
 void Core::ExtensionLoad()
 {
-    if (QDir().exists(EXTENSION_PATH))
+    QString path_ = Configuration::GetExtensionsRootPath();
+    if (QDir().exists(path_))
     {
-        QDir d(EXTENSION_PATH);
+        QDir d(path_);
         QStringList extensions = d.entryList();
         int xx = 0;
         while (xx < extensions.count())
@@ -409,7 +403,7 @@ void Core::ExtensionLoad()
             QString name = extensions.at(xx).toLower();
             if (name.endsWith(".so") || name.endsWith(".dll"))
             {
-                name = QString(EXTENSION_PATH) + QDir::separator() + extensions.at(xx);
+                name = QString(path_) + extensions.at(xx);
                 QPluginLoader *extension = new QPluginLoader(name);
                 if (extension->load())
                 {
@@ -453,7 +447,7 @@ void Core::ExtensionLoad()
             } else if (name.endsWith(".py"))
             {
 #ifdef PYTHONENGINE
-                name = QString(EXTENSION_PATH) + QDir::separator() + extensions.at(xx);
+                name = QString(path_) + extensions.at(xx);
                 if (Core::Python->LoadScript(name))
                 {
                     Huggle::Syslog::HuggleLogs->Log("Loaded python script: " + name);
@@ -831,36 +825,6 @@ bool Core::ReportPreFlightCheck()
 int Core::RunningQueriesGetCount()
 {
     return this->RunningQueries.count();
-}
-
-void Core::LoadResources()
-{
-    QFile *vf;
-    vf = new QFile(":/huggle/resources/Resources/Header.txt");
-    vf->open(QIODevice::ReadOnly);
-    this->HtmlHeader = QString(vf->readAll());
-    vf->close();
-    delete vf;
-    vf = new QFile(":/huggle/resources/Resources/DiffBeginning.txt");
-    vf->open(QIODevice::ReadOnly);
-    this->DiffHeader = QString(vf->readAll());
-    vf->close();
-    delete vf;
-    vf = new QFile(":/huggle/resources/Resources/PageEnd.txt");
-    vf->open(QIODevice::ReadOnly);
-    this->HtmlFooter = QString(vf->readAll());
-    vf->close();
-    delete vf;
-    vf = new QFile(":/huggle/resources/Resources/DiffEnd.txt");
-    vf->open(QIODevice::ReadOnly);
-    this->DiffFooter = QString(vf->readAll());
-    vf->close();
-    delete vf;
-    vf = new QFile(":/huggle/resources/Resources/Message.txt");
-    vf->open(QIODevice::ReadOnly);
-    this->HtmlIncoming = QString(vf->readAll());
-    vf->close();
-    delete vf;
 }
 
 void Core::TruncateReverts()

@@ -25,6 +25,8 @@ Configuration::Configuration()
     this->UsingSSL = true;
     this->UserName = "User";
     this->SystemConfig_CacheHAN = 100;
+    this->LocalConfig_RevertSummaries.append("Test edits;Reverted edits by [[Special:Contributions/$1|$1]] "\
+                                               "identified as test edits");
     this->IndexOfLastWiki = 0;
     this->UserConfig_HistoryLoad = true;
     this->Password = "";
@@ -108,6 +110,7 @@ Configuration::Configuration()
     this->LocalConfig_IPScore = 800;
     this->LocalConfig_ForeignUser = 800;
     this->LocalConfig_BotScore = -200;
+    this->UserConfig_LastEdit = false;
     this->LocalConfig_ScoreUser = -600;
     this->LocalConfig_WarningScore = 2000;
     this->LocalConfig_TalkPageWarningScore = -800;
@@ -232,6 +235,20 @@ QString Configuration::GenerateSuffix(QString text)
     return text;
 }
 
+QString Configuration::GetExtensionsRootPath()
+{
+    QString path_ = Configuration::HuggleConfiguration->HomePath + QDir::separator() + EXTENSION_PATH;
+    QDir conf(path_);
+    if (!conf.exists())
+    {
+        if(!conf.mkpath(path_))
+        {
+            Syslog::HuggleLogs->WarningLog("Unable to create " + path_);
+        }
+    }
+    return path_ + QDir::separator();
+}
+
 QString Configuration::GetLocalizationDataPath()
 {
     QDir conf(Configuration::HuggleConfiguration->HomePath + QDir::separator() + "Localization");
@@ -351,6 +368,7 @@ QString Configuration::MakeLocalUserConfig()
     configuration_ += "HistoryLoad:" + Configuration::Bool2String(Configuration::HuggleConfiguration->UserConfig_HistoryLoad) + "\n";
     configuration_ += "OnNext:" + QString::number(static_cast<int>(Configuration::HuggleConfiguration->UserConfig_GoNext)) + "\n";
     configuration_ += "DeleteEditsAfterRevert:" + Configuration::Bool2String(Configuration::HuggleConfiguration->UserConfig_DeleteEditsAfterRevert) + "\n";
+    configuration_ += "SkipToLastEdit:" + Configuration::Bool2String(Configuration::HuggleConfiguration->UserConfig_LastEdit) + "\n";
     configuration_ += "TruncateEdits:" + Configuration::Bool2String(Configuration::HuggleConfiguration->UserConfig_TruncateEdits) + "\n";
     configuration_ += "// queues\nqueues:\n";
     int c = 0;
@@ -1158,6 +1176,8 @@ bool Configuration::ParseUserConfig(QString config)
             (Configuration::ConfigurationParse("TruncateEdits", config, "false"));
     Configuration::HuggleConfiguration->UserConfig_HistoryLoad = Configuration::SafeBool
                      (Configuration::ConfigurationParse("HistoryLoad", config, "true"));
+    Configuration::HuggleConfiguration->UserConfig_LastEdit = Configuration::SafeBool
+            (Configuration::ConfigurationParse("SkipToLastEdit", config, "false"));
     Configuration::HuggleConfiguration->UserConfig_GoNext = static_cast<Configuration_OnNext>
                           (Configuration::ConfigurationParse("OnNext", config, "1").toInt());
     Configuration::HuggleConfiguration->UserConfig_DeleteEditsAfterRevert = Configuration::SafeBool

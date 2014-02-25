@@ -116,6 +116,7 @@ Configuration::Configuration()
     this->LocalConfig_TalkPageWarningScore = -800;
     this->LocalConfig_ScoreFlag = -20000;
     this->WarnUserSpaceRoll = true;
+    this->LocalConfig_RequireConfig = false;
     this->LocalConfig_WelcomeGood = true;
     this->LocalConfig_ClearTalkPageTemp = "{{Huggle/Cleared}}";
     this->LocalConfig_WelcomeAnon = "{{subst:Welcome-anon}} ~~~~";
@@ -223,6 +224,15 @@ Configuration::~Configuration()
     delete this->AIVP;
     delete this->Project;
     delete this->UAAP;
+}
+
+Option *Configuration::GetOption(QString key)
+{
+    if (this->Options.contains(key))
+    {
+        return new Option(this->Options[key]);
+    }
+    return NULL;
 }
 
 QString Configuration::GenerateSuffix(QString text)
@@ -688,14 +698,11 @@ QList<HuggleQueueFilter *> Configuration::ConfigurationParseQueueList(QString co
     }
 
     // we need to parse all blocks that contain information about queue
-
     content = content.mid(content.indexOf("queues:") + 8);
     QStringList Filtered = content.split("\n");
-
     QStringList Info;
 
     // we need to assume that all queues are intended with at least 4 spaces
-
     int line = 0;
 
     while (line < Filtered.count())
@@ -713,7 +720,6 @@ QList<HuggleQueueFilter *> Configuration::ConfigurationParseQueueList(QString co
     }
 
     // now we can split the queue info
-
     line = 0;
     while (line < Info.count())
     {
@@ -872,6 +878,8 @@ bool Configuration::ParseLocalConfig(QString config)
     Configuration::HuggleConfiguration->LocalConfig_RequireAdmin = Configuration::SafeBool(Configuration::ConfigurationParse("require-admin", config));
     Configuration::HuggleConfiguration->LocalConfig_RequireRollback = Configuration::SafeBool
                             (Configuration::ConfigurationParse("require-rollback", config));
+    Configuration::HuggleConfiguration->LocalConfig_RequireConfig = Configuration::SafeBool
+                            (Configuration::ConfigurationParse("require-config", config, "false"));
     Configuration::HuggleConfiguration->LocalConfig_RequireEdits = Configuration::ConfigurationParse("require-edits", config, "0").toInt();
     // IRC
     Configuration::HuggleConfiguration->LocalConfig_UseIrc = Configuration::SafeBool(Configuration::ConfigurationParse("irc", config));
@@ -1236,4 +1244,29 @@ ScoreWord::ScoreWord(const ScoreWord &word)
 {
     this->score = word.score;
     this->word = word.word;
+}
+
+Option::Option()
+{
+    this->Name = "";
+    this->Type = OptionType_String;
+    this->ContainerString = "";
+}
+
+Option::Option(QString name, OptionType type)
+{
+    this->Name = name;
+    this->Type = type;
+}
+
+Option::Option(Option *option)
+{
+    this->Name = option->Name;
+    this->Type = option->Type;
+}
+
+Option::Option(const Option &option)
+{
+    this->Name = option.Name;
+    this->Type = option.Type;
 }

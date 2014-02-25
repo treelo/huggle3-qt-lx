@@ -1,3 +1,9 @@
+huggle (3.0.0.0-ppa15) precise; urgency=medium
+
+  * Several fixes
+
+ -- Petr Bena <benapetr@gmail.com>  Tue, 25 Feb 2014 16:58:50 +0100
+
 huggle (3.0.0.0-ppa14.2) precise; urgency=medium
 
   * Build for official release repo (this build is still beta)

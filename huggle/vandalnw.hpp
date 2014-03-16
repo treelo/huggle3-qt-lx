@@ -11,7 +11,7 @@
 #ifndef VANDALNW_H
 #define VANDALNW_H
 
-#include "config.hpp"
+#include "definitions.hpp"
 // now we need to ensure that python is included first, because it
 // simply suck :P
 // seriously, Python.h is shitty enough that it requires to be
@@ -47,6 +47,14 @@ namespace Huggle
     //! cooperate with each other so that they are more effective
     namespace HAN
     {
+        enum MessageType
+        {
+            MessageType_User,
+            MessageType_Bot,
+            MessageType_UserTalk,
+            MessageType_Info
+        };
+
         //! This is base class that can be used to store information about HAN items
 
         //! These "HAN items" are for example information about rollbacks, because they
@@ -100,7 +108,7 @@ namespace Huggle
              * \brief Insert text to window
              * \param text is a string that will be inserted to window, must not be terminated with newline
              */
-            void Insert(QString text);
+            void Insert(QString text, HAN::MessageType type);
             void Connect();
             void Disconnect();
             //! This will deliver an edit to others as a good edit
@@ -113,8 +121,12 @@ namespace Huggle
             bool IsParsed(WikiEdit *edit);
             void Rescore(WikiEdit *edit);
             void Message();
+            QString Channel;
             //! Prefix to special commands that are being sent to network to other users
             QString Prefix;
+            bool DisplayUserTalk;
+            bool DisplayUser;
+            bool DisplayBots;
             //! Timer that is used to connect to network
             QTimer *tm;
             QList<HAN::RescoreItem> UnparsedScores;
@@ -125,7 +137,11 @@ namespace Huggle
             void ProcessGood(WikiEdit *edit, QString user);
             void ProcessRollback(WikiEdit *edit, QString user);
             void ProcessSusp(WikiEdit *edit, QString user);
+            void UpdateHeader();
             Ui::VandalNw *ui;
+            //! This is to track the changes to user list so that we don't need to update text in header
+            //! when there is no change (that is actually CPU expensive operation)
+            bool UsersModified;
             //! Pointer to irc server
             Huggle::IRC::NetworkIrc *Irc;
             //! Using this we track if channel was joined or not, because we need to send

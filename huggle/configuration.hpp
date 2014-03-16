@@ -11,55 +11,12 @@
 #ifndef CONFIGURATION_H
 #define CONFIGURATION_H
 // Include file with all global defines
-#include "config.hpp"
+#include "definitions.hpp"
 // now we need to ensure that python is included first, because it
 // simply suck :P
 #ifdef PYTHONENGINE
 #include <Python.h>
 #endif
-
-//! Minimal score the edit can have
-#define MINIMAL_SCORE                   -999999
-//! Path where the extensions are located
-#define EXTENSION_PATH                  "extensions"
-#define MEDIAWIKI_DEFAULT_NS_MAIN               ""
-#define MEDIAWIKI_DEFAULT_NS_TALK               "Talk:"
-#define MEDIAWIKI_DEFAULT_NS_USER               "User:"
-#define MEDIAWIKI_DEFAULT_NS_USERTALK           "User talk:"
-#define MEDIAWIKI_DEFAULT_NS_PROJECT            "Project:"
-#define MEDIAWIKI_DEFAULT_NS_PROJECTTALK        "Project talk:"
-#define MEDIAWIKI_DEFAULT_NS_FILE               "File:"
-#define MEDIAWIKI_DEFAULT_NS_FILETALK           "File talk:"
-#define MEDIAWIKI_DEFAULT_NS_MEDIAWIKI          "Mediawiki:"
-#define MEDIAWIKI_DEFAULT_NS_MEDIAWIKITALK      "Mediawiki talk:"
-#define MEDIAWIKI_DEFAULT_NS_TEMPLATE           "Template:"
-#define MEDIAWIKI_DEFAULT_NS_TEMPLATETALK       "Template talk:"
-#define MEDIAWIKI_DEFAULT_NS_HELP               "Help:"
-#define MEDIAWIKI_DEFAULT_NS_HELPTALK           "Help talk:"
-#define MEDIAWIKI_DEFAULT_NS_CATEGORY           "Category:"
-#define MEDIAWIKI_DEFAULT_NS_CATEGORYTALK       "Category talk:"
-#define MEDIAWIKI_DEFAULT_NS_PORTAL             "Portal:"
-#define MEDIAWIKI_DEFAULT_NS_PORTALTALK         "Portal talk:"
-#define MEDIAWIKI_NSID_MAIN                     0
-#define MEDIAWIKI_NSID_TALK                     1
-#define MEDIAWIKI_NSID_USER                     2
-#define MEDIAWIKI_NSID_USERTALK                 3
-#define MEDIAWIKI_NSID_PROJECT                  4
-#define MEDIAWIKI_NSID_PROJECTTALK              5
-#define MEDIAWIKI_NSID_FILE                     6
-#define MEDIAWIKI_NSID_FILETALK                 7
-#define MEDIAWIKI_NSID_MEDIAWIKI                8
-#define MEDIAWIKI_NSID_MEDIAWIKITALK            9
-#define MEDIAWIKI_NSID_TEMPLATE                 10
-#define MEDIAWIKI_NSID_TEMPLATETALK             11
-#define MEDIAWIKI_NSID_HELP                     12
-#define MEDIAWIKI_NSID_HELPTALK                 13
-#define MEDIAWIKI_NSID_CATEGORY                 14
-#define MEDIAWIKI_NSID_CATEGORYTALK             15
-#define MEDIAWIKI_NSID_PORTAL                   100
-#define MEDIAWIKI_NSID_PORTALTALK               101
-//! Change this to DEBIAN / UBUNTU / WINDOWS to get automatic updates for selected channels
-#define HUGGLE_UPDATER_PLATFORM_TYPE            "debian-ppa"
 
 #include <QList>
 #include <QStringList>
@@ -142,6 +99,31 @@ namespace Huggle
     };
 
     //! Run time configuration of huggle
+
+    //! Some interesting information regarding configuration:
+    //! Huggle is using different configurations
+
+    //! System config:
+    //! That is configuration which is related to selected computer, like fonts, sizes and layout of GUI
+    //! this configuration is not stored on wiki, it's only in local configuration file
+
+    //! Global config:
+    //! Is configuration used for all wikimedia projects, stored on meta, it can't be overriden neither by users
+    //! nor by project configs
+
+    //! Project config:
+    //! Is configuration local to projects, which can't be overriden by user config
+
+    //! Shared config:
+    //! Is configuration local to projects, which contains definitions for templates and so on, this can be
+    //! overriden by user config
+
+    //! User config:
+    //! Maintained by user and stored in huggle3.css on wiki, this is only wiki-side configuration that is being
+    //! updated directly by huggle
+
+    //! Temporary config:
+    //! Is maintained accross 1 huggle session
     class Configuration
     {
         public:
@@ -151,6 +133,7 @@ namespace Huggle
             static QString GetURLProtocolPrefix();
             //! Return a configuration path
             static QString GetConfigurationPath();
+            static QString ReplaceSpecialUserPage(QString PageName);
             static QString Bool2ExcludeRequire(bool b);
             /*!
              * \brief Bool2String Convert a bool to string
@@ -159,10 +142,9 @@ namespace Huggle
              */
             static QString Bool2String(bool b);
             //! Save the local configuration to file
-            static void SaveConfig();
+            static void SaveSystemConfig();
             //! Load the local configuration from disk
-            static void LoadConfig();
-            static void NormalizeConf();
+            static void LoadSystemConfig();
             //! This function creates a user configuration that is stored on wiki
             static QString MakeLocalUserConfig();
             /*!
@@ -173,32 +155,14 @@ namespace Huggle
              */
             static void InsertConfig(QString key, QString value, QXmlStreamWriter *s);
             static bool SafeBool(QString value, bool defaultvalue = false);
-            //! Parse all information from global config on meta
-            static bool ParseGlobalConfig(QString config);
-            //! Parse all information from local config, this function is used in login
-            static bool ParseLocalConfig(QString config);
-            static bool ParseUserConfig(QString config);
             //! Parse a string from configuration which has format used by huggle 2x
             /*!
              * \param key Key
              * \param content Text to parse from
              * \param missing Default value in case this key is missing in text
-             * \return Value of key
+             * \return Value of key, in case there is no such a key content of missing is returned
              */
             static QString ConfigurationParse(QString key, QString content, QString missing = "");
-            /*!
-             * \brief ConfigurationParse_QL Parses a QStringList of values for a given key
-             * The list must be either separated by comma and newline or it can be a list of values separated
-             * by comma only
-             * \param key Key
-             * \param content Text to parse key from
-             * \param CS Whether the values are separated by comma only (if this is set to true there can be more items on a line)
-             * \return List of values from text or empty list
-             */
-            static QStringList ConfigurationParse_QL(QString key, QString content, bool CS = false);
-            static QStringList ConfigurationParse_QL(QString key, QString content, QStringList list, bool CS = false);
-            static QStringList ConfigurationParseTrimmed_QL(QString key, QString content, bool CS = false, bool RemoveNull = false);
-            static QList<HuggleQueueFilter*> ConfigurationParseQueueList(QString content, bool locked = false);
             /*!
              * \brief GetDefaultRevertSummary Retrieve default summary
              * \param source User who should be replaced instead of $1
@@ -215,7 +179,13 @@ namespace Huggle
              * \return New instance of data or NULL in case there is no such an option
              */
             Option *GetOption(QString key);
+            void NormalizeConf();
             QString GenerateSuffix(QString text);
+            //! Parse all information from global config on meta
+            bool ParseGlobalConfig(QString config);
+            //! Parse all information from local config, this function is used in login
+            bool ParseProjectConfig(QString config);
+            bool ParseUserConfig(QString config);
             ////////////////////////////////////////////
             // System
             ////////////////////////////////////////////
@@ -239,7 +209,7 @@ namespace Huggle
             //! Size of feed
             int             SystemConfig_ProviderCache;
             //! Maximum size of ringlog
-            int             RingLogMaxSize;
+            int             SystemConfig_RingLogMaxSize;
             //! Path where huggle contains its data
             QString         HomePath;
             //! Path to a file where information about wikis are stored
@@ -249,9 +219,9 @@ namespace Huggle
             //! URL of wiki that contains a global config
             QString         GlobalConfigurationWikiAddress;
             //! Number of seconds for which the processed queries remain in list of processes
-            int             QueryListTimeLimit;
+            int             SystemConfig_QueryListTimeLimit;
             //! Number of edits to keep in history stack
-            int             HistorySize;
+            int             SystemConfig_HistorySize;
             //! Ask user if they really want to report someone
             bool            AskUserBeforeReport;
             //! This is experimental feature that removes the old templates from talk pages when they are being read
@@ -261,14 +231,14 @@ namespace Huggle
             //! Whether new edits go to top or bottom (if true, they go to up)
             bool            QueueNewEditsUp;
             //! If this is true some functionalities will be disabled
-            bool            _SafeMode;
+            bool            SystemConfig_SafeMode;
             //! Resolve edit conflict without asking user
-            bool            AutomaticallyResolveConflicts;
+            bool            UserConfig_AutomaticallyResolveConflicts;
             /// \todo This option needs to be implemented to browser so that font size is different when this is changed by user
             //! Size of fonts in diff
-            int             FontSize;
+            int             SystemConfig_FontSize;
             //! Timeout for queries
-            int             ReadTimeout;
+            int             SystemConfig_ReadTimeout;
             //! Timeout for write / update queries
             int             SystemConfig_WriteTimeout;
             //! Whitelist is not useable
@@ -277,6 +247,8 @@ namespace Huggle
             bool            EnforceManualSoftwareRollback;
             //! List of characters that separate words from each other, like dot, space etc, used by score words
             QStringList     SystemConfig_WordSeparators;
+            //! This is affecting if columns are auto-sized or not
+            bool            SystemConfig_DynamicColsInList;
             //! Huggle will auto revert all edits that were made by same user on auto conflict resolution
             bool            RevertOnMultipleEdits;
             //! Changing this to true will make the Syslog write all data to a file
@@ -299,14 +271,15 @@ namespace Huggle
             //! We are storing index instead of wiki name, because in case it was a wiki that later
             //! was removed from the list, we would have nonexistent wiki in list
             int             IndexOfLastWiki;
-            QString         SystemConfig_EditToken;
+            QString         TemporaryConfig_EditToken;
 
             //////////////////////////////////////////////
             // User
             //////////////////////////////////////////////
-            bool            UserConfig_EnforceMonthsAsHeaders;
+            bool                    UserConfig_EnforceMonthsAsHeaders;
+            unsigned int            UserConfig_TalkPageFreshness;
             //! If history and user info should be automatically loaded for every edit
-            bool            UserConfig_HistoryLoad;
+            bool                    UserConfig_HistoryLoad;
             //! Defines what should be done on next edit
             Configuration_OnNext    UserConfig_GoNext;
             bool                    UserConfig_DeleteEditsAfterRevert;
@@ -318,28 +291,48 @@ namespace Huggle
             bool                    UserConfig_TruncateEdits;
             bool                    UserConfig_RevertNewBySame;
 
+
+            //////////////////////////////////////////////
+            // Global config
+            //////////////////////////////////////////////
+
+            bool        GlobalConfig_EnableAll;
+            QString     GlobalConfig_MinVersion;
+            QString     GlobalConfig_LocalConfigWikiPath;
+            QString     GlobalConfig_DocumentationPath;
+            QString     GlobalConfig_FeedbackPath;
+            QString     GlobalConfig_UserConf;
+            QString     GlobalConfig_UserConf_old;
+            bool        GlobalConfigWasLoaded;
+
             //////////////////////////////////////////////
             // Local config
             //////////////////////////////////////////////
 
             //! Minimal version of huggle required to use it
-            QString LocalConfig_MinimalVersion;
+            QString ProjectConfig_MinimalVersion;
             bool    LocalConfig_UseIrc;
-            bool    LocalConfig_RequireRollback;
-            bool    LocalConfig_RequireConfig;
-            bool    LocalConfig_RequireAdmin;
-            bool    LocalConfig_EnableAll;
-            int     LocalConfig_RequireEdits;
+            //! If admin rights are required to use huggle
+            bool    ProjectConfig_RequireAdmin;
+            //! If autoconfirmed is required to use huggle
+            bool    ProjectConfig_RequireAutoconfirmed;
+            bool    ProjectConfig_RequireConfig;
+            //! Amount of edits required to use huggle
+            int     ProjectConfig_RequireEdits;
+            //! If rollback right is required to use huggle
+            bool    ProjectConfig_RequireRollback;
+            bool    ProjectConfig_EnableAll;
 
             bool            LocalConfig_AIV;
             bool            LocalConfig_AIVExtend;
-            QString         LocalConfig_ReportPath;
+            QString         LocalConfig_ReportAIV;
             //! Section of report page to append template to
             int             LocalConfig_ReportSt;
             //! IP vandals
             QString         LocalConfig_IPVTemplateReport;
             //! Regular users
             QString         LocalConfig_RUTemplateReport;
+            QString         LocalConfig_ReportDefaultReason;
             QString         LocalConfig_WelcomeSummary;
             QString         LocalConfig_NSTalk;
             QString         LocalConfig_NSUserTalk;
@@ -448,31 +441,18 @@ namespace Huggle
             bool             LocalConfig_UAAavailable;
             QString          LocalConfig_UAATemplate;
 
-
-            //////////////////////////////////////////////
-            // Global config
-            //////////////////////////////////////////////
-
-            bool        GlobalConfig_EnableAll;
-            QString     GlobalConfig_MinVersion;
-            QString     GlobalConfig_LocalConfigWikiPath;
-            QString     GlobalConfig_DocumentationPath;
-            QString     GlobalConfig_FeedbackPath;
-            QString     GlobalConfig_UserConf;
-            bool        GlobalConfigWasLoaded;
-
             //////////////////////////////////////////////
             // Login
             //////////////////////////////////////////////
 
             //! User name
-            QString     UserName;
+            QString     SystemConfig_Username;
             //! If SSL is being used
-            bool        UsingSSL;
+            bool        SystemConfig_UsingSSL;
             //! Consumer key
             QString     WmfOAuthConsumerKey;
             //! Password
-            QString     Password;
+            QString     TemporaryConfig_Password;
 
             //////////////////////////////////////////////
             // IRC
@@ -488,7 +468,7 @@ namespace Huggle
             QString IRCIdent;
             //! Port
             int     IRCPort;
-            int     IRCConnectionTimeOut;
+            int     SystemConfig_IRCConnectionTimeOut;
 
             //////////////////////////////////////////////
             // Friends

@@ -28,14 +28,22 @@ UserinfoForm::UserinfoForm(QWidget *parent) : QDockWidget(parent), ui(new Ui::Us
               Localizations::HuggleLocalizations->Localize("id");
     this->ui->tableWidget->setHorizontalHeaderLabels(header);
     this->ui->tableWidget->verticalHeader()->setVisible(false);
-    this->ui->tableWidget->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    if (Configuration::HuggleConfiguration->SystemConfig_DynamicColsInList)
+    {
 #if QT_VERSION >= 0x050000
 // Qt5 code
-    this->ui->tableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+        this->ui->tableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
 #else
 // Qt4 code
-    this->ui->tableWidget->horizontalHeader()->setResizeMode(QHeaderView::ResizeToContents);
+        this->ui->tableWidget->horizontalHeader()->setResizeMode(QHeaderView::ResizeToContents);
 #endif
+    } else
+    {
+        this->ui->tableWidget->setColumnWidth(0, 180);
+    }
+    this->ui->tableWidget->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    this->ui->tableWidget->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    this->ui->tableWidget->setEditTriggers(QAbstractItemView::NoEditTriggers);
     this->ui->tableWidget->setShowGrid(false);
 }
 

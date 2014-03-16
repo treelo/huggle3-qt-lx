@@ -11,7 +11,7 @@
 #ifndef HUGGLEFEEDPROVIDERWIKI_H
 #define HUGGLEFEEDPROVIDERWIKI_H
 
-#include "config.hpp"
+#include "definitions.hpp"
 // now we need to ensure that python is included first, because it
 // simply suck :P
 #ifdef PYTHONENGINE
@@ -26,6 +26,7 @@
 #include "core.hpp"
 #include "hugglefeed.hpp"
 #include "exception.hpp"
+#include "mediawiki.hpp"
 #include "apiquery.hpp"
 #include "configuration.hpp"
 #include "wikiedit.hpp"
@@ -51,6 +52,8 @@ namespace Huggle
             QString ToString();
         private:
             void Process(QString data);
+            void ProcessEdit(QDomElement item);
+            void ProcessLog(QDomElement item);
             void InsertEdit(WikiEdit *edit);
             bool Refreshing;
             QList<WikiEdit*> *Buffer;

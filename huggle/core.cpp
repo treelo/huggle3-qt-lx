@@ -20,10 +20,13 @@ void Core::Init()
     this->StartupTime = QDateTime::currentDateTime();
     // preload of config
     Configuration::HuggleConfiguration->WikiDB = Configuration::GetConfigurationPath() + "wikidb.xml";
-    if (Configuration::HuggleConfiguration->_SafeMode)
+    if (Configuration::HuggleConfiguration->SystemConfig_SafeMode)
     {
         Syslog::HuggleLogs->Log("DEBUG: Huggle is running in a safe mode");
     }
+#ifdef HUGGLE_BREAKPAD
+    Syslog::HuggleLogs->Log("Dumping enabled using google breakpad");
+#endif
     this->gc = new GC();
     GC::gc = this->gc;
     Query::NetworkManager = new QNetworkAccessManager();
@@ -39,17 +42,18 @@ void Core::Init()
     this->Processor = new ProcessorThread();
     this->Processor->start();
     this->LoadLocalizations();
-    Configuration::LoadConfig();
+    Configuration::LoadSystemConfig();
     Syslog::HuggleLogs->DebugLog("Loading defs");
     this->LoadDefs();
     Syslog::HuggleLogs->DebugLog("Loading wikis");
     this->LoadDB();
     Syslog::HuggleLogs->DebugLog("Loading queue");
-    // these are separators that we use to parse words, less we have, faster huggle will be, despite it will fail more to detect vandals
-    // keep it low but precise enough
-    Configuration::HuggleConfiguration->SystemConfig_WordSeparators << " " << "." << "," << "(" << ")" << ":" << ";" << "!" << "?" << "/" << "<" << ">" << "[" << "]";
+    // These are separators that we use to parse words, less we have, faster huggle will be,
+    // despite it will fail more to detect vandals. Keep it low but precise enough!!
+    Configuration::HuggleConfiguration->SystemConfig_WordSeparators << " " << "." << "," << "(" << ")" << ":" << ";" << "!"
+                                                                    << "?" << "/" << "<" << ">" << "[" << "]";
     HuggleQueueFilter::Filters.append(HuggleQueueFilter::DefaultFilter);
-    if (!Configuration::HuggleConfiguration->_SafeMode)
+    if (!Configuration::HuggleConfiguration->SystemConfig_SafeMode)
     {
 #ifdef PYTHONENGINE
         Syslog::HuggleLogs->Log("Loading python engine");
@@ -61,7 +65,7 @@ void Core::Init()
     {
         Syslog::HuggleLogs->Log("Not loading plugins in a safe mode");
     }
-    Syslog::HuggleLogs->Log("Loaded in " + QString::number(this->StartupTime.msecsTo(QDateTime::currentDateTime())));
+    Syslog::HuggleLogs->Log("Loaded in " + QString::number(this->StartupTime.msecsTo(QDateTime::currentDateTime())) + "ms");
 }
 
 Core::Core()
@@ -134,7 +138,6 @@ void Core::LoadDB()
         site->SupportOAuth = false;
         site->SupportHttps = false;
         site->WhiteList = "test";
-        // name="testwiki" url="test.wikipedia.org/" path="wiki/" script="w/" https="true" oauth="true" channel="#test.wikipedia" wl="test
         if (e.attributes().contains("path"))
         {
             site->LongPath = e.attribute("path");
@@ -228,7 +231,7 @@ void Core::SaveDefs()
 
 QString Core::MonthText(int n)
 {
-    if (n < 0 || n > 12)
+    if (n < 1 || n > 12)
     {
         throw new Huggle::Exception("Month must be between 1 and 12");
     }
@@ -236,8 +239,34 @@ QString Core::MonthText(int n)
     return Configuration::HuggleConfiguration->Months.at(n);
 }
 
+QString Core::ShrinkText(QString text, int size, bool html)
+{
+    if (size < 2)
+    {
+        throw new Huggle::Exception("Parameter size must be more than 2", "QString Core::ShrinkText(QString text, int size)");
+    }
+    // let's copy the text into new variable so that we don't break the original
+    // who knows how these mutable strings are going to behave in qt :D
+    QString text_ = text;
+    int length = text_.length();
+    if (length > size)
+    {
+        text_ = text_.mid(0, size - 2);
+        text_ = text_ + "..";
+    } else while (text_.length() < size)
+    {
+        text_ += " ";
+    }
+    if (html)
+    {
+        text_.replace(" ", "&nbsp;");
+    }
+    return text_;
+}
+
 Message *Core::MessageUser(WikiUser *User, QString Text, QString Title, QString Summary, bool InsertSection,
-                           Query *DependencyRevert, bool NoSuffix, bool SectionKeep, bool autoremove, QString bt)
+                           Query *DependencyRevert, bool NoSuffix, bool SectionKeep, bool autoremove,
+                           QString BaseTimestamp, bool CreateOnly_, bool FreshOnly_)
 {
     if (User == NULL)
     {
@@ -253,9 +282,11 @@ Message *Core::MessageUser(WikiUser *User, QString Text, QString Title, QString 
     Message *m = new Message(User, Text, Summary);
     m->Title = Title;
     m->Dependency = DependencyRevert;
-    m->Section = InsertSection;
-    m->BaseTimestamp = bt;
+    m->CreateInNewSection = InsertSection;
+    m->BaseTimestamp = BaseTimestamp;
     m->SectionKeep = SectionKeep;
+    m->RequireFresh = FreshOnly_;
+    m->CreateOnly = CreateOnly_;
     m->Suffix = !NoSuffix;
     Core::Messages.append(m);
     m->RegisterConsumer(HUGGLECONSUMER_CORE);
@@ -536,7 +567,7 @@ void Core::Shutdown()
         this->Processor->exit();
     }
     Core::SaveDefs();
-    Configuration::SaveConfig();
+    Configuration::SaveSystemConfig();
 #ifdef PYTHONENGINE
     if (!Configuration::HuggleConfiguration->_SafeMode)
     {
@@ -701,7 +732,8 @@ void Core::CheckQueries()
         if (q->IsProcessed())
         {
             Finished.append(q);
-            Huggle::Syslog::HuggleLogs->DebugLog("Query finished with: " + q->Result->Data, 6);
+            // this is pretty spamy :o
+            Huggle::Syslog::HuggleLogs->DebugLog("Query finished with: " + q->Result->Data, 8);
             Core::Main->Queries->UpdateQuery(q);
             Core::Main->Queries->RemoveQuery(q);
         }
@@ -770,7 +802,7 @@ void Core::LoadLocalizations()
 {
     Localizations::HuggleLocalizations = new Localizations();
     Localizations::HuggleLocalizations->LocalInit("en");
-    if (Configuration::HuggleConfiguration->_SafeMode)
+    if (Configuration::HuggleConfiguration->SystemConfig_SafeMode)
     {
         Huggle::Syslog::HuggleLogs->Log("Skipping load of other languages, because of safe mode");
         return;

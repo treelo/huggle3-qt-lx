@@ -11,7 +11,7 @@
 #ifndef HISTORYFORM_H
 #define HISTORYFORM_H
 
-#include "config.hpp"
+#include "definitions.hpp"
 // now we need to ensure that python is included first, because it
 // simply suck :P
 #ifdef PYTHONENGINE
@@ -54,7 +54,7 @@ namespace Huggle
 
         private:
             void Clear();
-            void Display(int row, QString html);
+            void Display(int row, QString html, bool turtlemode = false);
             //! Make the selected row bold
             void MakeSelectedRowBold();
             bool RetrievingEdit;

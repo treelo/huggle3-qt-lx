@@ -11,7 +11,7 @@
 #ifndef MESSAGE_H
 #define MESSAGE_H
 
-#include "config.hpp"
+#include "definitions.hpp"
 // now we need to ensure that python is included first, because it
 // simply suck :P
 // seriously, Python.h is shitty enough that it requires to be
@@ -48,6 +48,7 @@ namespace Huggle
         MessageError_NoError,
         MessageError_Dependency,
         MessageError_Obsolete,
+        MessageError_Expired,
         MessageError_Unknown
     };
 
@@ -70,16 +71,25 @@ namespace Huggle
             //! Title
             QString Title;
             //! If edit will be created in new section
-            bool Section;
+            bool CreateInNewSection;
             //! Set this to false to remove huggle suffix from summary
             bool Suffix;
             //! User to deliver a message to
             WikiUser *user;
             //! This is a time for base revision which is used to resolve edit conflicts of edit
             QString BaseTimestamp;
+            //! Timestamp when you started editing the page
+
+            //! when you fetched the current revision's text to begin editing it or checked the existence of the page.
+            //! Used to detect edit conflicts; leave unset to ignore conflicts
+            QString StartTimestamp;
+            bool CreateOnly;
             //! Text of message that will be appended to talk page
             QString Text;
             QString Summary;
+            //! Doesn't send a message in case that current talk page (if we have any) is older than specified time
+            //! stored as Configuration::HuggleConfiguration->UserConfig_TalkPageFreshness
+            bool RequireFresh;
             MessageError Error;
             QString ErrorText;
             //! Changing this to true will make the message be appended to existing section of same name

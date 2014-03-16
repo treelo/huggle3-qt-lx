@@ -247,7 +247,7 @@ void RevertQuery::Preflight()
     WikiEdit::Lock_EditList->unlock();
     if (failed)
     {
-        if (Configuration::HuggleConfiguration->AutomaticallyResolveConflicts)
+        if (Configuration::HuggleConfiguration->UserConfig_AutomaticallyResolveConflicts)
         {
             if (MadeBySameUser && Configuration::HuggleConfiguration->UserConfig_RevertNewBySame)
             {
@@ -347,7 +347,7 @@ void RevertQuery::CheckPreflight()
         if (e.attributes().contains("user"))
         {
             QString user = e.attribute("user");
-            if (PreviousEditsMadeBySameUser && this->edit->RevID != WIKI_UNKNOWN_REVID && RevID < edit->RevID)
+            if (PreviousEditsMadeBySameUser && this->edit->RevID != WIKI_UNKNOWN_REVID && RevID > this->edit->RevID)
             {
                 if (user != this->edit->User->Username)
                 {
@@ -383,7 +383,7 @@ void RevertQuery::CheckPreflight()
         {
             text = (Huggle::Localizations::HuggleLocalizations->Localize("cr-message-not-same", this->edit->Page->PageName));
         }
-        if (Configuration::HuggleConfiguration->AutomaticallyResolveConflicts)
+        if (Configuration::HuggleConfiguration->UserConfig_AutomaticallyResolveConflicts)
         {
             if (MultipleEdits && !Configuration::HuggleConfiguration->RevertOnMultipleEdits)
             {

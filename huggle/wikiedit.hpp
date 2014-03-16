@@ -11,7 +11,7 @@
 #ifndef WIKIEDIT_H
 #define WIKIEDIT_H
 
-#include "config.hpp"
+#include "definitions.hpp"
 // now we need to ensure that python is included first, because it
 // simply suck :P
 // seriously, Python.h is shitty enough that it requires to be
@@ -28,11 +28,11 @@
 #include <QtXml>
 #include <QList>
 #include "apiquery.hpp"
+#include "definitions.hpp"
 #include "collectable.hpp"
+#include "mediawiki.hpp"
 #include "wikiuser.hpp"
 #include "wikipage.hpp"
-
-#define WIKI_UNKNOWN_REVID -1
 
 namespace Huggle
 {
@@ -74,9 +74,13 @@ namespace Huggle
     //! Wiki edit
 
     //! Basically all changes to pages can be represented by this class
+    //! \image html ../documentation/providers.png
     class WikiEdit : public Collectable
     {
         public:
+            //! This function will return a constant (which needs to be generated runtime)
+            //! which is used as "unknown time" in case we don't know the edit's time
+            static QDateTime GetUnknownEditTime();
             //! This list contains reference to all existing edits in memory
             static QList<WikiEdit*> EditList;
             static QMutex *Lock_EditList;
@@ -155,8 +159,8 @@ namespace Huggle
             bool ProcessingByWorkerThread;
             bool ProcessingRevs;
             bool ProcessingDiff;
-            ApiQuery* ProcessingQuery;
-            ApiQuery* DifferenceQuery;
+            ApiQuery* qTalkpage;
+            ApiQuery* qDifference;
     };
 }
 

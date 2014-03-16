@@ -25,24 +25,36 @@ HistoryForm::HistoryForm(QWidget *parent) : QDockWidget(parent), ui(new Ui::Hist
     this->SelectedRow = 0;
     this->PreviouslySelectedRow = 2;
     QStringList header;
-    header << "" << Huggle::Localizations::HuggleLocalizations->Localize("user") <<
-              Huggle::Localizations::HuggleLocalizations->Localize("size") <<
-              Huggle::Localizations::HuggleLocalizations->Localize("summary") <<
-              Huggle::Localizations::HuggleLocalizations->Localize("id") <<
-              Huggle::Localizations::HuggleLocalizations->Localize("date");
+    header << "" << Huggle::Localizations::HuggleLocalizations->Localize("user")
+                 << Huggle::Localizations::HuggleLocalizations->Localize("size")
+                 << Huggle::Localizations::HuggleLocalizations->Localize("summary")
+                 << Huggle::Localizations::HuggleLocalizations->Localize("id")
+                 << Huggle::Localizations::HuggleLocalizations->Localize("date");
     this->ui->tableWidget->setHorizontalHeaderLabels(header);
     this->ui->tableWidget->verticalHeader()->setVisible(false);
     this->ui->tableWidget->horizontalHeader()->setSelectionBehavior(QAbstractItemView::SelectRows);
     this->ui->tableWidget->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    this->ui->tableWidget->setShowGrid(false);
+    if (Configuration::HuggleConfiguration->SystemConfig_DynamicColsInList)
+    {
 #if QT_VERSION >= 0x050000
 // Qt5 code
-    this->ui->tableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+        this->ui->tableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
 #else
 // Qt4 code
-    this->ui->tableWidget->horizontalHeader()->setResizeMode(QHeaderView::ResizeToContents);
+        this->ui->tableWidget->horizontalHeader()->setResizeMode(QHeaderView::ResizeToContents);
 #endif
-    this->ui->tableWidget->setShowGrid(false);
+    } else
+    {
+        this->ui->tableWidget->setColumnWidth(0, 20);
+        this->ui->tableWidget->setColumnWidth(1, 100);
+        this->ui->tableWidget->setColumnWidth(2, 60);
+        this->ui->tableWidget->setColumnWidth(3, 200);
+        this->ui->tableWidget->setColumnWidth(4, 60);
+    }
+    this->ui->tableWidget->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     this->query = NULL;
+    this->ui->tableWidget->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     this->t1 = NULL;
 }
 
@@ -93,7 +105,6 @@ void HistoryForm::Update(WikiEdit *edit)
     this->ui->pushButton->setText(Localizations::HuggleLocalizations->Localize("historyform-retrieve-history"));
     this->ui->pushButton->show();
     this->ui->pushButton->setEnabled(true);
-    this->ui->tableWidget->clearContents();
     this->Clear();
     if (this->RetrievedEdit != NULL)
     {
@@ -299,7 +310,7 @@ void HistoryForm::onTick01()
     {
         if (Configuration::HuggleConfiguration->UserConfig_LastEdit)
         {
-            this->Display(0, Resources::Html_StopFire);
+            this->Display(0, Resources::Html_StopFire, true);
         } else
         {
             QPoint pntr(0, this->pos().y());
@@ -334,7 +345,7 @@ void HistoryForm::Clear()
     }
 }
 
-void HistoryForm::Display(int row, QString html)
+void HistoryForm::Display(int row, QString html, bool turtlemode)
 {
     if (this->query != NULL || this->RetrievingEdit)
     {
@@ -389,10 +400,16 @@ void HistoryForm::Display(int row, QString html)
         delete this->t1;
     }
     this->RetrievedEdit = w;
+    Core::HuggleCore->Main->LockPage();
     Core::HuggleCore->Main->Browser->RenderHtml(html);
     this->t1 = new QTimer();
     connect(this->t1, SIGNAL(timeout()), this, SLOT(onTick01()));
-    this->t1->start();
+    if (!turtlemode)
+    {
+        this->t1->start(200);
+        return;
+    }
+    this->t1->start(2000);
 }
 
 void HistoryForm::MakeSelectedRowBold()

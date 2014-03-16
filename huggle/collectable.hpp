@@ -12,7 +12,7 @@
 #ifndef COLLECTABLE_H
 #define COLLECTABLE_H
 
-#include "config.hpp"
+#include "definitions.hpp"
 // now we need to ensure that python is included first, because it
 // simply suck :P
 #ifdef PYTHONENGINE
@@ -56,7 +56,9 @@ namespace Huggle
              * \return whether the class is managed
              */
             bool IsManaged();
+            //! \brief Tries to delete the object immediately if not used anymore
             //! Use this if you are not sure if you can delete this object in this moment
+            //! If the object is not deleted after calling this, it will be managed by GC
             virtual bool SafeDelete();
             //! You can change this to reclaimable by calling this
 

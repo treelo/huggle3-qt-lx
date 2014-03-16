@@ -90,7 +90,7 @@ Preferences::Preferences(QWidget *parent) : QDialog(parent), ui(new Ui::Preferen
     this->ui->checkBox_15->setChecked(Configuration::HuggleConfiguration->UserConfig_DeleteEditsAfterRevert);
     this->ui->checkBox_5->setChecked(Configuration::HuggleConfiguration->EnforceManualSoftwareRollback);
     this->ui->checkBox_2->setChecked(Configuration::HuggleConfiguration->WarnUserSpaceRoll);
-    this->ui->checkBox->setChecked(Configuration::HuggleConfiguration->AutomaticallyResolveConflicts);
+    this->ui->checkBox->setChecked(Configuration::HuggleConfiguration->UserConfig_AutomaticallyResolveConflicts);
     this->ui->checkBox_12->setChecked(Configuration::HuggleConfiguration->UsingIRC);
     this->ui->checkBox_14->setChecked(Configuration::HuggleConfiguration->UserConfig_HistoryLoad);
     this->ui->checkBox_3->setChecked(Configuration::HuggleConfiguration->LocalConfig_ConfirmOnSelfRevs);
@@ -106,6 +106,7 @@ Preferences::Preferences(QWidget *parent) : QDialog(parent), ui(new Ui::Preferen
     this->ui->radioButton_2->setEnabled(this->ui->checkBox->isChecked());
     this->ui->checkBox_20->setChecked(Configuration::HuggleConfiguration->UserConfig_RevertNewBySame);
     this->ui->radioButton->setEnabled(this->ui->checkBox->isChecked());
+    this->ui->checkBox_22->setChecked(Configuration::HuggleConfiguration->SystemConfig_DynamicColsInList);
 }
 
 Preferences::~Preferences()
@@ -174,7 +175,7 @@ void Preferences::on_pushButton_clicked()
 
 void Huggle::Preferences::on_pushButton_2_clicked()
 {
-    Configuration::HuggleConfiguration->AutomaticallyResolveConflicts = this->ui->checkBox->isChecked();
+    Configuration::HuggleConfiguration->UserConfig_AutomaticallyResolveConflicts = this->ui->checkBox->isChecked();
     Configuration::HuggleConfiguration->WarnUserSpaceRoll = this->ui->checkBox_2->isChecked();
     Configuration::HuggleConfiguration->UsingIRC = this->ui->checkBox_12->isChecked();
     Configuration::HuggleConfiguration->EnforceManualSoftwareRollback = this->ui->checkBox_5->isChecked();
@@ -189,6 +190,7 @@ void Huggle::Preferences::on_pushButton_2_clicked()
     Configuration::HuggleConfiguration->UserConfig_LastEdit = this->ui->checkBox_21->isChecked();
     Configuration::HuggleConfiguration->UserConfig_DeleteEditsAfterRevert = this->ui->checkBox_15->isChecked();
     Configuration::HuggleConfiguration->UserConfig_TruncateEdits = this->ui->checkBox_19->isChecked();
+    Configuration::HuggleConfiguration->SystemConfig_DynamicColsInList = this->ui->checkBox_22->isChecked();
     if (this->ui->radioButton_5->isChecked())
     {
         Configuration::HuggleConfiguration->UserConfig_GoNext = Configuration_OnNext_Stay;
@@ -201,7 +203,7 @@ void Huggle::Preferences::on_pushButton_2_clicked()
     {
         Configuration::HuggleConfiguration->UserConfig_GoNext = Configuration_OnNext_Next;
     }
-    Configuration::SaveConfig();
+    Configuration::SaveSystemConfig();
     this->hide();
 }
 

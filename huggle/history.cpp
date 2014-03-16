@@ -34,7 +34,8 @@ History::History(QWidget *parent) : QDockWidget(parent), ui(new Ui::History)
 // Qt4 code
     this->ui->tableWidget->horizontalHeader()->setResizeMode(QHeaderView::ResizeToContents);
 #endif
-    //ui->tableWidget->horizontalHeaderItem(0)->setSizeHint(QSize(20,-1));
+    this->ui->tableWidget->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    this->ui->tableWidget->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     this->ui->tableWidget->setShowGrid(false);
 }
 
@@ -46,6 +47,7 @@ void History::Prepend(HistoryItem item)
     this->ui->tableWidget->setItem(0, 1, new QTableWidgetItem(HistoryItem::TypeToString(item.Type)));
     this->ui->tableWidget->setItem(0, 2, new QTableWidgetItem(item.Target));
     this->ui->tableWidget->setItem(0, 3, new QTableWidgetItem(item.Result));
+    this->ui->tableWidget->resizeRowToContents(0);
 }
 
 void History::Refresh()

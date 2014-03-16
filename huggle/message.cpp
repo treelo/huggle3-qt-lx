@@ -27,9 +27,12 @@ Message::Message(WikiUser *target, QString MessageText, QString MessageSummary)
     this->PreviousTalkPageRetrieved = false;
     this->Page = "";
     this->BaseTimestamp = "";
+    this->CreateOnly = false;
+    this->StartTimestamp = "";
+    this->RequireFresh = false;
     this->Error = MessageError_NoError;
     this->ErrorText = "";
-    this->Title = "Message from " + Configuration::HuggleConfiguration->UserName;
+    this->Title = "Message from " + Configuration::HuggleConfiguration->SystemConfig_Username;
 }
 
 Message::~Message()
@@ -44,6 +47,10 @@ Message::~Message()
 void Message::RetrieveToken()
 {
     this->_Status = Huggle::MessageStatus_RetrievingToken;
+    if (this->qToken != NULL)
+    {
+        Syslog::HuggleLogs->DebugLog("Memory leak at void Message::RetrieveToken()");
+    }
     this->qToken = new ApiQuery();
     this->qToken->SetAction(ActionQuery);
     this->qToken->Parameters = "prop=info&intoken=edit&titles=" + QUrl::toPercentEncoding(this->user->GetTalk());
@@ -137,7 +144,7 @@ bool Message::IsFailed()
 
 bool Message::HasValidEditToken()
 {
-    return (Configuration::HuggleConfiguration->SystemConfig_EditToken != "");
+    return (Configuration::HuggleConfiguration->TemporaryConfig_EditToken != "");
 }
 
 bool Message::RetrievingToken()
@@ -162,10 +169,15 @@ void Message::Finish()
         // we really need to quit now because query is null
         return;
     }
+    // Check if we have a valid token
     if (!this->HasValidEditToken())
     {
         // we need to get a token
-        if (this->query == NULL)
+        if (this->_Status == Huggle::MessageStatus_RetrievingToken)
+        {
+            // we are already retrieving the token, so let's wait for it to finish
+            return;
+        } else
         {
             this->RetrieveToken();
             return;
@@ -212,9 +224,9 @@ void Message::Finish()
 
         bool sent = false;
 
-        QDomDocument d;
-        d.setContent(query->Result->Data);
-        QDomNodeList e = d.elementsByTagName("error");
+        QDomDocument dResult_;
+        dResult_.setContent(query->Result->Data);
+        QDomNodeList e = dResult_.elementsByTagName("error");
         if (e.count() > 0)
         {
             QDomElement element = e.at(0).toElement();
@@ -235,10 +247,10 @@ void Message::Finish()
                 return;
             }
         }
-        QDomNodeList l = d.elementsByTagName("edit");
-        if (l.count() > 0)
+        QDomNodeList editlist = dResult_.elementsByTagName("edit");
+        if (editlist.count() > 0)
         {
-            QDomElement element = l.at(0).toElement();
+            QDomElement element = editlist.at(0).toElement();
             if (element.attributes().contains("result"))
             {
                 if (element.attribute("result") == "Success")
@@ -286,9 +298,9 @@ bool Message::FinishToken()
         this->Fail("unable to retrieve the edit token");
         return false;
     }
-    QDomDocument d;
-    d.setContent(this->qToken->Result->Data);
-    QDomNodeList l = d.elementsByTagName("page");
+    QDomDocument dToken_;
+    dToken_.setContent(this->qToken->Result->Data);
+    QDomNodeList l = dToken_.elementsByTagName("page");
     if (l.count() == 0)
     {
         /// \todo LOCALIZE ME
@@ -304,7 +316,7 @@ bool Message::FinishToken()
         Huggle::Syslog::HuggleLogs->DebugLog("No token");
         return false;
     }
-    Configuration::HuggleConfiguration->SystemConfig_EditToken = element.attribute("edittoken");
+    Configuration::HuggleConfiguration->TemporaryConfig_EditToken = element.attribute("edittoken");
     this->qToken->UnregisterConsumer(HUGGLECONSUMER_MESSAGE_SEND);
     this->qToken = NULL;
     return true;
@@ -313,7 +325,7 @@ bool Message::FinishToken()
 void Message::PreflightCheck()
 {
     // check if we can directly append the data or if we need to fetch the previous page content before we do that
-    if ((!this->Section || this->SectionKeep) && !this->PreviousTalkPageRetrieved)
+    if ((!this->CreateInNewSection || this->SectionKeep) && !this->PreviousTalkPageRetrieved)
     {
         if (this->query != NULL)
         {
@@ -341,6 +353,23 @@ void Message::PreflightCheck()
 void Message::ProcessSend()
 {
     this->_Status = MessageStatus_SendingMessage;
+    if (this->RequireFresh && Configuration::HuggleConfiguration->UserConfig_TalkPageFreshness != 0)
+    {
+        if (!this->CreateOnly && (this->user->TalkPage_RetrievalTime().addSecs(
+                                  Configuration::HuggleConfiguration->UserConfig_TalkPageFreshness
+                                      ) < QDateTime::currentDateTime()))
+        {
+            this->Error = Huggle::MessageError_Expired;
+            this->_Status = Huggle::MessageStatus_Failed;
+            return;
+        } else if (!this->CreateOnly && Configuration::HuggleConfiguration->Verbosity >= 2)
+        {
+            Syslog::HuggleLogs->DebugLog("Message to " + this->user->Username + " old " +
+                                         QString::number(this->user->TalkPage_RetrievalTime()
+                                         .addSecs(Configuration::HuggleConfiguration->UserConfig_TalkPageFreshness)
+                                         .secsTo(QDateTime::currentDateTime())), 2);
+        }
+    }
     if (this->query != NULL)
     {
         Syslog::HuggleLogs->DebugLog("Warning, Message::query != NULL on new allocation, possible memory leak in void Message::ProcessSend()");
@@ -354,20 +383,26 @@ void Message::ProcessSend()
     this->query->RegisterConsumer(HUGGLECONSUMER_MESSAGE_SEND);
     this->query->SetAction(ActionEdit);
     QString s = Summary;
-    QString base = "";
+    QString parameters = "";
     if (this->BaseTimestamp != "")
     {
-        base = "&basetimestamp=" + QUrl::toPercentEncoding(this->BaseTimestamp);
+        parameters = "&basetimestamp=" + QUrl::toPercentEncoding(this->BaseTimestamp);
         Syslog::HuggleLogs->DebugLog("Using base timestamp for edit of " + user->GetTalk() + ": " + this->BaseTimestamp, 2);
-    } else
+    }
+    if (this->StartTimestamp != "")
     {
-        Syslog::HuggleLogs->DebugLog("Not using base timestamp for edit of " + user->GetTalk() + " :o", 2);
+        parameters += "&starttimestamp=" + QUrl::toPercentEncoding(this->StartTimestamp);
+        Syslog::HuggleLogs->DebugLog("Using start timestamp for edit of " + user->GetTalk() + ": " + this->StartTimestamp, 2);
+    }
+    if (this->CreateOnly)
+    {
+        parameters += "&createonly=1";
     }
     if (this->Suffix)
     {
         s += " " + Configuration::HuggleConfiguration->LocalConfig_EditSuffixOfHuggle;
     }
-    if (this->SectionKeep || !this->Section)
+    if (this->SectionKeep || !this->CreateInNewSection)
     {
         if (this->SectionKeep)
         {
@@ -381,15 +416,16 @@ void Message::ProcessSend()
             }
         }
         this->query->Parameters = "title=" + QUrl::toPercentEncoding(user->GetTalk()) + "&summary=" + QUrl::toPercentEncoding(s)
-                + "&text=" + QUrl::toPercentEncoding(this->Text) + base
-                + "&token=" + QUrl::toPercentEncoding(Configuration::HuggleConfiguration->SystemConfig_EditToken);
+                + "&text=" + QUrl::toPercentEncoding(this->Text) + parameters
+                + "&token=" + QUrl::toPercentEncoding(Configuration::HuggleConfiguration->TemporaryConfig_EditToken);
     }else
     {
         this->query->Parameters = "title=" + QUrl::toPercentEncoding(user->GetTalk()) + "&section=new&sectiontitle="
                 + QUrl::toPercentEncoding(this->Title) + "&summary=" + QUrl::toPercentEncoding(s)
-                + "&text=" + QUrl::toPercentEncoding(this->Text) + base + "&token="
-                + QUrl::toPercentEncoding(Configuration::HuggleConfiguration->SystemConfig_EditToken);
+                + "&text=" + QUrl::toPercentEncoding(this->Text) + parameters + "&token="
+                + QUrl::toPercentEncoding(Configuration::HuggleConfiguration->TemporaryConfig_EditToken);
     }
+    Syslog::HuggleLogs->DebugLog(QString(" Message to %1 with parameters: %2").arg(this->user->Username, parameters), 2);
     Core::HuggleCore->AppendQuery(query);
     this->query->Process();
 }

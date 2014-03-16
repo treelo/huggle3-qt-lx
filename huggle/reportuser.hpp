@@ -12,7 +12,7 @@
 #ifndef REPORTUSER_H
 #define REPORTUSER_H
 
-#include "config.hpp"
+#include "definitions.hpp"
 // now we need to ensure that python is included first, because it
 // simply suck :P
 // seriously, Python.h is shitty enough that it requires to be
@@ -59,7 +59,7 @@ namespace Huggle
         public:
             explicit ReportUser(QWidget *parent = 0);
             //! Set a user
-            bool SetUser(WikiUser *u);
+            bool SetUser(WikiUser *user);
             ~ReportUser();
 
         private slots:
@@ -77,13 +77,15 @@ namespace Huggle
         private:
             bool CheckUser();
             void InsertUser();
+            //! Stop all operations
+            void Kill();
             Ui::ReportUser *ui;
             //! Reported user
             WikiUser *ReportedUser;
             //! This query is used to retrieve a history of user
             ApiQuery *qHistory;
-            //! Timer is used to retrieve a history for user
-            QTimer *tHistoryUser;
+            //! Timer is used to report the user
+            QTimer *tReportUser;
             //! Timer to check the report page
             QTimer *tReportPageCheck;
             //! Used to retrieve a diff of page

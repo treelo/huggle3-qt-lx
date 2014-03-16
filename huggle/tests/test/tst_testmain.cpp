@@ -40,10 +40,10 @@ HuggleTest::HuggleTest()
 void HuggleTest::testCaseConfigurationParse_QL()
 {
     QString test = "sample-conf:hi\n\nlist1:\n  a,\nb\n";
-    QStringList list = Huggle::Configuration::ConfigurationParse_QL("list1", test);
+    QStringList list = Huggle::HuggleParser::ConfigurationParse_QL("list1", test);
     QVERIFY2(list.count() == 2, "Invalid result for ConfigurationParse_QL, parsed wrong number of lines");
     test = "sample-conf:hi\n\nlist1:\n  a blab ldf xx.;g gfdsg,\nb,\n  c,\n          d d,\n";
-    list = Huggle::Configuration::ConfigurationParse_QL("list1", test);
+    list = Huggle::HuggleParser::ConfigurationParse_QL("list1", test);
     QVERIFY2(list.count() == 4, "Invalid result for ConfigurationParse_QL, parsed wrong number of lines");
     QVERIFY2(list.at(2) == "c,", "Invalid result for ConfigurationParse_QL, parsed wrong item on position 3");
 }
@@ -57,6 +57,7 @@ void HuggleTest::testCaseCoreTrim()
 
 void HuggleTest::testCaseScores()
 {
+    Huggle::Configuration::HuggleConfiguration = new Huggle::Configuration();
     Huggle::Configuration::HuggleConfiguration->LocalConfig_ScoreWords.clear();
     Huggle::Configuration::HuggleConfiguration->LocalConfig_ScoreWords.append(new Huggle::ScoreWord("fuck", 10));
     Huggle::Configuration::HuggleConfiguration->LocalConfig_ScoreWords.append(new Huggle::ScoreWord("fucking", 20));
@@ -139,6 +140,8 @@ void HuggleTest::testCaseScores()
     edit->SafeDelete();
     delete Huggle::GC::gc;
     Huggle::GC::gc = NULL;
+    delete Huggle::Configuration::HuggleConfiguration;
+    Huggle::Configuration::HuggleConfiguration = NULL;
 }
 
 void HuggleTest::testCaseWikiUserCheckIP()
@@ -152,6 +155,7 @@ void HuggleTest::testCaseWikiUserCheckIP()
 
 void HuggleTest::testCaseTerminalParser()
 {
+    Huggle::Configuration::HuggleConfiguration = new Huggle::Configuration();
     QStringList list;
     list.append("huggle");
     list.append("-v");
@@ -190,6 +194,8 @@ void HuggleTest::testCaseTerminalParser()
     p->Silent = true;
     QVERIFY2(p->Parse() == true, "Invalid result for terminal parser");
     delete p;
+    delete Huggle::Configuration::HuggleConfiguration;
+    Huggle::Configuration::HuggleConfiguration = NULL;
 }
 
 QTEST_APPLESS_MAIN(HuggleTest)

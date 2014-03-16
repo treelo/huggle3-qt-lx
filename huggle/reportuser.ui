@@ -23,7 +23,7 @@
       </size>
      </property>
      <property name="text">
-      <string/>
+      <string>Don't overlook me :-)</string>
      </property>
     </widget>
    </item>
@@ -87,7 +87,7 @@
      <item>
       <widget class="QLineEdit" name="lineEdit">
        <property name="text">
-        <string>Persistent vandalism and/or unconstructive edits found with [[WP:HG|Huggle 3]].</string>
+        <string>Report Reason</string>
        </property>
       </widget>
      </item>

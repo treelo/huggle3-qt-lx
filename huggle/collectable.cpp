@@ -8,7 +8,7 @@
 //MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //GNU General Public License for more details.
 
-#include "config.hpp"
+#include "definitions.hpp"
 #include "collectable.hpp"
 
 using namespace Huggle;
@@ -47,20 +47,15 @@ bool Collectable::SafeDelete()
 {
     if (this->Consumers.count() == 0 && this->iConsumers.count() == 0)
     {
-        if (GC::gc == NULL)
+        if (GC::gc != NULL)
         {
-            // there is no garbage collector
-            this->_collectableManaged = false;
-            // we can probably delete it now
-            delete this;
-            return true;
+            GC::gc->Lock->lock();
+            if (GC::gc->list.contains(this))
+            {
+                GC::gc->list.removeAll(this);
+            }
+            GC::gc->Lock->unlock();
         }
-        GC::gc->Lock->lock();
-        if (GC::gc->list.contains(this))
-        {
-            GC::gc->list.removeAll(this);
-        }
-        GC::gc->Lock->unlock();
         this->_collectableManaged = false;
         delete this;
         return true;
@@ -81,7 +76,8 @@ void Collectable::RegisterConsumer(const int consumer)
     if (this->IsManaged() && !this->HasSomeConsumers() && !this->ReclaimingAllowed)
     {
         this->Unlock();
-        throw new Huggle::Exception("You can't reclaim this managed resource", "void Collectable::RegisterConsumer(const int consumer)");
+        throw new Huggle::Exception("You can't reclaim this managed resource", "void Collectable::RegisterConsumer(const "\
+                                    "int consumer = " +  QString::number(consumer) + ")");
     }
     if (!this->iConsumers.contains(consumer))
     {
@@ -105,7 +101,8 @@ void Collectable::RegisterConsumer(const QString consumer)
     if (this->IsManaged() && !this->HasSomeConsumers() && !this->ReclaimingAllowed)
     {
         this->Unlock();
-        throw new Huggle::Exception("You can't reclaim this managed resource", "void Collectable::RegisterConsumer(const QString consumer)");
+        throw new Huggle::Exception("You can't reclaim this managed resource", "void Collectable::RegisterConsumer(const"\
+                                    " QString consumer = " + consumer + ")");
     }
     this->Consumers.append(consumer);
     this->Consumers.removeDuplicates();

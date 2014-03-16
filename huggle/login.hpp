@@ -11,7 +11,7 @@
 #ifndef LOGIN_H
 #define LOGIN_H
 
-#include "config.hpp"
+#include "definitions.hpp"
 // now we need to ensure that python is included first, because it
 // simply suck :P
 #ifdef PYTHONENGINE
@@ -45,7 +45,7 @@ namespace Huggle
     {
         RetrievingGlobalConfig,
         RetrievingUserConfig,
-        RetrievingLocalConfig,
+        RetrievingProjectConfig,
         LoggingIn,
         WaitingForLoginQuery,
         Refreshing,
@@ -101,9 +101,9 @@ namespace Huggle
             void FinishLogin();
             void FinishToken();
             void RetrieveWhitelist();
-            void RetrieveLocalConfig();
+            void RetrieveProjectConfig();
             void RetrieveGlobalConfig();
-            void RetrievePrivateConfig();
+            void RetrieveUserConfig();
             void RetrieveUserInfo();
             void DeveloperMode();
             void DisplayError(QString message);
@@ -122,6 +122,8 @@ namespace Huggle
             QString Token;
             //! String that is used to test against the login failed text
             static QString Test;
+            //! for RetrievePrivateConfig, if we should try to load from
+            bool LoadedOldConfig;
     };
 }
 

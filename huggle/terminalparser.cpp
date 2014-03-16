@@ -45,7 +45,7 @@ bool TerminalParser::Parse()
         }
         if (text == "--safe")
         {
-            Configuration::HuggleConfiguration->_SafeMode = true;
+            Configuration::HuggleConfiguration->SystemConfig_SafeMode = true;
             valid = true;
         }
         if (text == "--language-test")
@@ -75,7 +75,7 @@ bool TerminalParser::Parse()
         {
             if (!this->Silent)
             {
-                cout << (QString("This parameter isn't valid: ") + text).toStdString() << endl;
+                cout << QString("This parameter isn't valid: " + text).toStdString() << endl;
             }
             return true;
         }

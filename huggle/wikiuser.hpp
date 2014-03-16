@@ -11,10 +11,8 @@
 #ifndef WIKIUSER_H
 #define WIKIUSER_H
 
-#include "config.hpp"
-// now we need to ensure that python is included first, because it
-// simply suck :P
-// seriously, Python.h is shitty enough that it requires to be
+#include "definitions.hpp"
+// now we need to ensure that python is included first, seriously Python.h is shitty enough that it requires to be
 // included first. Don't believe it? See this:
 // http://stackoverflow.com/questions/20300201/why-python-h-of-python-3-2-must-be-included-as-first-together-with-qt4
 #ifdef PYTHONENGINE
@@ -61,6 +59,7 @@ namespace Huggle
              */
             static QList<WikiUser*> ProblematicUsers;
             static QMutex ProblematicUserListLock;
+            static QDateTime InvalidTime;
 
             WikiUser();
             WikiUser(WikiUser *u);
@@ -108,6 +107,7 @@ namespace Huggle
             bool TalkPage_ContainsSharedIPTemplate();
             //! Returns true if this user is wl
             bool IsWhitelisted();
+            QDateTime TalkPage_RetrievalTime();
             /*!
              * \brief Retrieve a badness score for current user, see WikiUser::BadnessScore for more
              * \param _resync If true the user will be resynced before the score is returned
@@ -122,6 +122,7 @@ namespace Huggle
             //! T- has talkpage
             //! R - is registered
             //! E - exception
+            //! b - bot
             QString Flags();
             bool GetBot() const;
             void SetBot(bool value);
@@ -154,6 +155,8 @@ namespace Huggle
             //! In case that we retrieved the talk page during parse of warning level, this string contains it
             QString ContentsOfTalkPage;
             bool _talkPageWasRetrieved;
+            //! This is a date when we retrieved this talk page
+            QDateTime DateOfTalkPage;
             QMutex *UserLock;
             bool Bot;
             bool IP;

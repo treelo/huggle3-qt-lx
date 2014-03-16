@@ -20,15 +20,6 @@ Help
  * First we need to download a zip of this package to /tmp
  * Now we can unzip it
  * Now we need to switch to huggle3-qt-lx and create a tarball of huggle folder
-=======
-Windows
--------------
-
-* Download QT Creator from http://qt-project.org/downloads
-* Download OpenSSL and Visual C++ 2008 Redistributables from http://slproweb.com/products/Win32OpenSSL.html
-* Checkout this repository
-* Create empty version.txt in folder huggle
-* Open huggle.pro in that and hit build
 
 Linux
 -------------
@@ -41,4 +32,10 @@ mv huggle huggle-VERSION
 
  * switch to it
  * run debuild -us -uc
+
+Huggle is using google breakpad so when it crash a minidump should be generated.
+In addition a core dump may be produced on linux systems. Both of these, or at
+least minidump is very useful for developers to track the problems. So if the
+minidump is generated during crash (you will see that in system log) you can
+send this to developers in order to get the issue analysed and fixed.
 

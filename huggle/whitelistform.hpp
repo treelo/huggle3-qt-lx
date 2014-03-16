@@ -11,7 +11,7 @@
 #ifndef WHITELISTFORM_H
 #define WHITELISTFORM_H
 
-#include "config.hpp"
+#include "definitions.hpp"
 // now we need to ensure that python is included first, because it
 // simply suck :P
 // seriously, Python.h is shitty enough that it requires to be
@@ -39,14 +39,12 @@ namespace Huggle
     class WhitelistForm : public QDialog
     {
             Q_OBJECT
-
         public:
             explicit WhitelistForm(QWidget *parent = 0);
             ~WhitelistForm();
         private slots:
             void OnTick();
             void on_pushButton_clicked();
-
         private:
             QStringList Whitelist;
             QTimer *timer;

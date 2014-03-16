@@ -12,11 +12,16 @@ TARGET = tst_testmain
 CONFIG   += console
 CONFIG   -= app_bundle
 
+LIBS += ../../libbreakpad_client.a
+
+INCLUDEPATH += ../../breakpad/src
+
 TEMPLATE = app
 
 
 SOURCES += tst_testmain.cpp \
     ../../wikiuser.cpp \
+    ../../mediawiki.cpp \
     ../../configuration.cpp \
     ../../localization.cpp \
     ../../wikisite.cpp \
@@ -84,6 +89,7 @@ DEFINES += SRCDIR=\\\"$$PWD/\\\"
 
 HEADERS += \
     ../../wikiuser.hpp \
+    ../../mediawiki.hpp \
     ../../configuration.hpp \
     ../../wikisite.hpp \
     ../../wikipage.hpp \

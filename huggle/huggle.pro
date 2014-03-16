@@ -12,6 +12,25 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets webkitwidgets
 
 TARGET = huggle
 TEMPLATE = app
+INCLUDEPATH += "breakpad/src"
+DEFINES *= QT_USE_QSTRINGBUILDER
+
+linux-g++ {
+    LIBS += libbreakpad_client.a
+}
+
+linux {
+    LIBS += libbreakpad_client.a
+}
+
+unix {
+    LIBS += libbreakpad_client.a
+}
+
+win32 {
+    QMAKE_CFLAGS_RELEASE += -Zi
+    LIBS +=  ..\huggle\exception_handler.lib ..\huggle\crash_generation_client.lib
+}
 
 #PYTHON SUPPORT - uncomment me if you want to use python
 ##################################################################################################################################################
@@ -93,7 +112,8 @@ SOURCES += main.cpp\
     huggleparser.cpp \
     sleeper.cpp \
     warnings.cpp \
-    resources.cpp
+    resources.cpp \
+    mediawiki.cpp
 
 HEADERS  += mainwindow.hpp \
     login.hpp \
@@ -159,9 +179,10 @@ HEADERS  += mainwindow.hpp \
     syslog.hpp \
     huggleparser.hpp \
     sleeper.hpp \
-    config.hpp \
+    definitions.hpp \
     warnings.hpp \
-    resources.hpp
+    resources.hpp \
+    mediawiki.hpp
 
 FORMS    += mainwindow.ui \
     login.ui \

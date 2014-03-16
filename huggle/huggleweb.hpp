@@ -11,7 +11,7 @@
 #ifndef HUGGLEWEB_H
 #define HUGGLEWEB_H
 
-#include "config.hpp"
+#include "definitions.hpp"
 // now we need to ensure that python is included first, because it
 // simply suck :P
 // seriously, Python.h is shitty enough that it requires to be
@@ -61,7 +61,7 @@ namespace Huggle
              * \brief Open a page but append action=render to it
              * \param url
              */
-            void DisplayPreFormattedPage(const QString &url);
+            void DisplayPreFormattedPage(QString url);
             void DisplayPage(const QString &url);
             /*!
              * \brief Display a html text in window of huggle

@@ -11,7 +11,7 @@
 #ifndef NETWORKIRC_H
 #define NETWORKIRC_H
 
-#include "config.hpp"
+#include "definitions.hpp"
 // now we need to ensure that python is included first, because it
 // simply suck :P
 // seriously, Python.h is shitty enough that it requires to be
@@ -21,6 +21,7 @@
 #include <Python.h>
 #endif
 
+#include <QHash>
 #include <QString>
 #include <QtNetwork>
 #include <QThread>
@@ -44,9 +45,18 @@ namespace Huggle
         class Channel
         {
             public:
-                Channel();
+                Channel(QString name);
+                ~Channel();
+                void InsertUser(User user);
+                void RemoveUser(QString user);
+                //! Returns true in case that user list has changed and reset the value to false
+                //! useful for one time check if user list needs to be redrawn
+                bool UsersChanged();
                 QString Name;
-                QList<User> Users;
+                QHash<QString, User> Users;
+                QMutex *UsersLock;
+            private:
+                bool UsersChange_;
         };
 
         /*!
@@ -55,10 +65,12 @@ namespace Huggle
         class User
         {
             public:
+                User(QString nick);
                 User(QString nick, QString ident, QString host);
                 User();
                 User(User *user);
                 User(const User &user);
+                void SanitizeNick();
                 QString Ident;
                 QString Nick;
                 QString Host;
@@ -88,10 +100,15 @@ namespace Huggle
                 NetworkIrc_th();
                 ~NetworkIrc_th();
                 void Data(QString text);
+                void Line(QString line);
+                void ProcessPrivmsg(QString source, QString parameters, QString message);
+                void ProcessJoin(QString source, QString channel, QString message);
+                void ProcessChannel(QString channel, QString data);
+                void ProcessKick(QString source, QString parameters, QString message);
+                void ProcessQuit(QString source, QString message);
+                void ProcessPart(QString source, QString channel, QString message);
                 bool Running;
                 NetworkIrc *root;
-                void Line(QString line);
-                void ProcessPrivmsg(QString source, QString xx);
                 bool __Connected;
                 bool __IsConnecting;
                 QStringList IncomingBuffer;
@@ -130,19 +147,26 @@ namespace Huggle
                 void Part(QString name);
                 void Data(QString text);
                 void Send(QString name, QString text);
+                /*!
+                 * \brief GetMessage provides a last message from any channel and remove it from buffer
+                 * \return NULL in case there is no message in buffer remaining or message
+                 */
+                Message* GetMessage();
+                //! Hostname of IRC server to use
                 QString Server;
                 QString Nick;
                 QString UserName;
                 QString Ident;
                 QMutex *MessagesLock;
-                Message* GetMessage();
-                QStringList Channels;
+                QHash<QString, Channel*> Channels;
+                QMutex *ChannelsLock;
                 int Port;
                 QList<Message> Messages;
             private slots:
                 void OnReceive();
                 void OnTime();
             private:
+                void ClearList();
                 NetworkIrc_th *NetworkThread;
                 QTcpSocket *NetworkSocket;
                 QTimer *Timer;

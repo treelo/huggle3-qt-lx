@@ -11,7 +11,7 @@
 #ifndef IEXTENSION_H
 #define IEXTENSION_H
 
-#include "config.hpp"
+#include "definitions.hpp"
 // now we need to ensure that python is included first, because it
 // simply suck :P
 // seriously, Python.h is shitty enough that it requires to be
@@ -28,7 +28,7 @@
 
 #if _MSC_VER
 #pragma warning ( push )
-#pragma warning ( disable )
+#pragma warning ( disable : 4100 )
 #else
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
@@ -89,7 +89,7 @@ namespace Huggle
 }
 
 #if _MSC_VER
-#pragma warning ( pop )
+#pragma warning ( default: 4100 )
 #else
 #pragma GCC diagnostic pop
 #endif

@@ -18,7 +18,7 @@
 #define HUGGLE_BYTE_VERSION             0x3000
 
 // uncomment this if you want to enable python support
-//#define PYTHONENGINE
+#define PYTHONENGINE
 
 // Uncomment this in order to disable breakpad, this is useful when you are having troubles
 // linking or building its libraries
@@ -66,7 +66,7 @@
 #define MEDIAWIKI_NSID_PORTAL                   100
 #define MEDIAWIKI_NSID_PORTALTALK               101
 //! Change this to DEBIAN / UBUNTU / WINDOWS to get automatic updates for selected channels
-#define HUGGLE_UPDATER_PLATFORM_TYPE            "unknown"
+#define HUGGLE_UPDATER_PLATFORM_TYPE            "huggle-devs"
 //! Revid of edit that doesn't exist
 #define WIKI_UNKNOWN_REVID -1
 

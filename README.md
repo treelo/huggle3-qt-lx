@@ -4,8 +4,6 @@ huggle3-qt-lx
 Huggle 3 QT-LX is an anti-vandalism tool for use on Wikipedia and other Wikimedia projects, written in C++ (QT framework).
 It is supported for Windows and Linux
 
-[![Build Status](https://travis-ci.org/huggle/huggle3-qt-lx.png?branch=ubuntu)](https://travis-ci.org/huggle/huggle3-qt-lx)
-
 This is a repository that is used to build debian packages
 
 Easy
@@ -24,14 +22,8 @@ Help
 Linux
 -------------
 
-tar -zcvf huggle_VERSION.orig.tar.gz huggle
-
- * Now rename the original huggle folder
-
-mv huggle huggle-VERSION
-
- * switch to it
- * run debuild -us -uc
+run ./debian.sh
+run debuild -sa -S -k<gpg key>
 
 Huggle is using google breakpad so when it crash a minidump should be generated.
 In addition a core dump may be produced on linux systems. Both of these, or at

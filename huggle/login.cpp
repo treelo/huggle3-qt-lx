@@ -17,6 +17,7 @@ QString Login::Test = "<login result=\"NeedToken\" token=\"";
 
 Login::Login(QWidget *parent) :   QDialog(parent),   ui(new Ui::Login)
 {
+    this->Loading = true;
     this->ui->setupUi(this);
     this->_Status = Nothing;
     this->LoadedOldConfig = false;
@@ -28,12 +29,17 @@ Login::Login(QWidget *parent) :   QDialog(parent),   ui(new Ui::Login)
     this->ui->checkBox->setChecked(Configuration::HuggleConfiguration->SystemConfig_UsingSSL);
     // set the language to dummy english
     int l=0;
+    int p=0;
     while (l<Localizations::HuggleLocalizations->LocalizationData.count())
     {
         this->ui->Language->addItem(Localizations::HuggleLocalizations->LocalizationData.at(l)->LanguageID);
+        if (Localizations::HuggleLocalizations->LocalizationData.at(l)->LanguageName == Localizations::HuggleLocalizations->PreferredLanguage)
+        {
+            p = l;
+        }
         l++;
     }
-    this->ui->Language->setCurrentIndex(0);
+    this->ui->Language->setCurrentIndex(p);
     this->Reload();
     this->wq = NULL;
     if (!QSslSocket::supportsSsl())
@@ -53,6 +59,7 @@ Login::Login(QWidget *parent) :   QDialog(parent),   ui(new Ui::Login)
         this->ui->lineEdit_username->setText(Configuration::HuggleConfiguration->SystemConfig_Username);
         this->ui->lineEdit_password->setFocus();
     }
+    this->Loading = false;
     this->Localize();
 }
 
@@ -843,19 +850,24 @@ void Login::on_pushButton_clicked()
     {
         this->LoginQuery->SafeDelete();
     }
-
     this->LoginQuery = new ApiQuery();
     this->_Status = Refreshing;
+    Configuration::HuggleConfiguration->SystemConfig_UsingSSL = ui->checkBox->isChecked();
     this->LoginQuery->SetAction(ActionQuery);
     this->timer->start(200);
     this->LoginQuery->OverrideWiki = Configuration::HuggleConfiguration->GlobalConfigurationWikiAddress;
     this->ui->ButtonOK->setText(Localizations::HuggleLocalizations->Localize("[[cancel]]"));
-    this->LoginQuery->Parameters = "prop=revisions&format=xml&rvprop=content&rvlimit=1&titles=Project:Huggle/List";
+    this->LoginQuery->Parameters = "prop=revisions&format=xml&rvprop=content&rvlimit=1&titles="
+                        + Configuration::HuggleConfiguration->SystemConfig_GlobalConfigWikiList;
     this->LoginQuery->Process();
 }
 
 void Login::on_Language_currentIndexChanged(const QString &arg1)
 {
+    if (Loading)
+    {
+        return;
+    }
     QString lang = "en";
     int c = 0;
     while (c<Localizations::HuggleLocalizations->LocalizationData.count())

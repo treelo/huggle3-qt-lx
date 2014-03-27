@@ -42,7 +42,14 @@ void Core::Init()
     this->Processor = new ProcessorThread();
     this->Processor->start();
     this->LoadLocalizations();
-    Configuration::LoadSystemConfig();
+    Huggle::Syslog::HuggleLogs->Log("Home: " + Configuration::GetConfigurationPath());
+    if (QFile().exists(Configuration::GetConfigurationPath() + HUGGLE_CONF))
+    {
+        Configuration::LoadSystemConfig(Configuration::GetConfigurationPath() + HUGGLE_CONF);
+    } else if (QFile().exists(QCoreApplication::applicationDirPath() + HUGGLE_CONF))
+    {
+        Configuration::LoadSystemConfig(QCoreApplication::applicationDirPath() + HUGGLE_CONF);
+    }
     Syslog::HuggleLogs->DebugLog("Loading defs");
     this->LoadDefs();
     Syslog::HuggleLogs->DebugLog("Loading wikis");
@@ -96,7 +103,10 @@ Core::~Core()
 void Core::LoadDB()
 {
     Configuration::HuggleConfiguration->ProjectList.clear();
-    Configuration::HuggleConfiguration->ProjectList << Configuration::HuggleConfiguration->Project;
+    if (Configuration::HuggleConfiguration->Project != NULL)
+    {
+        Configuration::HuggleConfiguration->ProjectList << Configuration::HuggleConfiguration->Project;
+    }
     QString text = "";
     if (QFile::exists(Configuration::HuggleConfiguration->WikiDB))
     {

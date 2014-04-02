@@ -1,3 +1,9 @@
+huggle (3.0.0.0-ppa19) precise; urgency=medium
+
+  * http://github.com/huggle/huggle3-qt-lx/compare/cec87b0ab16a...1b924c1c50dc
+
+ -- Petr Bena <benapetr@gmail.com>  Wed, 02 Apr 2014 18:44:48 +0200
+
 huggle (3.0.0.0-ppa18) precise; urgency=medium
 
   * https://github.com/huggle/huggle3-qt-lx/compare/591e93414008...2035159d8079

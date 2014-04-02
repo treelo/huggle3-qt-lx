@@ -82,6 +82,7 @@ Configuration::Configuration()
     this->LocalConfig_SharedIPTemplateTags = "";
     this->LocalConfig_SharedIPTemplate = "";
     this->ProjectConfig_EnableAll = false;
+    this->ProjectConfig_WarningLevel = 4;
     this->LocalConfig_ScoreTalk = -800;
     this->LocalConfig_AssociatedDelete = "G8. Page dependent on a non-existent or deleted page.";
     this->LocalConfig_DeletionSummaries << "Deleted page using Huggle";
@@ -414,6 +415,7 @@ QString Configuration::MakeLocalUserConfig()
     configuration_ += "DeleteEditsAfterRevert:" + Configuration::Bool2String(Configuration::HuggleConfiguration->UserConfig_DeleteEditsAfterRevert) + "\n";
     configuration_ += "SkipToLastEdit:" + Configuration::Bool2String(Configuration::HuggleConfiguration->UserConfig_LastEdit) + "\n";
     configuration_ += "TruncateEdits:" + Configuration::Bool2String(Configuration::HuggleConfiguration->UserConfig_TruncateEdits) + "\n";
+    configuration_ += "TalkpageFreshness:" + QString::number(Configuration::HuggleConfiguration->UserConfig_TalkPageFreshness) + "\n";
     configuration_ += "// queues\nqueues:\n";
     int c = 0;
     while (c < HuggleQueueFilter::Filters.count())
@@ -677,6 +679,7 @@ bool Configuration::ParseProjectConfig(QString config)
               config, "Reverted edits by [[Special:Contributions/$1|$1]] ([[User talk:$1|talk]])");
     // Warning types
     this->LocalConfig_WarningTypes = HuggleParser::ConfigurationParse_QL("warning-types", config);
+    this->ProjectConfig_WarningLevel = (byte_ht)ConfigurationParse("warning-mode", config, "4").toInt();
     this->LocalConfig_WarningDefs = HuggleParser::ConfigurationParse_QL("warning-template-tags", config);
     // Reverting
     this->LocalConfig_ConfirmMultipleEdits = SafeBool(ConfigurationParse("confirm-multiple", config));
@@ -906,6 +909,7 @@ bool Configuration::ParseUserConfig(QString config)
     this->UserConfig_TruncateEdits = SafeBool(ConfigurationParse("TruncateEdits", config, "false"));
     this->UserConfig_HistoryLoad = SafeBool(ConfigurationParse("HistoryLoad", config, "true"));
     this->UserConfig_LastEdit = SafeBool(ConfigurationParse("SkipToLastEdit", config, "false"));
+    this->UserConfig_TalkPageFreshness = ConfigurationParse("TalkpageFreshness", config, QString::number(this->UserConfig_TalkPageFreshness)).toInt();
     this->UserConfig_GoNext = static_cast<Configuration_OnNext>(ConfigurationParse("OnNext", config, "1").toInt());
     this->UserConfig_DeleteEditsAfterRevert = SafeBool(ConfigurationParse("DeleteEditsAfterRevert", config, "true"));
     this->NormalizeConf();

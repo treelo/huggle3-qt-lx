@@ -59,7 +59,7 @@ namespace Huggle
          * \param page The content of talk page
          * \return Level
          */
-        int GetLevel(QString page);
+        byte_ht GetLevel(QString page, QDate bt);
     }
 }
 

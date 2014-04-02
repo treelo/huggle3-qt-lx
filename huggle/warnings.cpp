@@ -57,7 +57,7 @@ PendingWarning *Warnings::WarnUser(QString WarningType, RevertQuery *Dependency,
     // get a template
     Edit->User->WarningLevel++;
 
-    if (Edit->User->WarningLevel > 4)
+    if (Edit->User->WarningLevel > Configuration::HuggleConfiguration->ProjectConfig_WarningLevel)
     {
         // we should report this user instead
         if (Edit->User->IsReported)
@@ -223,7 +223,7 @@ void Warnings::ResendWarnings()
                 }
 
                 // so we now have the new talk page content so we need to reclassify the user
-                warning->Warning->user->ParseTP();
+                warning->Warning->user->ParseTP(QDate::currentDate());
                 warning->Warning->user->Update(true);
 
                 // now when we have the new level of warning we can try to send a new warning and hope that talk page wasn't

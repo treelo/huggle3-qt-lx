@@ -95,7 +95,7 @@ namespace Huggle
             //! This function will reparse whole talk page of user in order to figure out which level they have
 
             //! This function needs to be called after the content of talk page has changed
-            void ParseTP();
+            void ParseTP(QDate bt);
             //! Update the information of this user based on global user list
 
             //! This is useful when you created user in past and since then a global user has changed
@@ -131,7 +131,7 @@ namespace Huggle
             //! Username
             QString Username;
             //! Current warning level of user
-            int WarningLevel;
+            byte_ht WarningLevel;
             bool IsBanned;
             //! Local cache that holds information if user is reported or not. This information
             //! may be wrong, don't relly on it
@@ -151,7 +151,7 @@ namespace Huggle
              */
             long BadnessScore;
             //! Status of whitelist 0 means user is not whitelisted, 1 that it is and different value means we don't know
-            int WhitelistInfo;
+            byte_ht WhitelistInfo;
             //! In case that we retrieved the talk page during parse of warning level, this string contains it
             QString ContentsOfTalkPage;
             bool _talkPageWasRetrieved;

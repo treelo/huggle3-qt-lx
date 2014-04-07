@@ -77,10 +77,22 @@ void HuggleTest::testCaseTalkPage()
     file->open(QIODevice::ReadOnly);
     text = QString(file->readAll());
     user->TalkPage_SetContents(text);
-    user->ParseTP(QDate(2014, 1, 26));
+    user->ParseTP(QDate(2014, 1, 22));
     QVERIFY2(user->WarningLevel == 3, QString("level parsed was " + QString::number(user->WarningLevel) + " should be 3!!").toUtf8().data());
     file->close();
     delete file;
+    delete user;
+    file = new QFile(":/test/wikipage/tp0003.txt");
+    user = new Huggle::WikiUser();
+    file->open(QIODevice::ReadOnly);
+    text = QString(file->readAll());
+    user->TalkPage_SetContents(text);
+    user->ParseTP(QDate(2014, 4, 2));
+    QVERIFY2(user->WarningLevel == 0, QString("level parsed was " +
+QString::number(user->WarningLevel) + " should be 0!!").toUtf8().data());
+    file->close();
+    delete file;
+    delete user;
 }
 
 void HuggleTest::testCaseCoreTrim()
@@ -92,13 +104,13 @@ void HuggleTest::testCaseCoreTrim()
 
 void HuggleTest::testCaseScores()
 {
-    Huggle::Configuration::HuggleConfiguration->LocalConfig_ScoreWords.clear();
-    Huggle::Configuration::HuggleConfiguration->LocalConfig_ScoreWords.append(new Huggle::ScoreWord("fuck", 10));
-    Huggle::Configuration::HuggleConfiguration->LocalConfig_ScoreWords.append(new Huggle::ScoreWord("fucking", 20));
-    Huggle::Configuration::HuggleConfiguration->LocalConfig_ScoreWords.append(new Huggle::ScoreWord("vagina", 50));
-    Huggle::Configuration::HuggleConfiguration->LocalConfig_ScoreWords.append(new Huggle::ScoreWord("fuck this bitch", 20));
-    Huggle::Configuration::HuggleConfiguration->LocalConfig_ScoreWords.append(new Huggle::ScoreWord("suck", 60));
-    Huggle::Configuration::HuggleConfiguration->LocalConfig_ScoreWords.append(new Huggle::ScoreWord("ass", 60));
+    Huggle::Configuration::HuggleConfiguration->ProjectConfig_ScoreWords.clear();
+    Huggle::Configuration::HuggleConfiguration->ProjectConfig_ScoreWords.append(new Huggle::ScoreWord("fuck", 10));
+    Huggle::Configuration::HuggleConfiguration->ProjectConfig_ScoreWords.append(new Huggle::ScoreWord("fucking", 20));
+    Huggle::Configuration::HuggleConfiguration->ProjectConfig_ScoreWords.append(new Huggle::ScoreWord("vagina", 50));
+    Huggle::Configuration::HuggleConfiguration->ProjectConfig_ScoreWords.append(new Huggle::ScoreWord("fuck this bitch", 20));
+    Huggle::Configuration::HuggleConfiguration->ProjectConfig_ScoreWords.append(new Huggle::ScoreWord("suck", 60));
+    Huggle::Configuration::HuggleConfiguration->ProjectConfig_ScoreWords.append(new Huggle::ScoreWord("ass", 60));
     Huggle::Configuration::HuggleConfiguration->SystemConfig_WordSeparators << " " << "." << "," << "(" << ")" << ":" << ";" << "!" << "?" << "/";
     Huggle::GC::gc = new Huggle::GC();
     Huggle::WikiEdit *edit = new Huggle::WikiEdit();

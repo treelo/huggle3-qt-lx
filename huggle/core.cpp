@@ -388,27 +388,33 @@ void Core::FinalizeMessages()
     }
 }
 
+EditQuery *Core::EditPage(QString page, QString text, QString summary, bool minor, QString BaseTimestamp, unsigned int section)
+{
+    // retrieve a token
+    EditQuery *eq = new EditQuery();
+    if (!summary.endsWith(Configuration::HuggleConfiguration->ProjectConfig_EditSuffixOfHuggle))
+    {
+        summary = summary + " " + Configuration::HuggleConfiguration->ProjectConfig_EditSuffixOfHuggle;
+    }
+    eq->RegisterConsumer("Core::EditPage");
+    eq->Page = page;
+    eq->BaseTimestamp = BaseTimestamp;
+    this->PendingMods.append(eq);
+    eq->text = text;
+    eq->Section = section;
+    eq->Summary = summary;
+    eq->Minor = minor;
+    eq->Process();
+    return eq;
+}
+
 EditQuery *Core::EditPage(WikiPage *page, QString text, QString summary, bool minor, QString BaseTimestamp)
 {
     if (page == NULL)
     {
         return NULL;
     }
-    // retrieve a token
-    EditQuery *eq = new EditQuery();
-    if (!summary.endsWith(Configuration::HuggleConfiguration->LocalConfig_EditSuffixOfHuggle))
-    {
-        summary = summary + " " + Configuration::HuggleConfiguration->LocalConfig_EditSuffixOfHuggle;
-    }
-    eq->RegisterConsumer("Core::EditPage");
-    eq->Page = page->PageName;
-    eq->BaseTimestamp = BaseTimestamp;
-    this->PendingMods.append(eq);
-    eq->text = text;
-    eq->Summary = summary;
-    eq->Minor = minor;
-    eq->Process();
-    return eq;
+    return this->EditPage(page->PageName, text, summary, minor, BaseTimestamp);
 }
 
 void Core::AppendQuery(Query *item)
@@ -655,12 +661,12 @@ void Core::PreProcessEdit(WikiEdit *_e)
         _e->User->SetBot(true);
     }
 
-    _e->EditMadeByHuggle = _e->Summary.contains(Configuration::HuggleConfiguration->LocalConfig_EditSuffixOfHuggle);
+    _e->EditMadeByHuggle = _e->Summary.contains(Configuration::HuggleConfiguration->ProjectConfig_EditSuffixOfHuggle);
 
     int x = 0;
-    while (x < Configuration::HuggleConfiguration->LocalConfig_Assisted.count())
+    while (x < Configuration::HuggleConfiguration->ProjectConfig_Assisted.count())
     {
-        if (_e->Summary.contains(Configuration::HuggleConfiguration->LocalConfig_Assisted.at(x)))
+        if (_e->Summary.contains(Configuration::HuggleConfiguration->ProjectConfig_Assisted.at(x)))
         {
             _e->TrustworthEdit = true;
             break;

@@ -31,9 +31,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->OnNext_EvPage = NULL;
     this->fRemove = NULL;
     this->qTalkPage = NULL;
+    this->fWarningList = NULL;
     this->eq = NULL;
     this->RestoreEdit = NULL;
     this->CurrentEdit = NULL;
+    this->fRFProtection = NULL;
     this->LastTPRevID = WIKI_UNKNOWN_REVID;
     this->Shutdown = ShutdownOpRunning;
     this->EditablePage = false;
@@ -60,6 +62,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->addDockWidget(Qt::BottomDockWidgetArea, this->VandalDock);
     this->preferencesForm = new Preferences(this);
     this->aboutForm = new AboutForm(this);
+    this->ui->actionRequest_protection->setEnabled(Configuration::HuggleConfiguration->ProjectConfig_RFPP);
     // we store the value in bool so that we don't need to call expensive string function twice
     bool PermissionBlock = Configuration::HuggleConfiguration->Rights.contains("block");
     this->ui->actionBlock_user->setEnabled(PermissionBlock);
@@ -70,7 +73,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->ui->actionProtect->setEnabled(Configuration::HuggleConfiguration->Rights.contains("protect"));
     this->addDockWidget(Qt::LeftDockWidgetArea, this->_History);
     this->SystemLog->resize(100, 80);
-    QList<HuggleLog_Line> _log = Syslog::HuggleLogs->RingLogToList();
     if (!Configuration::HuggleConfiguration->WhiteList.contains(Configuration::HuggleConfiguration->SystemConfig_Username))
     {
         Configuration::HuggleConfiguration->WhiteList.append(Configuration::HuggleConfiguration->SystemConfig_Username);
@@ -80,11 +82,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->Ignore = NULL;
     this->DisplayWelcomeMessage();
     // initialise queues
-    if (!Configuration::HuggleConfiguration->LocalConfig_UseIrc)
+    if (!Configuration::HuggleConfiguration->ProjectConfig_UseIrc)
     {
         Syslog::HuggleLogs->Log(Localizations::HuggleLocalizations->Localize("irc-not"));
     }
-    if (Configuration::HuggleConfiguration->UsingIRC && Configuration::HuggleConfiguration->LocalConfig_UseIrc)
+    if (Configuration::HuggleConfiguration->UsingIRC && Configuration::HuggleConfiguration->ProjectConfig_UseIrc)
     {
         Core::HuggleCore->PrimaryFeedProvider = new HuggleFeedProviderIRC();
         this->ui->actionIRC->setChecked(true);
@@ -104,17 +106,17 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         Core::HuggleCore->PrimaryFeedProvider = new HuggleFeedProviderWiki();
         Core::HuggleCore->PrimaryFeedProvider->Start();
     }
-    if (Configuration::HuggleConfiguration->LocalConfig_WarningTypes.count() > 0)
+    if (Configuration::HuggleConfiguration->ProjectConfig_WarningTypes.count() > 0)
     {
         this->RevertSummaries = new QMenu(this);
         this->WarnMenu = new QMenu(this);
         this->RevertWarn = new QMenu(this);
         int r=0;
-        while (r<Configuration::HuggleConfiguration->LocalConfig_WarningTypes.count())
+        while (r<Configuration::HuggleConfiguration->ProjectConfig_WarningTypes.count())
         {
-            QAction *action = new QAction(HuggleParser::GetValueFromKey(Configuration::HuggleConfiguration->LocalConfig_WarningTypes.at(r)), this);
-            QAction *actiona = new QAction(HuggleParser::GetValueFromKey(Configuration::HuggleConfiguration->LocalConfig_WarningTypes.at(r)), this);
-            QAction *actionb = new QAction(HuggleParser::GetValueFromKey(Configuration::HuggleConfiguration->LocalConfig_WarningTypes.at(r)), this);
+            QAction *action = new QAction(HuggleParser::GetValueFromKey(Configuration::HuggleConfiguration->ProjectConfig_WarningTypes.at(r)), this);
+            QAction *actiona = new QAction(HuggleParser::GetValueFromKey(Configuration::HuggleConfiguration->ProjectConfig_WarningTypes.at(r)), this);
+            QAction *actionb = new QAction(HuggleParser::GetValueFromKey(Configuration::HuggleConfiguration->ProjectConfig_WarningTypes.at(r)), this);
             this->RevertWarn->addAction(actiona);
             this->WarnMenu->addAction(actionb);
             this->RevertSummaries->addAction(action);
@@ -209,6 +211,7 @@ MainWindow::~MainWindow()
     delete this->Status;
     delete this->Browser;
     delete this->fBlockForm;
+    delete this->fWarningList;
     delete this->fDeleteForm;
     delete this->fUaaReportForm;
     delete this->ui;
@@ -244,7 +247,7 @@ void MainWindow::DisplayReportUserWindow(WikiUser *User)
         return;
     }
 
-    if (!Configuration::HuggleConfiguration->LocalConfig_AIV)
+    if (!Configuration::HuggleConfiguration->ProjectConfig_AIV)
     {
         QMessageBox mb;
         mb.setText(Localizations::HuggleLocalizations->Localize("missing-aiv"));
@@ -611,16 +614,16 @@ bool MainWindow::PreflightCheck(WikiEdit *_e)
     {
         Warn = true;
         type = "in userspace";
-    } else if (Configuration::HuggleConfiguration->LocalConfig_ConfirmOnSelfRevs
+    } else if (Configuration::HuggleConfiguration->ProjectConfig_ConfirmOnSelfRevs
                &&(_e->User->Username.toLower() == Configuration::HuggleConfiguration->SystemConfig_Username.toLower()))
     {
         type = "made by you";
         Warn = true;
-    } else if (Configuration::HuggleConfiguration->LocalConfig_ConfirmTalk && _e->Page->IsTalk())
+    } else if (Configuration::HuggleConfiguration->ProjectConfig_ConfirmTalk && _e->Page->IsTalk())
     {
         type = "made on talk page";
         Warn = true;
-    } else if (Configuration::HuggleConfiguration->LocalConfig_ConfirmWL && _e->User->IsWhitelisted())
+    } else if (Configuration::HuggleConfiguration->ProjectConfig_ConfirmWL && _e->User->IsWhitelisted())
     {
         type = "made by a user who is on white list";
         Warn = true;
@@ -665,12 +668,12 @@ QString MainWindow::GetSummaryKey(QString item)
     {
         QString type = item.mid(0, item.indexOf(";"));
         int c=0;
-        while(c < Configuration::HuggleConfiguration->LocalConfig_WarningTypes.count())
+        while(c < Configuration::HuggleConfiguration->ProjectConfig_WarningTypes.count())
         {
-            QString x = Configuration::HuggleConfiguration->LocalConfig_WarningTypes.at(c);
+            QString x = Configuration::HuggleConfiguration->ProjectConfig_WarningTypes.at(c);
             if (x.startsWith(type + ";"))
             {
-                x = Configuration::HuggleConfiguration->LocalConfig_WarningTypes.at(c);
+                x = Configuration::HuggleConfiguration->ProjectConfig_WarningTypes.at(c);
                 x = x.mid(x.indexOf(";") + 1);
                 if (x.endsWith(","))
                 {
@@ -741,7 +744,7 @@ void MainWindow::FinishRestore()
             this->RestoreEdit = NULL;
             return;
         }
-        QString sm = Configuration::HuggleConfiguration->LocalConfig_RestoreSummary;
+        QString sm = Configuration::HuggleConfiguration->ProjectConfig_RestoreSummary;
         sm = sm.replace("$1", QString::number(this->RestoreEdit->RevID));
         sm = sm.replace("$2", this->RestoreEdit->User->Username);
         sm = sm.replace("$3", this->RestoreEdit_RevertReason);
@@ -755,6 +758,30 @@ void MainWindow::FinishRestore()
     this->RestoreQuery = NULL;
     this->RestoreEdit->UnregisterConsumer("RestoreEdit");
     this->RestoreEdit = NULL;
+}
+
+void MainWindow::TriggerWarn()
+{
+    if (!this->CheckExit() || !this->CheckEditableBrowserPage())
+    {
+        return;
+    }
+    if (Configuration::HuggleConfiguration->Restricted)
+    {
+        Core::HuggleCore->DeveloperError();
+        return;
+    }
+    if (Configuration::HuggleConfiguration->UserConfig_ManualWarning)
+    {
+        if (this->fWarningList != NULL)
+        {
+            delete this->fWarningList;
+        }
+        this->fWarningList = new Huggle::WarningList(this->CurrentEdit);
+        this->fWarningList->show();
+        return;
+    }
+    this->Warn("warning", NULL);
 }
 
 void MainWindow::on_actionPreferences_triggered()
@@ -991,16 +1018,7 @@ void MainWindow::on_actionNext_2_triggered()
 
 void MainWindow::on_actionWarn_triggered()
 {
-    if (!this->CheckExit() || !this->CheckEditableBrowserPage())
-    {
-        return;
-    }
-    if (Configuration::HuggleConfiguration->Restricted)
-    {
-        Core::HuggleCore->DeveloperError();
-        return;
-    }
-    this->Warn("warning", NULL);
+    this->TriggerWarn();
 }
 
 void MainWindow::on_actionRevert_currently_displayed_edit_triggered()
@@ -1019,16 +1037,7 @@ void MainWindow::on_actionRevert_currently_displayed_edit_triggered()
 
 void MainWindow::on_actionWarn_the_user_triggered()
 {
-    if (!this->CheckExit())
-    {
-        return;
-    }
-    if (Configuration::HuggleConfiguration->Restricted)
-    {
-        Core::HuggleCore->DeveloperError();
-        return;
-    }
-    this->Warn("warning", NULL);
+    this->TriggerWarn();
 }
 
 void MainWindow::on_actionRevert_currently_displayed_edit_and_warn_the_user_triggered()
@@ -1192,11 +1201,11 @@ void MainWindow::CustomWarn()
 QString MainWindow::GetSummaryText(QString text)
 {
     int id=0;
-    while (id<Configuration::HuggleConfiguration->LocalConfig_RevertSummaries.count())
+    while (id<Configuration::HuggleConfiguration->ProjectConfig_RevertSummaries.count())
     {
-        if (text == this->GetSummaryKey(Configuration::HuggleConfiguration->LocalConfig_RevertSummaries.at(id)))
+        if (text == this->GetSummaryKey(Configuration::HuggleConfiguration->ProjectConfig_RevertSummaries.at(id)))
         {
-            QString data = Configuration::HuggleConfiguration->LocalConfig_RevertSummaries.at(id);
+            QString data = Configuration::HuggleConfiguration->ProjectConfig_RevertSummaries.at(id);
             if (data.contains(";"))
             {
                 data = data.mid(data.indexOf(";") + 1);
@@ -1205,7 +1214,7 @@ QString MainWindow::GetSummaryText(QString text)
         }
         id++;
     }
-    return Configuration::HuggleConfiguration->LocalConfig_DefaultSummary;
+    return Configuration::HuggleConfiguration->ProjectConfig_DefaultSummary;
 }
 
 void MainWindow::ForceWarn(int level)
@@ -1311,7 +1320,7 @@ bool MainWindow::BrowserPageIsEditable()
 
 bool MainWindow::CheckEditableBrowserPage()
 {
-    if (!this->EditablePage)
+    if (!this->EditablePage || this->CurrentEdit == NULL)
     {
         QMessageBox mb;
         mb.setWindowTitle("Cannot perform action");
@@ -1347,7 +1356,7 @@ void MainWindow::PatrolThis(WikiEdit *e)
         // ignore this
         return;
     }
-    if (!Configuration::HuggleConfiguration->LocalConfig_Patrolling)
+    if (!Configuration::HuggleConfiguration->ProjectConfig_Patrolling)
     {
         return;
     }
@@ -1563,23 +1572,23 @@ void MainWindow::Welcome()
         if (this->CurrentEdit->User->TalkPage_GetContents() == "")
         {
             // write something to talk page so that we don't welcome this user twice
-            this->CurrentEdit->User->TalkPage_SetContents(Configuration::HuggleConfiguration->LocalConfig_WelcomeAnon);
+            this->CurrentEdit->User->TalkPage_SetContents(Configuration::HuggleConfiguration->ProjectConfig_WelcomeAnon);
         }
-        Core::HuggleCore->MessageUser(this->CurrentEdit->User, Configuration::HuggleConfiguration->LocalConfig_WelcomeAnon,
-                                      Configuration::HuggleConfiguration->LocalConfig_WelcomeTitle,
-                                      Configuration::HuggleConfiguration->LocalConfig_WelcomeSummary,
+        Core::HuggleCore->MessageUser(this->CurrentEdit->User, Configuration::HuggleConfiguration->ProjectConfig_WelcomeAnon,
+                                      Configuration::HuggleConfiguration->ProjectConfig_WelcomeTitle,
+                                      Configuration::HuggleConfiguration->ProjectConfig_WelcomeSummary,
                                       false, NULL, false, false, true, this->CurrentEdit->TPRevBaseTime, create_only);
         return;
     }
 
-    if (Configuration::HuggleConfiguration->LocalConfig_WelcomeTypes.count() == 0)
+    if (Configuration::HuggleConfiguration->ProjectConfig_WelcomeTypes.count() == 0)
     {
         // This error should never happen so we don't need to localize this
         Syslog::HuggleLogs->Log("There are no welcome messages defined for this project");
         return;
     }
 
-    QString message = HuggleParser::GetValueFromKey(Configuration::HuggleConfiguration->LocalConfig_WelcomeTypes.at(0));
+    QString message = HuggleParser::GetValueFromKey(Configuration::HuggleConfiguration->ProjectConfig_WelcomeTypes.at(0));
 
     if (message == "")
     {
@@ -1590,8 +1599,8 @@ void MainWindow::Welcome()
 
     // write something to talk page so that we don't welcome this user twice
     this->CurrentEdit->User->TalkPage_SetContents(message);
-    Core::HuggleCore->MessageUser(this->CurrentEdit->User, message, Configuration::HuggleConfiguration->LocalConfig_WelcomeTitle,
-                                  Configuration::HuggleConfiguration->LocalConfig_WelcomeSummary, false, NULL,
+    Core::HuggleCore->MessageUser(this->CurrentEdit->User, message, Configuration::HuggleConfiguration->ProjectConfig_WelcomeTitle,
+                                  Configuration::HuggleConfiguration->ProjectConfig_WelcomeSummary, false, NULL,
                                   false, false, true, this->CurrentEdit->TPRevBaseTime, create_only);
 }
 
@@ -1625,7 +1634,7 @@ void MainWindow::on_actionGood_edit_triggered()
         this->CurrentEdit->User->SetBadnessScore(this->CurrentEdit->User->GetBadnessScore() - 200);
         Hooks::OnGood(this->CurrentEdit);
         this->PatrolThis();
-        if (Configuration::HuggleConfiguration->LocalConfig_WelcomeGood && this->CurrentEdit->User->TalkPage_GetContents() == "")
+        if (Configuration::HuggleConfiguration->ProjectConfig_WelcomeGood && this->CurrentEdit->User->TalkPage_GetContents() == "")
         {
             this->Welcome();
         }
@@ -1649,7 +1658,7 @@ void MainWindow::on_actionFlag_as_a_good_edit_triggered()
         Hooks::OnGood(this->CurrentEdit);
         this->PatrolThis();
         this->CurrentEdit->User->SetBadnessScore(this->CurrentEdit->User->GetBadnessScore() - 200);
-        if (Configuration::HuggleConfiguration->LocalConfig_WelcomeGood && this->CurrentEdit->User->TalkPage_GetContents() == "")
+        if (Configuration::HuggleConfiguration->ProjectConfig_WelcomeGood && this->CurrentEdit->User->TalkPage_GetContents() == "")
         {
             this->Welcome();
         }
@@ -1726,9 +1735,9 @@ void MainWindow::on_actionClear_talk_page_of_user_triggered()
     WikiPage *page = new WikiPage(this->CurrentEdit->User->GetTalk());
 
     /// \todo LOCALIZE ME
-    Core::HuggleCore->EditPage(page, Configuration::HuggleConfiguration->LocalConfig_ClearTalkPageTemp
-                   + "\n" + Configuration::HuggleConfiguration->LocalConfig_WelcomeAnon,
-                   "Cleaned old templates from talk page " + Configuration::HuggleConfiguration->LocalConfig_EditSuffixOfHuggle);
+    Core::HuggleCore->EditPage(page, Configuration::HuggleConfiguration->ProjectConfig_ClearTalkPageTemp
+                   + "\n" + Configuration::HuggleConfiguration->ProjectConfig_WelcomeAnon,
+                   "Cleaned old templates from talk page " + Configuration::HuggleConfiguration->ProjectConfig_EditSuffixOfHuggle);
 
     delete page;
 }
@@ -1932,7 +1941,7 @@ void MainWindow::on_actionReport_username_triggered()
     {
         return;
     }
-    if (Configuration::HuggleConfiguration->LocalConfig_UAAavailable)
+    if (Configuration::HuggleConfiguration->ProjectConfig_UAAavailable)
     {
         QMessageBox dd;
         dd.setIcon(dd.Information);
@@ -1989,7 +1998,7 @@ void Huggle::MainWindow::on_actionRevert_AGF_triggered()
         return;
     }
 
-    QString summary = Configuration::HuggleConfiguration->LocalConfig_AgfRevert.replace("$2", this->CurrentEdit->User->Username);
+    QString summary = Configuration::HuggleConfiguration->ProjectConfig_AgfRevert.replace("$2", this->CurrentEdit->User->Username);
     summary = summary.replace("$1", reason);
     this->Revert(summary);
 }
@@ -2221,4 +2230,23 @@ void Huggle::MainWindow::on_actionDisplay_user_messages_triggered()
 void Huggle::MainWindow::on_actionDisplay_bot_data_triggered()
 {
     this->VandalDock->DisplayBots = this->ui->actionDisplay_bot_data->isChecked();
+}
+
+void Huggle::MainWindow::on_actionRequest_protection_triggered()
+{
+    if (!this->CheckExit() || !Configuration::HuggleConfiguration->ProjectConfig_RFPP || this->CurrentEdit == NULL)
+    {
+        return;
+    }
+    if (Configuration::HuggleConfiguration->Restricted)
+    {
+        Core::HuggleCore->DeveloperError();
+        return;
+    }
+    if (this->fRFProtection != NULL)
+    {
+        delete this->fRFProtection;
+    }
+    this->fRFProtection = new RequestProtect(this->CurrentEdit->Page);
+    this->fRFProtection->show();
 }

@@ -93,9 +93,9 @@ Preferences::Preferences(QWidget *parent) : QDialog(parent), ui(new Ui::Preferen
     this->ui->checkBox->setChecked(Configuration::HuggleConfiguration->UserConfig_AutomaticallyResolveConflicts);
     this->ui->checkBox_12->setChecked(Configuration::HuggleConfiguration->UsingIRC);
     this->ui->checkBox_14->setChecked(Configuration::HuggleConfiguration->UserConfig_HistoryLoad);
-    this->ui->checkBox_3->setChecked(Configuration::HuggleConfiguration->LocalConfig_ConfirmOnSelfRevs);
-    this->ui->checkBox_4->setChecked(Configuration::HuggleConfiguration->LocalConfig_ConfirmWL);
-    this->ui->checkBox_11->setChecked(Configuration::HuggleConfiguration->LocalConfig_ConfirmTalk);
+    this->ui->checkBox_3->setChecked(Configuration::HuggleConfiguration->ProjectConfig_ConfirmOnSelfRevs);
+    this->ui->checkBox_4->setChecked(Configuration::HuggleConfiguration->ProjectConfig_ConfirmWL);
+    this->ui->checkBox_11->setChecked(Configuration::HuggleConfiguration->ProjectConfig_ConfirmTalk);
     this->ui->checkBox_16->setChecked(Configuration::HuggleConfiguration->UserConfig_EnforceMonthsAsHeaders);
     this->ui->checkBox_19->setChecked(Configuration::HuggleConfiguration->UserConfig_TruncateEdits);
     this->ui->radioButton->setChecked(!Configuration::HuggleConfiguration->RevertOnMultipleEdits);
@@ -106,7 +106,9 @@ Preferences::Preferences(QWidget *parent) : QDialog(parent), ui(new Ui::Preferen
     this->ui->radioButton_2->setEnabled(this->ui->checkBox->isChecked());
     this->ui->checkBox_20->setChecked(Configuration::HuggleConfiguration->UserConfig_RevertNewBySame);
     this->ui->radioButton->setEnabled(this->ui->checkBox->isChecked());
+    this->ui->checkBox_24->setChecked(Configuration::HuggleConfiguration->UserConfig_ManualWarning);
     this->ui->checkBox_22->setChecked(Configuration::HuggleConfiguration->SystemConfig_DynamicColsInList);
+    this->ui->checkBox_23->setChecked(Configuration::HuggleConfiguration->UserConfig_DisplayTitle);
 }
 
 Preferences::~Preferences()
@@ -180,17 +182,19 @@ void Huggle::Preferences::on_pushButton_2_clicked()
     Configuration::HuggleConfiguration->UsingIRC = this->ui->checkBox_12->isChecked();
     Configuration::HuggleConfiguration->EnforceManualSoftwareRollback = this->ui->checkBox_5->isChecked();
     Configuration::HuggleConfiguration->RevertOnMultipleEdits = this->ui->radioButton_2->isChecked();
-    Configuration::HuggleConfiguration->LocalConfig_ConfirmOnSelfRevs = this->ui->checkBox_3->isChecked();
-    Configuration::HuggleConfiguration->LocalConfig_ConfirmWL = this->ui->checkBox_4->isChecked();
+    Configuration::HuggleConfiguration->ProjectConfig_ConfirmOnSelfRevs = this->ui->checkBox_3->isChecked();
+    Configuration::HuggleConfiguration->ProjectConfig_ConfirmWL = this->ui->checkBox_4->isChecked();
     Configuration::HuggleConfiguration->UserConfig_RevertNewBySame = this->ui->checkBox_20->isChecked();
     Configuration::HuggleConfiguration->UserConfig_HistoryLoad = this->ui->checkBox_14->isChecked();
     Configuration::HuggleConfiguration->UserConfig_EnforceMonthsAsHeaders = this->ui->checkBox_16->isChecked();
     Configuration::HuggleConfiguration->UserConfig_SectionKeep = this->ui->checkBox_17->isChecked();
-    Configuration::HuggleConfiguration->LocalConfig_ConfirmTalk = this->ui->checkBox_11->isChecked();
+    Configuration::HuggleConfiguration->ProjectConfig_ConfirmTalk = this->ui->checkBox_11->isChecked();
     Configuration::HuggleConfiguration->UserConfig_LastEdit = this->ui->checkBox_21->isChecked();
     Configuration::HuggleConfiguration->UserConfig_DeleteEditsAfterRevert = this->ui->checkBox_15->isChecked();
     Configuration::HuggleConfiguration->UserConfig_TruncateEdits = this->ui->checkBox_19->isChecked();
     Configuration::HuggleConfiguration->SystemConfig_DynamicColsInList = this->ui->checkBox_22->isChecked();
+    Configuration::HuggleConfiguration->UserConfig_DisplayTitle = this->ui->checkBox_23->isChecked();
+    Configuration::HuggleConfiguration->UserConfig_ManualWarning = this->ui->checkBox_24->isChecked();
     if (this->ui->radioButton_5->isChecked())
     {
         Configuration::HuggleConfiguration->UserConfig_GoNext = Configuration_OnNext_Stay;

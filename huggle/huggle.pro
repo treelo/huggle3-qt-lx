@@ -113,7 +113,8 @@ SOURCES += main.cpp\
     sleeper.cpp \
     warnings.cpp \
     resources.cpp \
-    mediawiki.cpp
+    mediawiki.cpp \
+    warninglist.cpp
 
 HEADERS  += mainwindow.hpp \
     login.hpp \
@@ -182,7 +183,8 @@ HEADERS  += mainwindow.hpp \
     definitions.hpp \
     warnings.hpp \
     resources.hpp \
-    mediawiki.hpp
+    mediawiki.hpp \
+    warninglist.hpp
 
 FORMS    += mainwindow.ui \
     login.ui \
@@ -215,7 +217,8 @@ FORMS    += mainwindow.ui \
     hugglenuke.ui \
     requestprotect.ui \
     sessionform.ui \
-    whitelistform.ui
+    whitelistform.ui \
+    warninglist.ui
 
 RESOURCES += \
     pictures.qrc \

@@ -128,6 +128,17 @@ namespace Huggle
     class Configuration
     {
         public:
+            //! Return a full url like http://en.wikipedia.org/wiki/
+            static QString GetProjectWikiURL(WikiSite Project);
+            //! Return a script url like http://en.wikipedia.org/w/
+            static QString GetProjectScriptURL(WikiSite Project);
+            //! Return a base url of current project
+            static QString GetProjectURL();
+            //! Return a full url like http://en.wikipedia.org/wiki/
+            static QString GetProjectWikiURL();
+            //! Return a script url like http://en.wikipedia.org/w/
+            static QString GetProjectScriptURL();
+            static QString GetProjectURL(WikiSite Project);
             static QString GetLocalizationDataPath();
             //! Extension path (typically HR/extensions) where .py and .so files are in
             static QString GetExtensionsRootPath();
@@ -445,6 +456,8 @@ namespace Huggle
             int              ProjectConfig_IPScore;
             int              ProjectConfig_WarningScore;
             QStringList      ProjectConfig_WarningTypes;
+            QString          ProjectConfig_SpeedyEditSummary;
+            QString          ProjectConfig_SpeedyWarningSummary;
             QStringList      ProjectConfig_SpeedyTemplates;
             QStringList      ProjectConfig_WelcomeTypes;
             int              ProjectConfig_WhitelistScore;

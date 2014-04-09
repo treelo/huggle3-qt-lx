@@ -64,7 +64,7 @@ void BlockUser::GetToken()
             QUrl::toPercentEncoding(this->user->Username);
     this->qTokenApi->Target = Localizations::HuggleLocalizations->Localize("block-token-1", this->user->Username);
     this->qTokenApi->RegisterConsumer(HUGGLECONSUMER_BLOCKFORM);
-    Core::HuggleCore->AppendQuery(this->qTokenApi);
+    QueryPool::HugglePool->AppendQuery(this->qTokenApi);
     this->qTokenApi->Process();
     this->t0 = new QTimer(this);
     connect(this->t0, SIGNAL(timeout()), this, SLOT(onTick()));
@@ -93,11 +93,7 @@ void BlockUser::onTick()
 
 void BlockUser::CheckToken()
 {
-    if (this->qTokenApi == NULL)
-    {
-        return;
-    }
-    if (!this->qTokenApi->IsProcessed())
+    if (this->qTokenApi == NULL || !this->qTokenApi->IsProcessed())
     {
         return;
     }
@@ -157,15 +153,13 @@ void BlockUser::CheckToken()
     this->qUser->SetAction(ActionQuery);
     this->qUser->Parameters = "action=block&user=" +  QUrl::toPercentEncoding(this->user->Username) + "&reason="
             + QUrl::toPercentEncoding(this->ui->comboBox->currentText()) + "&expiry="
-            + QUrl::toPercentEncoding(this->ui->comboBox_2->currentText())
-            + nocreate + anononly + noemail + autoblock + allowusertalk
-            + "&token=" + QUrl::toPercentEncoding(BlockToken);
+            + QUrl::toPercentEncoding(this->ui->comboBox_2->currentText()) + nocreate + anononly
+            + noemail + autoblock + allowusertalk + "&token=" + QUrl::toPercentEncoding(BlockToken);
     this->qUser->Target = Localizations::HuggleLocalizations->Localize("blocking", this->user->Username);
     this->qUser->UsingPOST = true;
     this->qUser->RegisterConsumer(HUGGLECONSUMER_BLOCKFORM);
-    Core::HuggleCore->AppendQuery(this->qUser);
+    QueryPool::HugglePool->AppendQuery(this->qUser);
     this->qUser->Process();
-    this->sendBlockNotice(this->qUser);
 }
 
 void BlockUser::Block()
@@ -214,6 +208,7 @@ void BlockUser::Block()
     Huggle::Syslog::HuggleLogs->DebugLog("block result: " + this->qUser->Result->Data, 2);
     this->qUser->UnregisterConsumer(HUGGLECONSUMER_BLOCKFORM);
     this->t0->stop();
+    this->sendBlockNotice(NULL);
 }
 
 void BlockUser::Failed(QString reason)
@@ -249,16 +244,17 @@ void BlockUser::on_pushButton_clicked()
 void BlockUser::sendBlockNotice(ApiQuery *dependency)
 {
     QString blocknotice;
-    if (this->user->IsIP())
+    if (this->ui->comboBox->currentText() != "indefinite")
     {
         blocknotice = Configuration::HuggleConfiguration->ProjectConfig_BlockMessage;
+        blocknotice = blocknotice.replace("$1", this->ui->comboBox_2->currentText());
+        blocknotice = blocknotice.replace("$2", this->ui->comboBox->currentText());
     }else
     {
         blocknotice = Configuration::HuggleConfiguration->ProjectConfig_BlockMessageIndef;
+        blocknotice = blocknotice.replace("$1", this->ui->comboBox->currentText());
     }
     QString blocksum = Configuration::HuggleConfiguration->ProjectConfig_BlockSummary;
-    blocknotice = blocknotice.replace("$1", this->ui->comboBox_2->currentText());
-    blocknotice = blocknotice.replace("$2", this->ui->comboBox->currentText());
-    Core::HuggleCore->MessageUser(user, blocknotice, "Blocked", blocksum, true, dependency, false, false, true);
+    Message::MessageUser(user, blocknotice, "Blocked", blocksum, true, dependency, false, false, true);
 }
 

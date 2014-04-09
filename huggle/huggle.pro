@@ -114,7 +114,10 @@ SOURCES += main.cpp\
     warnings.cpp \
     resources.cpp \
     mediawiki.cpp \
-    warninglist.cpp
+    warninglist.cpp \
+    generic.cpp \
+    querypool.cpp \
+    wikiutil.cpp
 
 HEADERS  += mainwindow.hpp \
     login.hpp \
@@ -184,7 +187,10 @@ HEADERS  += mainwindow.hpp \
     warnings.hpp \
     resources.hpp \
     mediawiki.hpp \
-    warninglist.hpp
+    warninglist.hpp \
+    generic.hpp \
+    querypool.hpp \
+    wikiutil.hpp
 
 FORMS    += mainwindow.ui \
     login.ui \

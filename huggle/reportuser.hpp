@@ -24,9 +24,8 @@
 #include <QMutex>
 #include <QtXml>
 #include <QCheckBox>
-#include <QString>
 #include <QList>
-#include "core.hpp"
+#include "generic.hpp"
 #include "blockuser.hpp"
 #include "editquery.hpp"
 #include "resources.hpp"
@@ -75,6 +74,7 @@ namespace Huggle
             void InsertUser();
             //! Stop all operations
             void Kill();
+            void failCheck(QString reason);
             Ui::ReportUser *ui;
             //! Reported user
             WikiUser *ReportedUser;

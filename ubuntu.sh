@@ -30,7 +30,7 @@ do
         cp "targets.info/"$target"_control" "targets/$target/huggle-$v/debian/control" || exit 1
     fi
     cd "targets/$target/huggle-$v" || exit 1
-    cat debian/changelog | sed "s/precise/$target/" | sed "s/-ppa/-$target/" > debian/.changelog || exit 1
+    cat debian/changelog | sed "s/precise/$target/" | sed "s/-ppa/-$target-ppa/" > debian/.changelog || exit 1
     mv debian/.changelog debian/changelog || exit 1
     debuild -k$gk -S -sa || exit 1
     cd -

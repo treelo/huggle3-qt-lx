@@ -27,7 +27,7 @@ do
     cp -r "huggle-$v" "targets/$target/huggle-$v" || exit 1
     cp "huggle_$v.orig.tar.gz" "targets/$target/huggle_$v.orig.tar.gz" || exit 1
     cd "targets/$target/huggle-$v" || exit 1
-    cat debian/changelog | sed "s/precise/$target/" > debian/.changelog || exit 1
+    cat debian/changelog | sed "s/precise/$target/" | sed "s/-ppa/-$target/" > debian/.changelog || exit 1
     mv debian/.changelog debian/changelog || exit 1
     debuild -k$gk -S -sa || exit 1
     cd -

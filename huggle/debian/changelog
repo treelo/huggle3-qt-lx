@@ -1,3 +1,15 @@
+huggle (3.0.0.0-ppa24) precise; urgency=medium
+
+  * fixing
+
+ -- Petr Bena <benapetr@gmail.com>  Thu, 10 Apr 2014 20:22:51 +0200
+
+huggle (3.0.0.0-ppa23) precise; urgency=medium
+
+  * fixed a bug of lucid build
+
+ -- Petr Bena <benapetr@gmail.com>  Thu, 10 Apr 2014 20:03:53 +0200
+
 huggle (3.0.0.0-ppa22) precise; urgency=medium
 
   * https://github.com/huggle/huggle3-qt-lx/compare/b4f3da7310e8...30cab767c25e

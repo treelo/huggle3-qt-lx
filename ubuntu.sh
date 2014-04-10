@@ -26,6 +26,9 @@ do
     mkdir targets/$target || exit 1
     cp -r "huggle-$v" "targets/$target/huggle-$v" || exit 1
     cp "huggle_$v.orig.tar.gz" "targets/$target/huggle_$v-$target.orig.tar.gz" || exit 1
+    if [ -f "targets.info/"$target"_huggle_pro" ];then
+        cp "targets.info/"$target"_huggle_pro" "targets/$target/huggle-$v/huggle.pro" || exit 1
+    fi
     if [ -f "targets.info/"$target"_control" ];then
         cp "targets.info/"$target"_control" "targets/$target/huggle-$v/debian/control" || exit 1
     fi

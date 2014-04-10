@@ -1,0 +1,34 @@
+#!/bin/sh
+
+if [ -d targets ];then
+  echo "delete targets folder"
+  exit 0
+fi
+
+if [ "$#" -lt 1 ];then
+    echo "Enter version"
+    read v
+else
+    v="$1"
+fi
+
+echo "Enter key:"
+read gk
+
+./debian.sh $v || exit 1
+
+echo "Targets:"
+echo "precise"
+cat targets
+mkdir targets || exit 1
+for target in `cat targets` precise
+do
+    echo "Building $target"
+    mkdir targets/$target || exit 1
+    cp -r "huggle-$v" "targets/$target/huggle-$v" || exit 1
+    cp "huggle_$v.orig.tar.gz" "targets/$target/huggle_$v.orig.tar.gz" || exit 1
+    cd "targets/$target/huggle-$v" || exit 1
+    cat debian/changelog | sed "s/precise/$target/" > debian/.changelog || exit 1
+    mv debian/.changelog debian/changelog || exit 1
+    debuild -k$gk -S -sa || exit 1
+done

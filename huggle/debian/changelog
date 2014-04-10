@@ -1,3 +1,9 @@
+huggle (3.0.0.0-ppa25) precise; urgency=medium
+
+  * lucid fix
+
+ -- Petr Bena <benapetr@gmail.com>  Thu, 10 Apr 2014 20:47:47 +0200
+
 huggle (3.0.0.0-ppa24) precise; urgency=medium
 
   * fixing

@@ -18,10 +18,9 @@ read gk
 ./debian.sh $v || exit 1
 
 echo "Targets:"
-echo "precise"
-cat targets
+cat targets.list
 mkdir targets || exit 1
-for target in `cat targets` precise
+for target in `cat targets.list`
 do
     echo "Building $target"
     mkdir targets/$target || exit 1
@@ -31,4 +30,5 @@ do
     cat debian/changelog | sed "s/precise/$target/" > debian/.changelog || exit 1
     mv debian/.changelog debian/changelog || exit 1
     debuild -k$gk -S -sa || exit 1
+    cd -
 done

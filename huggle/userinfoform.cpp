@@ -82,8 +82,13 @@ void UserinfoForm::ChangeUser(WikiUser *user)
     {
         this->ui->tableWidget->removeRow(0);
     }
-    this->ui->label->setText("Flags: " + user->Flags() + " Score: " + QString::number(user->GetBadnessScore()) + " level: "
-                                                                                    + QString::number(user->WarningLevel));
+    QString text = "Flags: " + user->Flags() + " Score: " + QString::number(user->GetBadnessScore()) + " level: "
+                    + QString::number(user->WarningLevel);
+    if (user->EditCount > 0)
+    {
+        text += " Edit count: " + QString::number(user->EditCount);
+    }
+    this->ui->label->setText(text);
 }
 
 void UserinfoForm::Read()
@@ -187,6 +192,7 @@ void UserinfoForm::OnTick()
                 }
                 int last = this->ui->tableWidget->rowCount();
                 this->ui->tableWidget->insertRow(last);
+                if (top) page += " (top)";
                 QTableWidgetItem *q = new QTableWidgetItem(page);
                 q->setBackgroundColor(xb);
                 this->ui->tableWidget->setItem(last, 0, q);

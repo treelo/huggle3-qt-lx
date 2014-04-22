@@ -23,3 +23,8 @@ Linux
 
 run ./ubuntu.sh
 
+Huggle is using google breakpad so when it crash a minidump should be generated.
+In addition a core dump may be produced on linux systems. Both of these, or at
+least minidump is very useful for developers to track the problems. So if the
+minidump is generated during crash (you will see that in system log) you can
+send this to developers in order to get the issue analysed and fixed.

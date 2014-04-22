@@ -40,14 +40,12 @@ namespace Huggle
             Q_OBJECT
 
         public:
-            static int Count;
-
             explicit HuggleQueueItemLabel(QWidget *parent = 0);
             ~HuggleQueueItemLabel();
             void SetName(QString name);
             QString GetName();
             void Process(QLayoutItem *qi = NULL);
-            void Remove();
+            void Remove(QLayoutItem *qi = NULL);
             HuggleQueue *ParentQueue;
             WikiEdit *Page;
 

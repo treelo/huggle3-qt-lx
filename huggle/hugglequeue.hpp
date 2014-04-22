@@ -63,7 +63,6 @@ namespace Huggle
             WikiEdit *GetWikiEditByRevID(int RevID);
             void Sort();
             void SortItemByEdit(WikiEdit *e);
-            void ResortItem(QLayoutItem *item, int position = -1);
             void Trim(int i);
             //! Remove 1 item
             void Trim();
@@ -76,12 +75,10 @@ namespace Huggle
 
         private:
             long GetScore(int id);
+            void ResortItem(QLayoutItem *item, int position = -1);
             //! Internal function
             bool DeleteItem(HuggleQueueItemLabel *item);
             Ui::HuggleQueue *ui;
-            QVBoxLayout *layout;
-            QWidget *xx;
-            QFrame *frame;
     };
 }
 

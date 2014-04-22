@@ -13,8 +13,6 @@
 
 using namespace Huggle;
 
-int HuggleQueueItemLabel::Count = 0;
-
 HuggleQueueItemLabel::HuggleQueueItemLabel(QWidget *parent) : QFrame(parent), ui(new Ui::HuggleQueueItemLabel)
 {
     this->ParentQueue = (HuggleQueue*)parent;
@@ -153,29 +151,17 @@ QString HuggleQueueItemLabel::GetName()
 
 void HuggleQueueItemLabel::Process(QLayoutItem *qi)
 {
-    HuggleQueueItemLabel::Count--;
-    if (this->ParentQueue->Items.contains(this))
-    {
-        this->ParentQueue->Items.removeAll(this);
-    }
     MainWindow::HuggleMain->ProcessEdit(this->Page);
-    this->close();
-    this->Page->RegisterConsumer(HUGGLECONSUMER_MAINFORM);
-    this->Page->UnregisterConsumer(HUGGLECONSUMER_QUEUE);
-    this->ParentQueue->Delete(this, qi);
+    this->Remove(qi);
 }
 
-void HuggleQueueItemLabel::Remove()
+void HuggleQueueItemLabel::Remove(QLayoutItem *qi)
 {
-    HuggleQueueItemLabel::Count--;
     if (this->ParentQueue->Items.contains(this))
     {
         this->ParentQueue->Items.removeAll(this);
     }
-    this->Page->UnregisterConsumer(HUGGLECONSUMER_QUEUE);
-    this->Page = NULL;
-    this->close();
-    this->ParentQueue->Delete(this);
+    this->ParentQueue->Delete(this, qi);
 }
 
 void HuggleQueueItemLabel::mousePressEvent(QMouseEvent *event)
@@ -183,6 +169,5 @@ void HuggleQueueItemLabel::mousePressEvent(QMouseEvent *event)
     if (event->button() == Qt::LeftButton)
     {
         this->Process();
-        delete this;
     }
 }

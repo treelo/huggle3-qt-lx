@@ -132,7 +132,7 @@ bool WikiEdit::FinalizePostProcessing()
                 QDomElement user_info_ = u_.at(0).toElement();
                 if (user_info_.attributes().contains("editcount"))
                 {
-                    this->User->EditCount = user_info_.attribute("editcount").toInt();
+                    this->User->EditCount = user_info_.attribute("editcount").toLong();
                     // users with high number of edits aren't vandals
                     this->Score += this->User->EditCount*-2;
                 }
@@ -245,6 +245,8 @@ bool WikiEdit::FinalizePostProcessing()
         if (this->qDifference->Result->Failed)
         {
             // whoa it ended in error, we need to get rid of this edit somehow now
+            Huggle::Syslog::HuggleLogs->WarningLog("Failed to obtain diff for " + this->Page->PageName + " the error was: "
+                                                 + this->qDifference->Result->Data);
             this->qDifference->UnregisterConsumer(HUGGLECONSUMER_WIKIEDIT);
             this->qDifference = NULL;
             this->PostProcessing = false;
@@ -290,8 +292,8 @@ bool WikiEdit::FinalizePostProcessing()
             this->DiffText = e.text();
         } else
         {
-            Huggle::Syslog::HuggleLogs->DebugLog("Failed to obtain diff for " + this->Page->PageName + " the error was: "
-                                                 + qDifference->Result->Data);
+            Huggle::Syslog::HuggleLogs->WarningLog("Failed to obtain diff for " + this->Page->PageName + " the error was: "
+                                                 + this->qDifference->Result->Data);
         }
         this->qDifference->UnregisterConsumer(HUGGLECONSUMER_WIKIEDIT);
         this->qDifference = NULL;
@@ -300,7 +302,7 @@ bool WikiEdit::FinalizePostProcessing()
     }
 
     // check if everything was processed and clean up
-    if (this->ProcessingRevs || this->ProcessingDiff)
+    if (this->ProcessingRevs || this->ProcessingDiff || this->qUser)
         return false;
 
     this->qTalkpage->UnregisterConsumer(HUGGLECONSUMER_WIKIEDIT);

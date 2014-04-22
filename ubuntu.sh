@@ -20,6 +20,7 @@ read gk
 echo "Targets:"
 cat targets.list
 mkdir targets || exit 1
+pw=`pwd`
 for target in `cat targets.list`
 do
     echo "Building $target"
@@ -39,5 +40,7 @@ do
     cat debian/changelog | sed "s/precise/$target/" | sed "s/-ppa/-$target-ppa/" > debian/.changelog || exit 1
     mv debian/.changelog debian/changelog || exit 1
     debuild -k$gk -S -sa || exit 1
-    cd -
+    cd .. || exit 1
+    dput ppa:huggle-devs/ppa *.changes || exit 1
+    cd "$pw"
 done

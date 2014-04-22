@@ -1,4 +1,10 @@
-huggle (3.0.0.0-ppa27ubuntu1) precise; urgency=medium
+huggle (3.0.0.0-ppa30) precise; urgency=medium
+
+  * fix
+
+ -- Petr Bena <benapetr@gmail.com>  Tue, 22 Apr 2014 19:42:38 +0200
+
+huggle (3.0.0.0-ppa28) precise; urgency=medium
 
   * lot of fixes
 

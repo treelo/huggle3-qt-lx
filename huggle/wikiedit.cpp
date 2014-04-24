@@ -93,19 +93,15 @@ WikiEdit::~WikiEdit()
 
 bool WikiEdit::FinalizePostProcessing()
 {
-    if (this->ProcessedByWorkerThread)
+    if (this->ProcessedByWorkerThread || !this->PostProcessing)
     {
+        WikiUser::UpdateWl(this->User, this->Score);
         return true;
     }
 
     if (this->ProcessingByWorkerThread)
     {
         return false;
-    }
-
-    if (!this->PostProcessing)
-    {
-        return true;
     }
 
     if (this->qUser != NULL && this->qUser->IsProcessed())
@@ -318,7 +314,7 @@ void WikiEdit::ProcessWords()
 {
     QString text = this->DiffText.toLower();
     int xx = 0;
-    if (this->Page->Contents != "")
+    if (this->Page->Contents.length() > 0)
     {
         text = this->Page->Contents.toLower();
     }
@@ -380,6 +376,30 @@ void WikiEdit::ProcessWords()
             ScoreWords.append(w);
         }
         xx++;
+    }
+}
+
+void WikiEdit::RemoveFromHistoryChain()
+{
+    if (this->Previous != NULL && this->Next != NULL)
+    {
+        this->Previous->Next = this->Next;
+        this->Next->Previous = this->Previous;
+        this->Previous = NULL;
+        this->Next = NULL;
+        return;
+    }
+
+    if (this->Previous != NULL)
+    {
+        this->Previous->Next = NULL;
+        this->Previous = NULL;
+    }
+
+    if (this->Next != NULL)
+    {
+        this->Next->Previous = NULL;
+        this->Next = NULL;
     }
 }
 

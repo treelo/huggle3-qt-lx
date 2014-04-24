@@ -66,6 +66,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->preferencesForm = new Preferences(this);
     this->aboutForm = new AboutForm(this);
     this->ui->actionRequest_protection->setEnabled(Configuration::HuggleConfiguration->ProjectConfig_RFPP);
+    this->ui->actionDisplay_bot_data->setChecked(Configuration::HuggleConfiguration->UserConfig_HAN_DisplayBots);
+    this->ui->actionDisplay_user_data->setChecked(Configuration::HuggleConfiguration->UserConfig_HAN_DisplayUser);
+    this->ui->actionDisplay_user_messages->setChecked(Configuration::HuggleConfiguration->UserConfig_HAN_DisplayUserTalk);
     // we store the value in bool so that we don't need to call expensive string function twice
     bool PermissionBlock = Configuration::HuggleConfiguration->Rights.contains("block");
     this->ui->actionBlock_user->setEnabled(PermissionBlock);
@@ -278,7 +281,7 @@ void MainWindow::ProcessEdit(WikiEdit *e, bool IgnoreHistory, bool KeepHistory, 
     if (this->qNext != NULL)
     {
         // we need to delete this because it's related to an old edit
-        this->qNext->UnregisterConsumer("OnNext");
+        this->qNext->DecRef();
         this->qNext = NULL;
     }
     if (e->Page == NULL || e->User == NULL)
@@ -302,7 +305,7 @@ void MainWindow::ProcessEdit(WikiEdit *e, bool IgnoreHistory, bool KeepHistory, 
             break;
         }
         this->Historical.removeAt(0);
-        Core::HuggleCore->DeleteEdit(prev);
+        prev->RemoveFromHistoryChain();
         prev->UnregisterConsumer(HUGGLECONSUMER_MAINFORM_HISTORICAL);
     }
     if (this->Historical.contains(e) == false)
@@ -313,21 +316,15 @@ void MainWindow::ProcessEdit(WikiEdit *e, bool IgnoreHistory, bool KeepHistory, 
         {
             if (!IgnoreHistory)
             {
-                if (this->CurrentEdit->Next != NULL)
+                e->RemoveFromHistoryChain();
+                // now we need to get to last edit in chain
+                WikiEdit *latest = CurrentEdit;
+                while (latest->Next != NULL)
                 {
-                    // now we need to get to last edit in chain
-                    WikiEdit *latest = CurrentEdit;
-                    while (latest->Next != NULL)
-                    {
-                        latest = latest->Next;
-                    }
-                    latest->Next = e;
-                    e->Previous = latest;
-                } else
-                {
-                    this->CurrentEdit->Next = e;
-                    e->Previous = this->CurrentEdit;
+                    latest = latest->Next;
                 }
+                latest->Next = e;
+                e->Previous = latest;
             }
         }
     }
@@ -761,7 +758,7 @@ void MainWindow::FinishRestore()
         sm = sm.replace("$1", QString::number(this->RestoreEdit->RevID));
         sm = sm.replace("$2", this->RestoreEdit->User->Username);
         sm = sm.replace("$3", this->RestoreEdit_RevertReason);
-        WikiUtil::EditPage(this->RestoreEdit->Page, text, sm);
+        WikiUtil::EditPage(this->RestoreEdit->Page, text, sm)->DecRef();
     } else
     {
         Syslog::HuggleLogs->DebugLog(this->RestoreQuery->Result->Data);
@@ -868,9 +865,7 @@ void MainWindow::OnMainTimerTick()
             {
                 QueryPool::HugglePool->PostProcessEdit(edit);
                 edit->RegisterConsumer(HUGGLECONSUMER_MAINPEND);
-                //! \todo replace with a proper method
-                edit->UnregisterConsumer(HUGGLECONSUMER_PROVIDER_WIKI);
-                edit->UnregisterConsumer(HUGGLECONSUMER_PROVIDERIRC);
+                edit->DecRef();
                 this->PendingEdits.append(edit);
             }
         }
@@ -933,7 +928,7 @@ void MainWindow::OnMainTimerTick()
         {
             this->tb->SetPage(this->OnNext_EvPage);
             this->tb->RenderEdit();
-            this->qNext->UnregisterConsumer("OnNext");
+            this->qNext->DecRef();
             delete this->OnNext_EvPage;
             this->OnNext_EvPage = NULL;
             this->qNext = NULL;
@@ -1030,7 +1025,6 @@ void MainWindow::OnTimerTick0()
             page = page.replace("$1", Configuration::HuggleConfiguration->SystemConfig_Username);
             WikiPage *uc = new WikiPage(page);
             this->eq = WikiUtil::EditPage(uc, Configuration::MakeLocalUserConfig(), "Writing user config", true);
-            this->eq->IncRef();
             delete uc;
             return;
         }
@@ -1489,11 +1483,11 @@ void MainWindow::DisplayNext(Query *q)
             }
             if (this->qNext != NULL)
             {
-                this->qNext->UnregisterConsumer("OnNext");
+                this->qNext->DecRef();
             }
             this->OnNext_EvPage = new WikiPage(this->CurrentEdit->Page);
             this->qNext = q;
-            this->qNext->RegisterConsumer("OnNext");
+            this->qNext->IncRef();
             return;
     }
 }
@@ -1752,7 +1746,7 @@ void MainWindow::on_actionClear_talk_page_of_user_triggered()
     /// \todo LOCALIZE ME
     WikiUtil::EditPage(page, Configuration::HuggleConfiguration->ProjectConfig_ClearTalkPageTemp
                    + "\n" + Configuration::HuggleConfiguration->ProjectConfig_WelcomeAnon,
-                   "Cleaned old templates from talk page " + Configuration::HuggleConfiguration->ProjectConfig_EditSuffixOfHuggle);
+                   "Cleaned old templates from talk page " + Configuration::HuggleConfiguration->ProjectConfig_EditSuffixOfHuggle)->DecRef();
 
     delete page;
 }
@@ -2196,17 +2190,17 @@ void Huggle::MainWindow::on_actionConnect_triggered()
 
 void Huggle::MainWindow::on_actionDisplay_user_data_triggered()
 {
-    this->VandalDock->DisplayUser = this->ui->actionDisplay_user_data->isChecked();
+    Configuration::HuggleConfiguration->UserConfig_HAN_DisplayUser = this->ui->actionDisplay_user_data->isChecked();
 }
 
 void Huggle::MainWindow::on_actionDisplay_user_messages_triggered()
 {
-    this->VandalDock->DisplayUserTalk = this->ui->actionDisplay_user_messages->isChecked();
+    Configuration::HuggleConfiguration->UserConfig_HAN_DisplayUserTalk = this->ui->actionDisplay_user_messages->isChecked();
 }
 
 void Huggle::MainWindow::on_actionDisplay_bot_data_triggered()
 {
-    this->VandalDock->DisplayBots = this->ui->actionDisplay_bot_data->isChecked();
+    Configuration::HuggleConfiguration->UserConfig_HAN_DisplayBots = this->ui->actionDisplay_bot_data->isChecked();
 }
 
 void Huggle::MainWindow::on_actionRequest_protection_triggered()

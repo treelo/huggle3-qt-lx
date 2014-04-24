@@ -20,9 +20,6 @@ VandalNw::VandalNw(QWidget *parent) : QDockWidget(parent), ui(new Ui::VandalNw)
     this->ui->setupUi(this);
     this->Prefix = QString(QChar(001)) + QString(QChar(001));
     this->tm = new QTimer(this);
-    this->DisplayUser = true;
-    this->DisplayBots = true;
-    this->DisplayUserTalk = true;
     this->Text = "";
     this->JoinedMain = false;
     this->Channel = this->GetChannel();
@@ -274,11 +271,8 @@ void VandalNw::UpdateHeader()
             }
             while (users.count() > 0)
             {
-                if (users.at(0).Nick != "ChanServ")
-                {
-                    this->ui->tableWidget->insertRow(0);
-                    this->ui->tableWidget->setItem(0, 0, new QTableWidgetItem(users.at(0).Nick));
-                }
+                this->ui->tableWidget->insertRow(0);
+                this->ui->tableWidget->setItem(0, 0, new QTableWidgetItem(users.at(0).Nick));
                 users.removeAt(0);
             }
             this->ui->tableWidget->resizeRowsToContents();
@@ -416,18 +410,10 @@ void VandalNw::onTick()
 
 void VandalNw::Insert(QString text, HAN::MessageType type)
 {
-    if (type == HAN::MessageType_Bot && !this->DisplayBots)
-    {
-        return;
-    }
-    if (type == HAN::MessageType_User && !this->DisplayUser)
-    {
-        return;
-    }
-    if (type == HAN::MessageType_UserTalk && !this->DisplayUserTalk)
-    {
-        return;
-    }
+    if ((type == HAN::MessageType_Bot && !Configuration::HuggleConfiguration->UserConfig_HAN_DisplayBots)      ||
+        (type == HAN::MessageType_User && !Configuration::HuggleConfiguration->UserConfig_HAN_DisplayUser)     ||
+        (type == HAN::MessageType_UserTalk && !Configuration::HuggleConfiguration->UserConfig_HAN_DisplayUserTalk))
+          return;
     this->Text.prepend(text + "<br>");
     this->ui->textEdit->setHtml(this->Text);
 }

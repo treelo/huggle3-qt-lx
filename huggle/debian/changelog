@@ -1,3 +1,9 @@
+huggle (3.0.0.0-ppa33) precise; urgency=medium
+
+  * Check http://git.io/F0I3gA
+
+ -- Petr Bena <benapetr@gmail.com>  Sun, 27 Apr 2014 22:45:24 +0200
+
 huggle (3.0.0.0-ppa32) precise; urgency=medium
 
   * Fix

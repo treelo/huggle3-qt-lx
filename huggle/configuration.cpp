@@ -182,10 +182,14 @@ Configuration::Configuration()
     this->ProjectConfig_RestoreSummary = "Restored revision $1 made by $2";
     this->ProjectConfig_ProtectReason = "Persistent [[WP:VAND|vandalism]]";
     this->ProjectConfig_BlockExpiryOptions.append("indefinite");
+
+    // RFPP
     this->ProjectConfig_RFPP_Page = "";
+    this->ProjectConfig_RFPP_PlaceTop = false;
     this->ProjectConfig_RFPP_Summary = "Sending request to protect a page";
     this->ProjectConfig_RFPP = false;
     this->ProjectConfig_RFPP_Template = "";
+    this->ProjectConfig_RFPP_TemplateUser = "";
     this->ProjectConfig_RFPP_Regex = "";
     this->ProjectConfig_ConfirmMultipleEdits = false;
     this->ProjectConfig_ConfirmRange = false;
@@ -603,37 +607,38 @@ void Configuration::SaveSystemConfig()
         Huggle::Syslog::HuggleLogs->Log("Unable to save configuration because the file can't be open");
         return;
     }
-    QXmlStreamWriter *x = new QXmlStreamWriter();
-    x->setDevice(&file);
-    x->writeStartDocument();
-    x->writeStartElement("huggle");
-    InsertConfig("UsingSSL", Configuration::Bool2String(Configuration::HuggleConfiguration->SystemConfig_UsingSSL), x);
-    InsertConfig("Cache_InfoSize", QString::number(Configuration::HuggleConfiguration->SystemConfig_QueueSize), x);
-    InsertConfig("GlobalConfigurationWikiAddress", Configuration::HuggleConfiguration->GlobalConfigurationWikiAddress, x);
-    InsertConfig("IRCIdent", Configuration::HuggleConfiguration->IRCIdent, x);
-    InsertConfig("IRCNick", Configuration::HuggleConfiguration->IRCNick, x);
-    InsertConfig("IRCPort", QString::number(Configuration::HuggleConfiguration->IRCPort), x);
-    InsertConfig("IRCServer", Configuration::HuggleConfiguration->IRCServer, x);
-    InsertConfig("Language", Localizations::HuggleLocalizations->PreferredLanguage, x);
-    InsertConfig("ProviderCache", QString::number(Configuration::HuggleConfiguration->SystemConfig_ProviderCache), x);
-    InsertConfig("AskUserBeforeReport", Configuration::Bool2String(Configuration::HuggleConfiguration->AskUserBeforeReport), x);
-    InsertConfig("HistorySize", QString::number(Configuration::HuggleConfiguration->SystemConfig_HistorySize), x);
-    InsertConfig("QueueNewEditsUp", Configuration::Bool2String(Configuration::HuggleConfiguration->SystemConfig_QueueNewEditsUp), x);
-    InsertConfig("RingLogMaxSize", QString::number(Configuration::HuggleConfiguration->SystemConfig_RingLogMaxSize), x);
-    InsertConfig("TrimOldWarnings", Configuration::Bool2String(Configuration::HuggleConfiguration->TrimOldWarnings), x);
-    InsertConfig("EnableUpdates", Configuration::Bool2String(Configuration::HuggleConfiguration->SystemConfig_UpdatesEnabled), x);
-    InsertConfig("WarnUserSpaceRoll", Configuration::Bool2String(Configuration::HuggleConfiguration->WarnUserSpaceRoll), x);
-    InsertConfig("UserName", Configuration::HuggleConfiguration->SystemConfig_Username, x);
-    InsertConfig("IndexOfLastWiki", QString::number(Configuration::HuggleConfiguration->IndexOfLastWiki), x);
-    InsertConfig("DynamicColsInList", Configuration::Bool2String(Configuration::HuggleConfiguration->SystemConfig_DynamicColsInList), x);
+    QXmlStreamWriter *writer = new QXmlStreamWriter();
+    writer->setDevice(&file);
+    writer->setAutoFormatting(true);
+    writer->writeStartDocument();
+    writer->writeStartElement("huggle");
+    InsertConfig("UsingSSL", Configuration::Bool2String(Configuration::HuggleConfiguration->SystemConfig_UsingSSL), writer);
+    InsertConfig("Cache_InfoSize", QString::number(Configuration::HuggleConfiguration->SystemConfig_QueueSize), writer);
+    InsertConfig("GlobalConfigurationWikiAddress", Configuration::HuggleConfiguration->GlobalConfigurationWikiAddress, writer);
+    InsertConfig("IRCIdent", Configuration::HuggleConfiguration->IRCIdent, writer);
+    InsertConfig("IRCNick", Configuration::HuggleConfiguration->IRCNick, writer);
+    InsertConfig("IRCPort", QString::number(Configuration::HuggleConfiguration->IRCPort), writer);
+    InsertConfig("IRCServer", Configuration::HuggleConfiguration->IRCServer, writer);
+    InsertConfig("Language", Localizations::HuggleLocalizations->PreferredLanguage, writer);
+    InsertConfig("ProviderCache", QString::number(Configuration::HuggleConfiguration->SystemConfig_ProviderCache), writer);
+    InsertConfig("AskUserBeforeReport", Configuration::Bool2String(Configuration::HuggleConfiguration->AskUserBeforeReport), writer);
+    InsertConfig("HistorySize", QString::number(Configuration::HuggleConfiguration->SystemConfig_HistorySize), writer);
+    InsertConfig("QueueNewEditsUp", Configuration::Bool2String(Configuration::HuggleConfiguration->SystemConfig_QueueNewEditsUp), writer);
+    InsertConfig("RingLogMaxSize", QString::number(Configuration::HuggleConfiguration->SystemConfig_RingLogMaxSize), writer);
+    InsertConfig("TrimOldWarnings", Configuration::Bool2String(Configuration::HuggleConfiguration->TrimOldWarnings), writer);
+    InsertConfig("EnableUpdates", Configuration::Bool2String(Configuration::HuggleConfiguration->SystemConfig_UpdatesEnabled), writer);
+    InsertConfig("WarnUserSpaceRoll", Configuration::Bool2String(Configuration::HuggleConfiguration->WarnUserSpaceRoll), writer);
+    InsertConfig("UserName", Configuration::HuggleConfiguration->SystemConfig_Username, writer);
+    InsertConfig("IndexOfLastWiki", QString::number(Configuration::HuggleConfiguration->IndexOfLastWiki), writer);
+    InsertConfig("DynamicColsInList", Configuration::Bool2String(Configuration::HuggleConfiguration->SystemConfig_DynamicColsInList), writer);
     /////////////////////////////
     // Vandal network
     /////////////////////////////
-    InsertConfig("VandalNw_Login", Configuration::Bool2String(Configuration::HuggleConfiguration->VandalNw_Login), x);
-    InsertConfig("GlobalConfigWikiList", Configuration::HuggleConfiguration->SystemConfig_GlobalConfigWikiList, x);
-    x->writeEndElement();
-    x->writeEndDocument();
-    delete x;
+    InsertConfig("VandalNw_Login", Configuration::Bool2String(Configuration::HuggleConfiguration->VandalNw_Login), writer);
+    InsertConfig("GlobalConfigWikiList", Configuration::HuggleConfiguration->SystemConfig_GlobalConfigWikiList, writer);
+    writer->writeEndElement();
+    writer->writeEndDocument();
+    delete writer;
 }
 
 bool Configuration::ParseGlobalConfig(QString config)
@@ -757,12 +762,14 @@ bool Configuration::ParseProjectConfig(QString config)
     this->ProjectConfig_SharedIPTemplate = ConfigurationParse("shared-ip-template", config, "");
     this->ProjectConfig_ProtectReason =  ConfigurationParse("protection-reason", config, "Excessive [[Wikipedia:Vandalism|vandalism]]");
     this->ProjectConfig_RevertPatterns = HuggleParser::ConfigurationParse_QL("revert-patterns", config, true);
+    this->ProjectConfig_RFPP_PlaceTop = SafeBool(ConfigurationParse("protection-request-top", config));
     this->ProjectConfig_RFPP_Regex = ConfigurationParse("rfpp-verify", config);
     this->ProjectConfig_RFPP_Section = (unsigned int)ConfigurationParse("rfpp-section", config, "0").toInt();
     this->ProjectConfig_RFPP_Page = ConfigurationParse("protection-request-page", config);
     this->ProjectConfig_RFPP_Template = ConfigurationParse("rfpp-template", config);
     this->ProjectConfig_RFPP_Summary = ConfigurationParse("protection-request-summary", config, "Request to protect page");
     this->ProjectConfig_RFPP = (this->ProjectConfig_RFPP_Template.length() && this->ProjectConfig_RFPP_Regex.length());
+    this->ProjectConfig_RFPP_TemplateUser = ConfigurationParse("rfpp-template-user", config);
     QStringList MonthsHeaders_ = HuggleParser::ConfigurationParse_QL("months", config);
     if (MonthsHeaders_.count() != 12)
     {
@@ -902,14 +909,9 @@ bool Configuration::ParseProjectConfig(QString config)
     }
     // sanitize
     if (this->ProjectConfig_ReportAIV == "")
-    {
         this->ProjectConfig_AIV = false;
-    }
     // Do the same for UAA as well
-    if (this->ProjectConfig_UAAPath == "")
-    {
-        this->ProjectConfig_UAAavailable = false;
-    }
+    this->ProjectConfig_UAAavailable = this->ProjectConfig_UAAPath != "";
     return true;
 }
 

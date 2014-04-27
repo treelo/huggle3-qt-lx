@@ -38,8 +38,11 @@ ReportUser::ReportUser(QWidget *parent) : QDialog(parent), ui(new Ui::ReportUser
     this->ui->tableWidget->setEditTriggers(QAbstractItemView::NoEditTriggers);
     this->Messaging = false;
     this->ReportTs = "null";
+    this->tReportPageCheck = new QTimer(this);
+    connect(this->tReportPageCheck, SIGNAL(timeout()), this, SLOT(Test()));
     this->BlockForm = NULL;
     this->qDiff = NULL;
+    this->qCheckIfBlocked = NULL;
     this->ReportText = "";
     this->Loading = false;
 #if QT_VERSION >= 0x050000
@@ -50,7 +53,6 @@ ReportUser::ReportUser(QWidget *parent) : QDialog(parent), ui(new Ui::ReportUser
     this->ui->tableWidget->horizontalHeader()->setResizeMode(QHeaderView::ResizeToContents);
 #endif
     this->ui->tableWidget->setShowGrid(false);
-
     QStringList header_bl;
     this->ui->tableWidget_2->setColumnCount(8);
     header_bl << Localizations::HuggleLocalizations->Localize("id") <<
@@ -72,7 +74,6 @@ ReportUser::ReportUser(QWidget *parent) : QDialog(parent), ui(new Ui::ReportUser
     this->ui->tableWidget_2->horizontalHeader()->setResizeMode(QHeaderView::ResizeToContents);
 #endif
     this->ui->tableWidget_2->setShowGrid(false);
-    this->tReportPageCheck = NULL;
     this->qBlockHistory = NULL;
     this->tReportUser = NULL;
     /// \todo LOCALIZE ME
@@ -106,6 +107,11 @@ ReportUser::~ReportUser()
     {
         this->qEdit->DecRef();
         this->qEdit = NULL;
+    }
+    if (this->qCheckIfBlocked != NULL)
+    {
+        this->qCheckIfBlocked->DecRef();
+        this->qCheckIfBlocked = NULL;
     }
     delete this->BlockForm;
     delete this->ui;
@@ -431,50 +437,70 @@ void ReportUser::On_DiffTick()
 
 void ReportUser::Test()
 {
-    if (this->qReport == NULL)
+    if (this->qReport == NULL && this->qCheckIfBlocked == NULL)
     {
         this->tReportPageCheck->stop();
         return;
     }
 
-    if (!this->qReport->IsProcessed())
+    if (this->qCheckIfBlocked != NULL && this->qCheckIfBlocked)
     {
-        return;
-    }
-
-    QDomDocument d;
-    d.setContent(this->qReport->Result->Data);
-    QDomNodeList results = d.elementsByTagName("rev");
-    this->ui->pushButton_3->setEnabled(true);
-    if (results.count() == 0)
-    {
-        this->failCheck("Error unable to retrieve report page at " + Configuration::HuggleConfiguration->ProjectConfig_ReportAIV);
-        return;
-    }
-    QDomElement e = results.at(0).toElement();
-    if (e.attributes().contains("timestamp"))
-    {
-        this->ReportTs = e.attribute("timestamp");
-    } else
-    {
-        this->failCheck("Unable to retrieve timestamp of current report page, api failure:\n\n" + this->qReport->Result->Data);
-        return;
-    }
-    this->ReportContent = e.text();
-    if (!this->CheckUser())
-    {
-        this->failCheck(Localizations::HuggleLocalizations->Localize("report-duplicate"));
-        WikiUser::UpdateUser(this->ReportedUser);
-        return;
-    } else
-    {
+        QDomDocument d;
+        d.setContent(this->qCheckIfBlocked->Result->Data);
         QMessageBox mb;
-        /// \todo LOCALIZE ME
-        mb.setText("This user is not reported now");
+        mb.setWindowTitle("Result");
+        QDomNodeList l = d.elementsByTagName("block");
+        if (l.count() > 0)
+        {
+            mb.setText("User is already blocked");
+            this->ReportedUser->IsBanned = true;
+            this->ReportedUser->Update();
+        } else
+        {
+            mb.setText("User is not blocked");
+        }
         mb.exec();
-        this->tReportUser->stop();
-        this->qReport->DecRef();
-        this->qReport = NULL;
+        this->qCheckIfBlocked->DecRef();
+        this->qCheckIfBlocked = NULL;
+        this->ui->pushButton_7->setEnabled(true);
+    }
+    // check if user was reported is here
+    if (this->qReport != NULL && this->qReport->IsProcessed())
+    {
+        QDomDocument d;
+        d.setContent(this->qReport->Result->Data);
+        QDomNodeList results = d.elementsByTagName("rev");
+        this->ui->pushButton_3->setEnabled(true);
+        if (results.count() == 0)
+        {
+            this->failCheck("Error unable to retrieve report page at " + Configuration::HuggleConfiguration->ProjectConfig_ReportAIV);
+            return;
+        }
+        this->ui->pushButton_3->setEnabled(true);
+        QDomElement e = results.at(0).toElement();
+        if (e.attributes().contains("timestamp"))
+        {
+            this->ReportTs = e.attribute("timestamp");
+        } else
+        {
+            this->failCheck("Unable to retrieve timestamp of current report page, api failure:\n\n" + this->qReport->Result->Data);
+            return;
+        }
+        this->ReportContent = e.text();
+        if (!this->CheckUser())
+        {
+            this->failCheck(Localizations::HuggleLocalizations->Localize("report-duplicate"));
+            WikiUser::UpdateUser(this->ReportedUser);
+            return;
+        } else
+        {
+            QMessageBox mb;
+            /// \todo LOCALIZE ME
+            mb.setText("This user is not reported now");
+            mb.exec();
+            this->qReport->DecRef();
+            this->qReport = NULL;
+        }
     }
 }
 
@@ -627,20 +653,15 @@ void ReportUser::failCheck(QString reason)
 
 void ReportUser::on_pushButton_3_clicked()
 {
+    this->ui->pushButton_3->setEnabled(false);
     if (this->qReport != NULL)
     {
         this->qReport->DecRef();
     }
-
     this->qReport = Generic::RetrieveWikiPageContents(Configuration::HuggleConfiguration->ProjectConfig_ReportAIV);
     this->qReport->IncRef();
     this->qReport->Process();
-    if (this->tReportPageCheck == NULL)
-    {
-        this->tReportPageCheck = new QTimer(this);
-    }
-    connect(this->tReportPageCheck, SIGNAL(timeout()), this, SLOT(Test()));
-    this->tReportPageCheck->start(100);
+    this->tReportPageCheck->start(60);
 }
 
 void Huggle::ReportUser::on_pushButton_4_clicked()
@@ -652,4 +673,26 @@ void Huggle::ReportUser::on_pushButton_4_clicked()
     this->BlockForm = new BlockUser(this);
     this->BlockForm->SetWikiUser(this->ReportedUser);
     this->BlockForm->show();
+}
+
+void Huggle::ReportUser::on_pushButton_7_clicked()
+{
+    this->ui->pushButton_7->setEnabled(false);
+    if (this->qCheckIfBlocked != NULL)
+    {
+        this->qCheckIfBlocked->DecRef();
+    }
+    this->qCheckIfBlocked = new ApiQuery(ActionQuery);
+    this->qCheckIfBlocked->Target = "user";
+    this->qCheckIfBlocked->Parameters = "list=blocks&";
+    if (!this->ReportedUser->IsIP())
+    {
+        this->qCheckIfBlocked->Parameters += "bkusers=" + QUrl::toPercentEncoding(this->ReportedUser->Username);
+    } else
+    {
+        this->qCheckIfBlocked->Parameters += "bkip=" + QUrl::toPercentEncoding(this->ReportedUser->Username);
+    }
+    this->qCheckIfBlocked->IncRef();
+    this->qCheckIfBlocked->Process();
+    this->tReportPageCheck->start(60);
 }

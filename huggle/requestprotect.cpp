@@ -72,13 +72,20 @@ void RequestProtect::Tick()
             return;
         }
         delete rx;
-        // insert our request to a bottom of page
         QString report = Configuration::HuggleConfiguration->ProjectConfig_RFPP_Template;
+        if ((this->page->IsUserpage() || this->page->GetNS() == MediaWikiNS_UserTalk) &&
+            Configuration::HuggleConfiguration->ProjectConfig_RFPP_TemplateUser != "")
+        {
+            report = Configuration::HuggleConfiguration->ProjectConfig_RFPP_TemplateUser;
+        }
         report.replace("$title", this->page->PageName);
         report.replace("\\n", "\n");
         report.replace("$reason", this->ui->lineEdit->text());
         report.replace("$protection", this->ProtectionType());
-        PageText += "\n\n" + report;
+        if (!Configuration::HuggleConfiguration->ProjectConfig_RFPP_PlaceTop)
+            PageText += "\n\n" + report;
+        else
+            PageText = report + "\n\n" + PageText;
         // we no longer need the query we used
         this->qRFPPage->DecRef();
         this->qRFPPage = NULL;

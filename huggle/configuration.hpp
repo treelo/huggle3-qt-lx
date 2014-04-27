@@ -358,7 +358,9 @@ namespace Huggle
             bool            ProjectConfig_RFPP;
             unsigned int    ProjectConfig_RFPP_Section;
             QString         ProjectConfig_RFPP_Template;
+            QString         ProjectConfig_RFPP_TemplateUser;
             QString         ProjectConfig_RFPP_Summary;
+            bool            ProjectConfig_RFPP_PlaceTop;
             QString         ProjectConfig_RFPP_Regex;
             QString         ProjectConfig_RFPP_Page;
             QString         ProjectConfig_ReportAIV;
@@ -472,7 +474,7 @@ namespace Huggle
             QString          ProjectConfig_SpeedyWarningSummary;
             QStringList      ProjectConfig_SpeedyTemplates;
             QStringList      ProjectConfig_WelcomeTypes;
-            int              ProjectConfig_WhitelistScore;
+            long             ProjectConfig_WhitelistScore;
 
             // UAA
             QString          ProjectConfig_UAAPath;

@@ -8,7 +8,10 @@
 //MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //GNU General Public License for more details.
 
+#include <QtXml>
+#include <QFile>
 #include "localization.hpp"
+#include "exception.hpp"
 
 using namespace Huggle;
 
@@ -66,26 +69,74 @@ Language *Localizations::MakeLanguage(QString text, QString name)
     return l;
 }
 
-void Localizations::LocalInit(QString name)
+Language *Localizations::MakeLanguageUsingXML(QString text, QString name)
+{
+    Language *l = new Language(name);
+    QDomDocument in_;
+    in_.setContent(text);
+    QDomNodeList keys = in_.elementsByTagName("string");
+    int i = 0;
+    while (i < keys.count())
+    {
+        QDomElement item = keys.at(i).toElement();
+        i++;
+        if (!item.attributes().contains("name"))
+        {
+            Syslog::HuggleLogs->DebugLog("Language " + name + " contains key with no name");
+            continue;
+        }
+        QString n_ = item.attribute("name");
+        if (l->Messages.contains(n_))
+        {
+            Syslog::HuggleLogs->WarningLog("Language " + name + " contains more than 1 definition for " + n_);
+            continue;
+        }
+        l->Messages.insert(item.attribute("name"), item.text());
+    }
+    if (l->Messages.contains("name"))
+    {
+        l->LanguageID = l->Messages["name"];
+    }
+    return l;
+}
+
+void Localizations::LocalInit(QString name, bool xml)
 {
     QFile *f;
     if (Configuration::HuggleConfiguration->SystemConfig_SafeMode)
     {
         // we don't want to load custom files in safe mode
-        f = new QFile(":/huggle/text/Localization/" + name + ".txt");
+        f = new QFile(":/huggle/text/Localization/" + name + ".xml");
     } else
     {
         if (QFile().exists(Configuration::GetLocalizationDataPath() + name + ".txt"))
         {
             // there is a custom localization file in directory
             f = new QFile(Configuration::GetLocalizationDataPath() + name + ".txt");
+            xml = false;
+        } else if (QFile().exists(Configuration::GetLocalizationDataPath() + name + ".xml"))
+        {
+            f = new QFile(Configuration::GetLocalizationDataPath() + name + ".xml");
         } else
         {
-            f = new QFile(":/huggle/text/Localization/" + name + ".txt");
+            if (!xml)
+            {
+                f = new QFile(":/huggle/text/Localization/" + name + ".txt");
+            } else
+            {
+                f = new QFile(":/huggle/text/Localization/" + name + ".xml");
+            }
         }
     }
     f->open(QIODevice::ReadOnly);
-    this->LocalizationData.append(Localizations::MakeLanguage(QString(f->readAll()), name));
+    if (!xml)
+    {
+        this->LocalizationData.append(Localizations::MakeLanguage(QString(f->readAll()), name));
+    }
+    else
+    {
+        this->LocalizationData.append(Localizations::MakeLanguageUsingXML(QString(f->readAll()), name));
+    }
     f->close();
     delete f;
 }

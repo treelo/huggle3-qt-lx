@@ -9,6 +9,9 @@
 //GNU General Public License for more details.
 
 #include "uaareport.hpp"
+#include "wikiutil.hpp"
+#include "configuration.hpp"
+#include "generic.hpp"
 #include "ui_uaareport.h"
 
 using namespace Huggle;
@@ -18,11 +21,13 @@ UAAReport::UAAReport(QWidget *parent) : QDialog(parent), ui(new Ui::UAAReport)
     this->ui->setupUi(this);
     this->User = NULL;
     this->ContentsOfUAA = "";
+    this->Timer = new QTimer(this);
+    connect(this->Timer, SIGNAL(timeout()), this, SLOT(onTick()));
     this->qUAApage = NULL;
     this->page = NULL;
-    this->uT = NULL;
-    this->qChUAApage = NULL;
-    this->cuT = NULL;
+    this->qCheckUAAUser = NULL;
+    this->TimerCheck = new QTimer(this);
+    connect(this->TimerCheck, SIGNAL(timeout()), this, SLOT(onStartOfSearch()));
     this->dr = "";
     this->OptionalReason = "";
     this->ta = "";
@@ -31,74 +36,60 @@ UAAReport::UAAReport(QWidget *parent) : QDialog(parent), ui(new Ui::UAAReport)
 
 UAAReport::~UAAReport()
 {
-    delete this->ui;
+    this->DelRef();
+    delete this->TimerCheck;
     delete this->User;
-    delete this->uT;
+    delete this->ui;
+    delete this->Timer;
     delete this->page;
 }
 
 void UAAReport::setUserForUAA(WikiUser *user)
 {
-    this->User = user;
+    // we copy the user so that original can be deleted
+    this->User = new WikiUser(user);
 }
 
 void UAAReport::getPageContents()
 {
-    this->qUAApage = new ApiQuery();
-    this->qUAApage->SetAction(ActionQuery);
-    this->qUAApage->Parameters = "prop=revisions&rvprop=content&titles=" + QUrl::toPercentEncoding
-                                        (Configuration::HuggleConfiguration->ProjectConfig_UAAPath);
+    if (this->qUAApage != NULL)
+    {
+        this->qUAApage->DecRef();
+    }
+    this->qUAApage = Generic::RetrieveWikiPageContents(Configuration::HuggleConfiguration->ProjectConfig_UAAPath);
     /// \todo LOCALIZE THIS
     this->qUAApage->Target = "Getting content of UAA";
-    this->qUAApage->RegisterConsumer("UAAReport::getPageContents()");
-    QueryPool::HugglePool->AppendQuery(qUAApage);
+    this->qUAApage->IncRef();
+    QueryPool::HugglePool->AppendQuery(this->qUAApage);
     this->qUAApage->Process();
-
-    if (this->uT != NULL)
-    {
-        delete this->uT;
-    }
-    this->uT = new QTimer(this);
-    connect(this->uT, SIGNAL(timeout()), this, SLOT(onTick()));
-    this->uT->start(200);
+    this->Timer->start(200);
 }
 
 void UAAReport::onTick()
 {
-    if (this->qUAApage == NULL)
-    {
+    if (this->qUAApage == NULL || !this->qUAApage->IsProcessed())
         return;
-    }
-
-    if (!this->qUAApage->IsProcessed())
-    {
-        return;
-    }
     QDomDocument r;
     r.setContent(this->qUAApage->Result->Data);
+    this->qUAApage->DecRef();
+    this->qUAApage = NULL;
     QDomNodeList l = r.elementsByTagName("rev");
     if (l.count() == 0)
     {
         /// \todo LOCALIZE ME
         this->failed("the query for the page contents returned no data.");
-        this->qUAApage->UnregisterConsumer("UAAReport::getPageContents()");
         return;
     }
     QDomElement element = l.at(0).toElement();
-
-    if (element.text() == "")
+    if (!element.text().length())
     {
         /// \todo LOCALIZE ME
         this->failed("the page contents weren't available.");
-        this->qUAApage->UnregisterConsumer("UAAReport::getPageContents()");
         return;
     }
-
-    this->uT->stop();
+    this->Timer->stop();
     this->dr = element.text();
-    this->qUAApage->UnregisterConsumer("UAAReport::getPageContents()");
     /// \todo Check if user isn't already reported
-    this->qUAApage = NULL;
     Huggle::Syslog::HuggleLogs->DebugLog("Contents of UAA: " + this->dr);
     /// \todo LOCALIZE ME
     QString uaasum = "Reporting " + this->User->Username + " to UAA " + Configuration::HuggleConfiguration->ProjectConfig_EditSuffixOfHuggle;
@@ -115,40 +106,46 @@ void UAAReport::insertUsername()
     this->ta = Configuration::HuggleConfiguration->ProjectConfig_UAATemplate;
     this->ta.replace("$1", this->User->Username);
     this->ta.replace("$2", this->UAAReportReason + this->OptionalReason);
-    this->ContentsOfUAA = this->ta + this->UAAReportReason + this->OptionalReason;
+    this->ContentsOfUAA = this->ta;
     this->dr = this->dr + "\n" + this->ContentsOfUAA;
 }
 
 void UAAReport::whatToReport()
 {
     this->OptionalReason = this->ui->lineEdit->text();
+    QStringList reasons;
     if (this->ui->checkBox->isChecked())
-    {
-        this->UAAReportReason = "Username is a policy violation because it is disruptive.";
-    }
+        reasons.append("disruptive");
     if (this->ui->checkBox_2->isChecked())
-    {
-        this->UAAReportReason = "Username is a policy violation because it is offensive.";
-    }
+        reasons.append("offensive");
     if (this->ui->checkBox_3->isChecked())
-    {
-        this->UAAReportReason = "Username is a policy violation because it is a promotional username.";
-    }
+        reasons.append("promotional username");
     if (this->ui->checkBox_4->isChecked())
+        reasons.append("misleading username");
+    this->UAAReportReason = "Username is a policy violation because it is ";
+    if (reasons.count() > 1)
     {
-        this->UAAReportReason = "Username is a policy violation because it is a misleading username.";
+        int index = 0;
+        while (index < (reasons.count() - 1))
+        {
+            this->UAAReportReason += reasons.at(index) + ", ";
+            index++;
+        }
+        this->UAAReportReason = this->UAAReportReason.mid(0, this->UAAReportReason.length() - 2);
+        this->UAAReportReason += " and " + reasons.at(index);
+    } else if (reasons.count() == 1)
+    {
+        this->UAAReportReason += reasons.at(0) + ".";
     }
 }
 
 void UAAReport::failed(QString reason)
 {
-    QMessageBox *_b = new QMessageBox();
-    _b->setWindowTitle("Unable to report user to UAA");
-    _b->setText("Unable to report the user because " + reason);
-    _b->setAttribute(Qt::WA_DeleteOnClose);
-    _b->exec();
-    this->uT->stop();
-    return;
+    QMessageBox m_;
+    m_.setWindowTitle("Unable to report user to UAA");
+    m_.setText("Unable to report the user because " + reason);
+    m_.exec();
+    this->Timer->stop();
 }
 
 void UAAReport::on_pushButton_clicked()
@@ -164,7 +161,6 @@ void UAAReport::on_pushButton_clicked()
                    "Please specify a reason.");
         g->setAttribute(Qt::WA_DeleteOnClose);
         g->exec();
-
         return;
     }
     this->ui->pushButton->setEnabled(false);
@@ -178,74 +174,63 @@ void UAAReport::on_pushButton_2_clicked()
 
 void UAAReport::on_pushButton_3_clicked()
 {
-    this->qChUAApage = new ApiQuery();
-    this->qChUAApage->SetAction(ActionQuery);
-    this->qChUAApage->Parameters = "prop=revisons&rvprop=" + QUrl::toPercentEncoding("timestamp|user|comment|content") + "titles="
-            + QUrl::toPercentEncoding(Configuration::HuggleConfiguration->ProjectConfig_UAAPath);
-    this->qChUAApage->RegisterConsumer("UAAReport::checkIfReported()");
-    QueryPool::HugglePool->AppendQuery(qChUAApage);
-    this->qChUAApage->Process();
-
-    this->cuT = new QTimer(this);
-    connect(this->cuT, SIGNAL(timeout()), this, SLOT(onStartOfSearch()));
-    this->cuT->start(100);
+    this->ui->pushButton_3->setEnabled(false);
+    this->qCheckUAAUser = new ApiQuery(ActionQuery);
+    this->qCheckUAAUser = Generic::RetrieveWikiPageContents(Configuration::HuggleConfiguration->ProjectConfig_UAAPath);
+    this->qCheckUAAUser->IncRef();
+    QueryPool::HugglePool->AppendQuery(this->qCheckUAAUser);
+    this->qCheckUAAUser->Process();
+    this->TimerCheck->start(100);
 }
 
 bool UAAReport::checkIfReported()
 {
-    if (this->dr.contains(this->User->Username))
-    {
-       return false;
-    }
-    return true;
+    return !this->dr.contains(this->User->Username);
 }
 
 void UAAReport::onStartOfSearch()
 {
-    if (this->qChUAApage == NULL)
-    {
+    if (this->qCheckUAAUser == NULL || !this->qCheckUAAUser->IsProcessed())
         return;
-    }
-    if (!this->qChUAApage->IsProcessed())
-    {
-        return;
-    }
     QDomDocument tj;
-    tj.setContent(qChUAApage->Result->Data);
+    tj.setContent(this->qCheckUAAUser->Result->Data);
     QDomNodeList chkusr = tj.elementsByTagName("rev");
+    this->TimerCheck->stop();
+    this->qCheckUAAUser->DecRef();
+    this->qCheckUAAUser = NULL;
+    QMessageBox mb;
     if (chkusr.count() == 0)
     {
-        QMessageBox *msgb = new QMessageBox();
-        msgb->setWindowTitle("Cannot retrieve page");
-        msgb->setIcon(QMessageBox::Critical);
-        msgb->setText("Retrieving the page " + Configuration::HuggleConfiguration->ProjectConfig_UAAPath + " failed.");
-        msgb->setAttribute(Qt::WA_DeleteOnClose);
-        msgb->exec();
-        this->qChUAApage->UnregisterConsumer("UAAReport::on_pushButton_3_clicked()");
-        this->cuT->stop();
+        mb.setWindowTitle("Cannot retrieve page");
+        mb.setIcon(QMessageBox::Critical);
+        mb.setText("Retrieving the page " + Configuration::HuggleConfiguration->ProjectConfig_UAAPath + " failed.");
+        mb.exec();
         return;
     }
     QDomElement h = chkusr.at(0).toElement();
-    dr = h.text();
+    this->dr = h.text();
     if (!this->checkIfReported())
     {
-        QMessageBox *msg = new QMessageBox();
-        msg->setWindowTitle("User is already reported");
-        msg->setText("This user has already been reported to UAA.");
-        msg->setAttribute(Qt::WA_DeleteOnClose);
-        msg->exec();
-        this->qChUAApage->UnregisterConsumer("UAAReport::on_pushButton_3_clicked()");
-        this->cuT->stop();
-        return;
+        mb.setWindowTitle("User is already reported");
+        mb.setText("This user has already been reported to UAA.");
     }else
     {
-        QMessageBox *msga = new QMessageBox();
-        msga->setWindowTitle("User is not reported");
-        msga->setText("This user is not reported to UAA.");
-        msga->setAttribute(Qt::WA_DeleteOnClose);
-        msga->exec();
-        this->qChUAApage->UnregisterConsumer("UAAReport::on_pushButton_3_clicked()");
-        this->cuT->stop();
-        return;
+        mb.setWindowTitle("User is not reported");
+        mb.setText("This user is not reported to UAA.");
+    }
+    mb.exec();
+}
+
+void UAAReport::DelRef()
+{
+    if (this->qCheckUAAUser != NULL)
+    {
+        this->qCheckUAAUser->DecRef();
+        this->qCheckUAAUser = NULL;
+    }
+    if (this->qUAApage != NULL)
+    {
+        this->qUAApage->DecRef();
+        this->qUAApage = NULL;
     }
 }

@@ -9,6 +9,11 @@
 //GNU General Public License for more details.
 
 #include "core.hpp"
+#include <QtXml>
+#include <QMessageBox>
+#include "syslog.hpp"
+#include "localization.hpp"
+#include "configuration.hpp"
 
 using namespace Huggle;
 

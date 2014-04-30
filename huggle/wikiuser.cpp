@@ -9,6 +9,7 @@
 //GNU General Public License for more details.
 
 #include "wikiuser.hpp"
+#include "configuration.hpp"
 #include "syslog.hpp"
 using namespace Huggle;
 
@@ -124,6 +125,7 @@ void WikiUser::UpdateWl(WikiUser *us, long score)
             return;
         }
         Syslog::HuggleLogs->Log(Localizations::HuggleLocalizations->Localize("whitelisted", us->Username, QString::number(score)));
+        Configuration::HuggleConfiguration->NewWhitelist.append(us->Username);
         Configuration::HuggleConfiguration->WhiteList.append(us->Username);
         us->WhitelistInfo = 1;
         us->Update();

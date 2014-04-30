@@ -21,13 +21,8 @@
 #include <QList>
 #include <QStringList>
 #include <QHash>
-#include <QDir>
-#include <QtXml>
 #include <QString>
 #include "hugglequeuefilter.hpp"
-#include "syslog.hpp"
-#include "huggleparser.hpp"
-#include "localization.hpp"
 #include "wikipage.hpp"
 #include "wikisite.hpp"
 
@@ -234,6 +229,7 @@ namespace Huggle
             QString         WikiDB;
             //! Data of wl (list of users)
             QStringList     WhiteList;
+            QStringList     NewWhitelist;
             //! URL of wiki that contains a global config
             QString         GlobalConfigurationWikiAddress;
             //! Number of seconds for which the processed queries remain in list of processes
@@ -287,6 +283,8 @@ namespace Huggle
             int             SystemConfig_CacheHAN;
             //! Debug mode
             bool            SystemConfig_Dot;
+            bool            SystemConfig_InstantReverts;
+            int             SystemConfig_RevertDelay;
             //! This is index for login form so that we can remember which was last wiki user logged to
 
             //! We are storing index instead of wiki name, because in case it was a wiki that later

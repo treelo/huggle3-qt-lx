@@ -21,20 +21,14 @@
 #include <QTimer>
 #include <QInputDialog>
 #include <QLabel>
-#include <QDesktopServices>
 #include <QMutex>
-#include <QToolTip>
 #include <QThread>
 #include <QSplitter>
 #include <QDockWidget>
 #include "aboutform.hpp"
 #include "blockuser.hpp"
-#include "collectable.hpp"
-#include "configuration.hpp"
-#include "core.hpp"
 #include "deleteform.hpp"
 #include "editquery.hpp"
-#include "exception.hpp"
 #include "hooks.hpp"
 #include "history.hpp"
 #include "hugglefeedproviderwiki.hpp"
@@ -57,20 +51,14 @@
 #include "revertquery.hpp"
 #include "requestprotect.hpp"
 #include "whitelistform.hpp"
-#include "generic.hpp"
-#include "gc.hpp"
 #include "sessionform.hpp"
-#include "querypool.hpp"
 #include "historyform.hpp"
 #include "scorewordsdbform.hpp"
 #include "warnings.hpp"
 #include "warninglist.hpp"
 #include "waitingform.hpp"
 #include "wlquery.hpp"
-#include "wikiutil.hpp"
 #include "uaareport.hpp"
-#include "localization.hpp"
-#include "syslog.hpp"
 
 namespace Ui
 {
@@ -110,6 +98,7 @@ namespace Huggle
     class BlockUser;
     class ProtectPage;
     class WarningList;
+    class WLQuery;
     class UAAReport;
     class ScoreWordsDbForm;
 
@@ -317,7 +306,7 @@ namespace Huggle
             void on_actionRemove_edits_made_by_whitelisted_users_triggered();
             void on_actionDelete_all_edits_with_score_lower_than_200_triggered();
             void on_actionRelog_triggered();
-
+            void on_actionAbort_2_triggered();
         private:
             //! Check if huggle is shutting down or not, in case it is, message box is shown as well
             //! this function should be called before every action user can trigger
@@ -342,6 +331,7 @@ namespace Huggle
             void UpdateStatusBarData();
             void DecreaseBS();
             void IncreaseBS();
+            void ProcessReverts();
             //! This timer periodically executes various jobs that needs to be executed in main thread loop
             QTimer *GeneralTimer;
             QDateTime EditLoad;
@@ -355,9 +345,10 @@ namespace Huggle
             WaitingForm *fWaiting;
             RequestProtect *fRFProtection;
             //! List of all edits that are kept in history, so that we can track them and delete them
-            QList <WikiEdit*> Historical;
+            QList<WikiEdit*> Historical;
             ApiQuery *RestoreQuery;
             WikiEdit *RestoreEdit;
+            QList<RevertQuery*> RevertStack;
             //! This is a page that is going to be displayed if users request their latest action to be
             //! reviewed when it's done (for example when they rollback an edit and they want to
             //! display it, instead of next one)

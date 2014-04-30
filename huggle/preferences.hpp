@@ -19,7 +19,6 @@
 
 #include <QDialog>
 #include <QList>
-#include "configuration.hpp"
 #include "iextension.hpp"
 #include "hugglequeuefilter.hpp"
 #ifdef PYTHONENGINE
@@ -60,8 +59,8 @@ namespace Huggle
             void on_pushButton_5_clicked();
             void on_pushButton_4_clicked();
             void on_pushButton_3_clicked();
-
             void on_checkBox_26_clicked();
+            void on_checkBox_27_clicked();
 
         private:
             void Reload();

@@ -9,6 +9,8 @@
 //GNU General Public License for more details.
 
 #include "query.hpp"
+#include "exception.hpp"
+#include "gc.hpp"
 
 using namespace Huggle;
 
@@ -105,7 +107,7 @@ QString Query::QueryStatusToString()
     switch (this->Status)
     {
         case StatusNull:
-            return "NULL";
+            return "Waiting";
         case StatusDone:
             return "Done";
         case StatusProcessing:

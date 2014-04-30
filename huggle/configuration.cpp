@@ -9,6 +9,12 @@
 //GNU General Public License for more details.
 
 #include "configuration.hpp"
+#include <QDir>
+#include <QtXml>
+#include <QDesktopServices>
+#include "syslog.hpp"
+#include "huggleparser.hpp"
+#include "localization.hpp"
 
 using namespace Huggle;
 
@@ -227,6 +233,8 @@ Configuration::Configuration()
     this->SystemConfig_DelayVal = 0;
     this->SystemConfig_RequestDelay = false;
     this->SystemConfig_WhitelistDisabled = false;
+    this->SystemConfig_RevertDelay = 0;
+    this->SystemConfig_InstantReverts = true;
     this->SystemConfig_QueryListTimeLimit = 2;
     this->SystemConfig_HistorySize = 20;
     this->SystemConfig_SyslogPath = "huggle.log";
@@ -607,6 +615,16 @@ void Configuration::LoadSystemConfig(QString fn)
             Configuration::HuggleConfiguration->SystemConfig_RequestDelay = Configuration::SafeBool(option.attribute("text"));
             continue;
         }
+        if (key == "RevertDelay")
+        {
+            Configuration::HuggleConfiguration->SystemConfig_RevertDelay = option.attribute("text").toUInt();
+            continue;
+        }
+        if (key == "InstantReverts")
+        {
+            Configuration::HuggleConfiguration->SystemConfig_InstantReverts = Configuration::SafeBool(option.attribute("text"));
+            continue;
+        }
     }
     Huggle::Syslog::HuggleLogs->DebugLog("Finished conf");
 }
@@ -626,6 +644,8 @@ void Configuration::SaveSystemConfig()
     writer->writeStartElement("huggle");
     InsertConfig("DelayVal", QString::number(Configuration::HuggleConfiguration->SystemConfig_DelayVal), writer);
     InsertConfig("RequestDelay", Configuration::Bool2String(Configuration::HuggleConfiguration->SystemConfig_RequestDelay), writer);
+    InsertConfig("RevertDelay", QString::number(Configuration::HuggleConfiguration->SystemConfig_RevertDelay), writer);
+    InsertConfig("InstantReverts", Configuration::Bool2String(Configuration::HuggleConfiguration->SystemConfig_InstantReverts), writer);
     InsertConfig("UsingSSL", Configuration::Bool2String(Configuration::HuggleConfiguration->SystemConfig_UsingSSL), writer);
     InsertConfig("Cache_InfoSize", QString::number(Configuration::HuggleConfiguration->SystemConfig_QueueSize), writer);
     InsertConfig("GlobalConfigurationWikiAddress", Configuration::HuggleConfiguration->GlobalConfigurationWikiAddress, writer);

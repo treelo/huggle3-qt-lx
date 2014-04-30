@@ -9,6 +9,9 @@
 //GNU General Public License for more details.
 
 #include "querypool.hpp"
+#include "wikiutil.hpp"
+#include "exception.hpp"
+#include "syslog.hpp"
 
 using namespace Huggle;
 
@@ -96,17 +99,15 @@ void QueryPool::CheckQueries()
     }
     curr = 0;
     if (this->RunningQueries.count() < 1)
-    {
         return;
-    }
-    QList<Query*> Finished;
     while (curr < this->RunningQueries.count())
     {
         Query *q = this->RunningQueries.at(curr);
-        if (this->Processes != NULL) { this->Processes->UpdateQuery(q); }
+        if (this->Processes != NULL)
+            this->Processes->UpdateQuery(q);
         if (q->IsProcessed())
         {
-            Finished.append(q);
+            this->RunningQueries.removeAt(curr);
             // this is pretty spamy :o
             Huggle::Syslog::HuggleLogs->DebugLog("Query finished with: " + q->Result->Data, 8);
             if (this->Processes != NULL)
@@ -114,16 +115,11 @@ void QueryPool::CheckQueries()
                 this->Processes->UpdateQuery(q);
                 this->Processes->RemoveQuery(q);
             }
+            q->UnregisterConsumer(HUGGLECONSUMER_QP);
+        } else
+        {
+            curr++;
         }
-        curr++;
-    }
-    curr = 0;
-    while (curr < Finished.count())
-    {
-        Query *item = Finished.at(curr);
-        this->RunningQueries.removeOne(item);
-        item->UnregisterConsumer(HUGGLECONSUMER_QP);
-        curr++;
     }
 }
 

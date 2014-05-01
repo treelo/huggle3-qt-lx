@@ -18,5 +18,6 @@ fi
 
 tar -zcf "huggle_"$v".orig.tar.gz" huggle
 cp -r huggle huggle-"$v"
+cp "huggle-$v"/huggle.orig "huggle-$v"/huggle.pro
 cd huggle-"$v"
 echo debuild -S -sa

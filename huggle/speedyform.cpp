@@ -11,6 +11,7 @@
 #include "speedyform.hpp"
 #include <QMessageBox>
 #include "exception.hpp"
+#include "core.hpp"
 #include "wikiutil.hpp"
 #include "generic.hpp"
 #include "configuration.hpp"
@@ -51,6 +52,16 @@ SpeedyForm::~SpeedyForm()
 
 void SpeedyForm::on_pushButton_clicked()
 {
+    if (this->edit->Page->IsUserpage())
+    {
+        QMessageBox::StandardButton qb = QMessageBox::question(Core::HuggleCore->Main, "Request",
+             "This page is in userspace, are you sure you want to delete it?",
+             QMessageBox::Yes|QMessageBox::No);
+        if (qb == QMessageBox::No)
+        {
+            return;
+        }
+    }
     if (this->ui->comboBox->currentText() == "")
     {
         QMessageBox mb;
@@ -66,22 +77,14 @@ void SpeedyForm::on_pushButton_clicked()
     // first we need to retrieve the content of page if we don't have it already
     this->qObtainText = Generic::RetrieveWikiPageContents(this->edit->Page->PageName);
     this->timer->start(200);
-    this->qObtainText->RegisterConsumer("SpeedyForm");
+    this->qObtainText->IncRef();
     this->qObtainText->Process();
 }
 
 void SpeedyForm::Remove()
 {
-    if (this->qObtainText != NULL)
-    {
-        this->qObtainText->UnregisterConsumer("SpeedyForm");
-        this->qObtainText = NULL;
-    }
-    if (this->Template != NULL)
-    {
-        this->Template->DecRef();
-        this->Template = NULL;
-    }
+    GC_DECREF(this->qObtainText);
+    GC_DECREF(this->Template);
 }
 
 void SpeedyForm::Fail(QString reason)
@@ -142,7 +145,7 @@ void SpeedyForm::OnTick()
             this->Fail(this->Text);
             return;
         }
-        this->qObtainText->UnregisterConsumer("SpeedyForm");
+        this->qObtainText->DecRef();
         this->qObtainText = NULL;
         this->processTags();
         return;

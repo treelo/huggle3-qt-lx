@@ -215,6 +215,9 @@ namespace Huggle
             bool            Restricted;
             //! Where the welcome message is stored
             QString         WelcomeMP;
+            //! This is used in combination with --login option, so that huggle knows if it should
+            //! login automatically or wait for user to fill in their user information
+            bool            Login;
             //! Maximum number of queue stuff
             int             SystemConfig_QueueSize;
             //! Whether python is available
@@ -317,6 +320,7 @@ namespace Huggle
             //! Result of "Stop feed, Remove old edits" in main form
             bool                    UserConfig_RemoveOldQueueEdits;
             bool                    UserConfig_CheckTP;
+            QString                 UserConfig_QueueID;
             //! Display messages from users in vandal window
             bool                    UserConfig_HAN_DisplayUser;
             bool                    UserConfig_HAN_DisplayBots;
@@ -333,6 +337,7 @@ namespace Huggle
             QString     GlobalConfig_FeedbackPath;
             QString     GlobalConfig_UserConf;
             QString     GlobalConfig_UserConf_old;
+            QString     GlobalConfig_Whitelist;
             bool        GlobalConfigWasLoaded;
 
             //////////////////////////////////////////////

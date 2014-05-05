@@ -54,12 +54,14 @@ Configuration::Configuration()
     this->SystemConfig_UpdatesEnabled = true;
     this->ProjectConfig_EditSuffixOfHuggle = "([[WP:HG|HG 3]])";
     this->WikiDB = "";
+    this->Login = false;
     this->UserConfig_HistoryMax = 50;
     this->Platform = HUGGLE_UPDATER_PLATFORM_TYPE;
 
     //////////////////////////////////////////////////////////////////////////////////////////
     // Global
     //////////////////////////////////////////////////////////////////////////////////////////
+    this->GlobalConfig_Whitelist = "http://huggle.wmflabs.org/data/";
     this->GlobalConfigurationWikiAddress = "meta.wikimedia.org/w/";
     this->GlobalConfig_EnableAll = true;
     this->GlobalConfig_MinVersion = HUGGLE_VERSION;
@@ -225,6 +227,7 @@ Configuration::Configuration()
     this->UserConfig_DisplayTitle = false;
     this->UserConfig_GoNext = Configuration_OnNext_Next;
     this->UserConfig_CheckTP = false;
+    this->UserConfig_QueueID = "default";
 
     //////////////////////////////////////////////////////////////////////////////////////////
     // System (pc wide)
@@ -377,17 +380,11 @@ QString Configuration::Bool2String(bool b)
 void Configuration::NormalizeConf()
 {
     if (this->ProjectConfig_TemplateAge > -1)
-    {
         this->ProjectConfig_TemplateAge = -30;
-    }
     if (this->SystemConfig_QueueSize < 10)
-    {
         this->SystemConfig_QueueSize = 10;
-    }
     if (this->SystemConfig_HistorySize < 2)
-    {
         this->SystemConfig_HistorySize = 2;
-    }
 }
 
 bool Configuration::SafeBool(QString value, bool defaultvalue)
@@ -452,6 +449,7 @@ QString Configuration::MakeLocalUserConfig()
     configuration_ += "HAN_DisplayUserTalk:" + Configuration::Bool2String(Configuration::HuggleConfiguration->UserConfig_HAN_DisplayUserTalk) + "\n";
     configuration_ += "HAN_DisplayBots:" + Configuration::Bool2String(Configuration::HuggleConfiguration->UserConfig_HAN_DisplayBots) + "\n";
     configuration_ += "HAN_DisplayUser:" + Configuration::Bool2String(Configuration::HuggleConfiguration->UserConfig_HAN_DisplayUser) + "\n";
+    configuration_ += "QueueID:" + Configuration::HuggleConfiguration->UserConfig_QueueID + "\n";
     configuration_ += "// queues\nqueues:\n";
     int c = 0;
     while (c < HuggleQueueFilter::Filters.count())
@@ -469,6 +467,7 @@ QString Configuration::MakeLocalUserConfig()
             configuration_ += "        filter-new-pages:" + Configuration::Bool2ExcludeRequire(fltr->getIgnoreNP()) + "\n";
             configuration_ += "        filter-me:" + Configuration::Bool2ExcludeRequire(fltr->getIgnoreSelf()) + "\n";
             configuration_ += "        filter-users:" + Configuration::Bool2ExcludeRequire(fltr->getIgnoreUsers()) + "\n";
+            configuration_ += "        nsfilter-user:" + Configuration::Bool2ExcludeRequire(fltr->getIgnore_UserSpace()) + "\n";
             configuration_ += "\n";
         }
     }
@@ -683,6 +682,7 @@ bool Configuration::ParseGlobalConfig(QString config)
     // Sanitize page titles (huggle2 done sth. similiar at Page.SanitizeTitle before requesting them)
     this->GlobalConfig_UserConf = ReplaceSpecialUserPage(ConfigurationParse("user-config-hg3", config));
     this->GlobalConfig_UserConf_old = ReplaceSpecialUserPage(ConfigurationParse("user-config", config));
+    this->GlobalConfig_Whitelist = ConfigurationParse("whitelist-server", config);
     this->GlobalConfigWasLoaded = true;
     return true;
 }
@@ -982,6 +982,7 @@ bool Configuration::ParseUserConfig(QString config)
     this->UserConfig_HAN_DisplayUserTalk = SafeBool(ConfigurationParse("HAN_DisplayUserTalk", config, "true"));
     this->UserConfig_TalkPageFreshness = ConfigurationParse("TalkpageFreshness", config, QString::number(this->UserConfig_TalkPageFreshness)).toInt();
     this->UserConfig_RemoveOldQueueEdits = SafeBool(ConfigurationParse("RemoveOldestQueueEdits", config, "false"));
+    this->UserConfig_QueueID = ConfigurationParse("QueueID", config);
     this->UserConfig_GoNext = static_cast<Configuration_OnNext>(ConfigurationParse("OnNext", config, "1").toInt());
     this->UserConfig_DeleteEditsAfterRevert = SafeBool(ConfigurationParse("DeleteEditsAfterRevert", config, "true"));
     this->NormalizeConf();

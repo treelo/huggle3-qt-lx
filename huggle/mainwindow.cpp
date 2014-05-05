@@ -274,13 +274,11 @@ void MainWindow::DisplayReportUserWindow(WikiUser *User)
         mb.exec();
         return;
     }
-
     if (this->fReportForm != NULL)
     {
         delete this->fReportForm;
         this->fReportForm = NULL;
     }
-
     this->fReportForm = new ReportUser(this);
     this->fReportForm->show();
     this->fReportForm->SetUser(User);
@@ -749,16 +747,8 @@ void MainWindow::DisplayWelcomeMessage()
 
 void MainWindow::FinishRestore()
 {
-    if (this->RestoreEdit == NULL || this->RestoreQuery == NULL)
-    {
+    if (this->RestoreEdit == NULL || this->RestoreQuery == NULL || !this->RestoreQuery->IsProcessed())
         return;
-    }
-
-    if (!this->RestoreQuery->IsProcessed())
-    {
-        return;
-    }
-
     QDomDocument d;
     d.setContent(this->RestoreQuery->Result->Data);
     QDomNodeList page = d.elementsByTagName("rev");
@@ -1003,7 +993,7 @@ void MainWindow::OnTimerTick0()
             this->fWaiting->Status(60, Localizations::HuggleLocalizations->Localize("updating-wl"));
             this->wq = new WLQuery();
             this->wq->IncRef();
-            this->wq->Save = true;
+            this->wq->Type = WLQueryType_WriteWL;
             this->wq->Process();
             return;
         }
@@ -1078,17 +1068,13 @@ void MainWindow::on_actionWarn_the_user_triggered()
 void MainWindow::on_actionRevert_currently_displayed_edit_and_warn_the_user_triggered()
 {
     if (!this->CheckExit() || !this->CheckEditableBrowserPage())
-    {
         return;
-    }
     if (Configuration::HuggleConfiguration->Restricted)
     {
         Generic::DeveloperError();
         return;
     }
-
     RevertQuery *result = this->Revert("", true, false);
-
     if (result != NULL)
     {
         this->Warn("warning", result);
@@ -1361,6 +1347,16 @@ void MainWindow::SuspiciousEdit()
     if (this->CurrentEdit != NULL)
     {
         Hooks::Suspicious(this->CurrentEdit);
+        WLQuery *wq_ = new WLQuery();
+        wq_->Type = WLQueryType_SuspWL;
+        wq_->Parameters = "page=" + QUrl::toPercentEncoding(this->CurrentEdit->Page->PageName) + "&wiki="
+                          + QUrl::toPercentEncoding(Configuration::HuggleConfiguration->Project->WhiteList) + "&user="
+                          + QUrl::toPercentEncoding(Configuration::HuggleConfiguration->SystemConfig_Username) + "&score="
+                          + QString::number(this->CurrentEdit->Score) + "&revid="
+                          + QString::number(this->CurrentEdit->RevID) + "&summary="
+                          + QUrl::toPercentEncoding(this->CurrentEdit->Summary);
+        wq_->Process();
+        QueryPool::HugglePool->AppendQuery(wq_);
         this->CurrentEdit->User->SetBadnessScore(this->CurrentEdit->User->GetBadnessScore() + 1);
     }
     this->DisplayNext();
@@ -1436,6 +1432,7 @@ void MainWindow::Localize()
     this->ui->actionDisplay_this_page_in_browser->setText(Localizations::HuggleLocalizations->Localize("main-browser-open"));
     this->ui->actionFeedback->setText(Localizations::HuggleLocalizations->Localize("main-help-feedback"));
     this->ui->actionReport_user->setText(Localizations::HuggleLocalizations->Localize("main-user-report"));
+    this->ui->actionUser_contributions->setText(Localizations::HuggleLocalizations->Localize("main-tip-contribs"));
 }
 
 void MainWindow::_BlockUser()
@@ -1661,6 +1658,14 @@ void MainWindow::on_actionGood_edit_triggered()
         }
     }
     this->DisplayNext();
+}
+
+void MainWindow::on_actionUser_contributions_triggered()
+{
+    if (this->CurrentEdit != NULL)
+    {
+        QDesktopServices::openUrl(QString(Configuration::GetProjectWikiURL() + "Special:Contributions/" + QUrl::toPercentEncoding(this->CurrentEdit->User->Username)));
+    }
 }
 
 void MainWindow::on_actionTalk_page_triggered()

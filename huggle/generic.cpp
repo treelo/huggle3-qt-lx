@@ -15,6 +15,9 @@
 
 using namespace Huggle;
 
+// we need to preload this thing so that we don't need to create this string so frequently and toast teh PC
+static QString options_ = QUrl::toPercentEncoding("timestamp|user|comment|content");
+
 bool Generic::ReportPreFlightCheck()
 {
     if (!Configuration::HuggleConfiguration->AskUserBeforeReport)
@@ -30,11 +33,12 @@ bool Generic::ReportPreFlightCheck()
     return (q != QMessageBox::No);
 }
 
-ApiQuery *Generic::RetrieveWikiPageContents(QString page)
+ApiQuery *Generic::RetrieveWikiPageContents(QString page, bool parse)
 {
     ApiQuery *query = new ApiQuery(ActionQuery);
-    query->Parameters = "prop=revisions&rvprop=" + QUrl::toPercentEncoding("timestamp|user|comment|content") +
-                        "&titles=" + QUrl::toPercentEncoding(page);
+    query->Parameters = "prop=revisions&rvlimit=1&rvprop=" + options_ + "&titles=" + QUrl::toPercentEncoding(page);
+    if (parse)
+        query->Parameters += "&rvparse";
     return query;
 }
 

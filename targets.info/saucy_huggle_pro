@@ -38,7 +38,7 @@ DEFINES *= QT_USE_QSTRINGBUILDER
 #PYTHON SUPPORT - uncomment me if you want to use python
 ##################################################################################################################################################
 QMAKE_CXXFLAGS += -DNDEBUG -g -fwrapv -O2 -Wall -g -fstack-protector --param=ssp-buffer-size=4 -Wformat -Wformat-security -Werror=format-security
-INCLUDEPATH += "/usr/include/python3.2mu"
+INCLUDEPATH += "/usr/include/python3.3"
 LIBS += -lpython3.3
 ##################################################################################################################################################
 

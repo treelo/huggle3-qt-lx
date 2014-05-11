@@ -17,6 +17,12 @@
    <iconset resource="pictures.qrc">
     <normaloff>:/huggle/pictures/Resources/huggle3_newlogo.ico</normaloff>:/huggle/pictures/Resources/huggle3_newlogo.ico</iconset>
   </property>
+  <property name="iconSize">
+   <size>
+    <width>40</width>
+    <height>40</height>
+   </size>
+  </property>
   <widget class="QWidget" name="centralWidget">
    <property name="enabled">
     <bool>true</bool>
@@ -57,7 +63,7 @@
      <x>0</x>
      <y>0</y>
      <width>794</width>
-     <height>25</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -220,27 +226,22 @@
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
-   <addaction name="actionRevert_and_warn"/>
+   <addaction name="actionBack"/>
+   <addaction name="actionForward"/>
    <addaction name="actionNext"/>
    <addaction name="separator"/>
+   <addaction name="actionGood_edit"/>
+   <addaction name="actionRevert_and_warn"/>
    <addaction name="actionRevert"/>
    <addaction name="actionWarn"/>
    <addaction name="separator"/>
-   <addaction name="actionBack"/>
-   <addaction name="actionForward"/>
-   <addaction name="separator"/>
    <addaction name="actionWelcome_user"/>
-   <addaction name="actionOpen_in_a_browser"/>
-   <addaction name="separator"/>
-   <addaction name="actionGood_edit"/>
-   <addaction name="separator"/>
-   <addaction name="actionBlock_user_2"/>
-   <addaction name="actionReport_user"/>
    <addaction name="actionDisplay_talk"/>
-   <addaction name="actionDecrease_badness"/>
-   <addaction name="actionIncrease_badness"/>
+   <addaction name="actionReport_user"/>
+   <addaction name="actionBlock_user_2"/>
    <addaction name="separator"/>
    <addaction name="actionDelete_page"/>
+   <addaction name="actionOpen_in_a_browser"/>
   </widget>
   <widget class="QStatusBar" name="statusBar">
    <property name="font">
@@ -311,7 +312,7 @@
   </action>
   <action name="actionNext">
    <property name="icon">
-    <iconset resource="pictures.qrc">
+    <iconset>
      <normaloff>:/huggle/pictures/Resources/diff-next.png</normaloff>:/huggle/pictures/Resources/diff-next.png</iconset>
    </property>
    <property name="text">
@@ -388,7 +389,7 @@
   <action name="actionWelcome_user">
    <property name="icon">
     <iconset resource="pictures.qrc">
-     <normaloff>:/huggle/pictures/Resources/user-info.png</normaloff>:/huggle/pictures/Resources/user-info.png</iconset>
+     <normaloff>:/huggle/pictures/Resources/user-welcome.png</normaloff>:/huggle/pictures/Resources/user-welcome.png</iconset>
    </property>
    <property name="text">
     <string notr="true">Welcome user (Ctrl-H)</string>
@@ -405,7 +406,7 @@
   <action name="actionOpen_in_a_browser">
    <property name="icon">
     <iconset resource="pictures.qrc">
-     <normaloff>:/huggle/pictures/Resources/page-watch.png</normaloff>:/huggle/pictures/Resources/page-watch.png</iconset>
+     <normaloff>:/huggle/pictures/Resources/browser-open.png</normaloff>:/huggle/pictures/Resources/browser-open.png</iconset>
    </property>
    <property name="text">
     <string notr="true">Open in a browser (O)</string>
@@ -831,24 +832,6 @@
     <string>Block user</string>
    </property>
   </action>
-  <action name="actionIncrease_badness">
-   <property name="icon">
-    <iconset resource="pictures.qrc">
-     <normaloff>:/huggle/pictures/Resources/user-unwhitelist.png</normaloff>:/huggle/pictures/Resources/user-unwhitelist.png</iconset>
-   </property>
-   <property name="text">
-    <string>Increase badness</string>
-   </property>
-  </action>
-  <action name="actionDecrease_badness">
-   <property name="icon">
-    <iconset resource="pictures.qrc">
-     <normaloff>:/huggle/pictures/Resources/user-whitelist.png</normaloff>:/huggle/pictures/Resources/user-whitelist.png</iconset>
-   </property>
-   <property name="text">
-    <string>Decrease badness</string>
-   </property>
-  </action>
   <action name="actionDisplay_talk">
    <property name="icon">
     <iconset resource="pictures.qrc">
@@ -865,7 +848,7 @@
   </action>
   <action name="actionHtml_dump">
    <property name="text">
-    <string>Webpage dump</string>
+    <string>Load in webpage</string>
    </property>
   </action>
   <action name="actionEnforce_sysop_rights">

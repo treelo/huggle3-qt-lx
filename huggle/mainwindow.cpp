@@ -2066,16 +2066,6 @@ void Huggle::MainWindow::on_actionDisplay_talk_triggered()
     this->DisplayTalk();
 }
 
-void Huggle::MainWindow::on_actionIncrease_badness_triggered()
-{
-    this->IncreaseBS();
-}
-
-void Huggle::MainWindow::on_actionDecrease_badness_triggered()
-{
-    this->DecreaseBS();
-}
-
 void MainWindow::TimerCheckTPOnTick()
 {
     if (Configuration::HuggleConfiguration->Restricted || this->ShuttingDown)
@@ -2128,21 +2118,19 @@ void Huggle::MainWindow::on_actionSimulate_message_triggered()
 
 void Huggle::MainWindow::on_actionHtml_dump_triggered()
 {
-    bool ok;
-    QString name = QInputDialog::getText(this, "File", "Please provide a file name you want to dump the current source code to",
-                                           QLineEdit::Normal, "huggledump.htm", &ok);
-    if (!ok)
-    {
-        return;
-    }
+    QString name = "huggleDump.html";
+
     QFile *f = new QFile(name);
     if (!f->open(QIODevice::WriteOnly | QIODevice::Truncate))
     {
         Syslog::HuggleLogs->ErrorLog("Unable to write to " + name);
+        delete f;
         return;
     }
     f->write(this->Browser->RetrieveHtml().toUtf8());
     f->close();
+    delete f;
+    QDesktopServices::openUrl( QDir().absoluteFilePath( name ) );
 }
 
 void Huggle::MainWindow::on_actionEnforce_sysop_rights_triggered()

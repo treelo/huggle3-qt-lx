@@ -27,12 +27,14 @@ namespace Huggle
     {
         public:
             static void Init();
+            static QString GetHtmlHeader();
             static QString HtmlIncoming;
             //! This string contains a html header
             static QString HtmlHeader;
             static QString DiffHeader;
             static QString DiffFooter;
             static QString Html_StopFire;
+            static QString CssRtl;
             //! This string contains a html footer
             static QString HtmlFooter;
     };

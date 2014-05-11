@@ -132,7 +132,7 @@ void Core::LoadDB()
 
     if (!text.length())
     {
-        QFile vf(":/huggle/resources/Resources/Definitions.txt");
+        QFile vf(":/huggle/resources/Resources/Definitions.xml");
         vf.open(QIODevice::ReadOnly);
         text = QString(vf.readAll());
         vf.close();
@@ -442,7 +442,7 @@ void Core::LoadLocalizations()
     Localizations::HuggleLocalizations->LocalInit("oc");
     Localizations::HuggleLocalizations->LocalInit("or");
     Localizations::HuggleLocalizations->LocalInit("pt");
-    Localizations::HuggleLocalizations->LocalInit("ptb");
+    Localizations::HuggleLocalizations->LocalInit("pt-BR");
     Localizations::HuggleLocalizations->LocalInit("ru");
     Localizations::HuggleLocalizations->LocalInit("sv");
     Localizations::HuggleLocalizations->LocalInit("zh");

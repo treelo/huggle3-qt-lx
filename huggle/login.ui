@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>357</width>
-    <height>480</height>
+    <width>377</width>
+    <height>499</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -32,12 +32,12 @@
    <string>Huggle</string>
   </property>
   <property name="windowIcon">
-   <iconset>
+   <iconset resource="pictures.qrc">
     <normaloff>:/huggle/pictures/Resources/huggle3_newlogo.ico</normaloff>:/huggle/pictures/Resources/huggle3_newlogo.ico</iconset>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QLabel" name="label_10">
+    <widget class="QLabel" name="labelHeader">
      <property name="font">
       <font>
        <pointsize>18</pointsize>
@@ -54,12 +54,12 @@
     </widget>
    </item>
    <item>
-    <widget class="QLabel" name="label">
+    <widget class="QLabel" name="labelLogo">
      <property name="text">
       <string/>
      </property>
      <property name="pixmap">
-      <pixmap>:/huggle/pictures/Resources/huggle3_newlogo.png</pixmap>
+      <pixmap resource="pictures.qrc">:/huggle/pictures/Resources/huggle3_newlogo.png</pixmap>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
@@ -118,7 +118,7 @@
           <number>2</number>
          </property>
          <item>
-          <widget class="QLabel" name="label_2">
+          <widget class="QLabel" name="labelOauthUsername">
            <property name="text">
             <string>Username:</string>
            </property>
@@ -130,7 +130,7 @@
         </layout>
        </item>
        <item>
-        <widget class="QLabel" name="label_8">
+        <widget class="QLabel" name="labelOauthNotSupported">
          <property name="text">
           <string>This method is not supported in this moment</string>
          </property>
@@ -176,7 +176,7 @@
           <number>6</number>
          </property>
          <item row="0" column="0">
-          <widget class="QLabel" name="label_3">
+          <widget class="QLabel" name="labelUsername">
            <property name="text">
             <string notr="true">Username</string>
            </property>
@@ -186,7 +186,7 @@
           <widget class="QLineEdit" name="lineEdit_username"/>
          </item>
          <item row="1" column="0">
-          <widget class="QLabel" name="label_7">
+          <widget class="QLabel" name="labelPassword">
            <property name="text">
             <string notr="true">Password</string>
            </property>
@@ -215,7 +215,7 @@
    <item>
     <layout class="QGridLayout" name="gridLayout_2">
      <item row="0" column="0">
-      <widget class="QLabel" name="label_4">
+      <widget class="QLabel" name="labelProject">
        <property name="text">
         <string notr="true">Project:</string>
        </property>
@@ -225,7 +225,7 @@
       <widget class="QComboBox" name="Project"/>
      </item>
      <item row="1" column="0">
-      <widget class="QLabel" name="label_5">
+      <widget class="QLabel" name="labelLanguage">
        <property name="text">
         <string notr="true">Language:</string>
        </property>
@@ -237,7 +237,7 @@
     </layout>
    </item>
    <item>
-    <widget class="QLabel" name="label_6">
+    <widget class="QLabel" name="labelIntro">
      <property name="text">
       <string/>
      </property>
@@ -270,6 +270,9 @@
      </item>
      <item>
       <widget class="QPushButton" name="ButtonOK">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="text">
         <string notr="true">Login</string>
        </property>
@@ -281,7 +284,7 @@
     </layout>
    </item>
    <item>
-    <widget class="QLabel" name="label_9">
+    <widget class="QLabel" name="labelTranslate">
      <property name="text">
       <string notr="true">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;http://meta.wikimedia.org/wiki/Huggle/Localization&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;Translate huggle&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
@@ -289,6 +292,8 @@
    </item>
   </layout>
  </widget>
- <resources/>
+ <resources>
+  <include location="pictures.qrc"/>
+ </resources>
  <connections/>
 </ui>

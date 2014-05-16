@@ -55,7 +55,14 @@ Login::Login(QWidget *parent) :   QDialog(parent),   ui(new Ui::Login)
         }
         l++;
     }
-
+    if (Configuration::HuggleConfiguration->Verbosity > 0)
+    {
+        // add debug lang "qqx" last
+        this->ui->Language->addItem(Localizations::LANG_QQX);
+        if(Localizations::HuggleLocalizations->PreferredLanguage == Localizations::LANG_QQX)
+            p = l;
+        l++;
+    }
     this->ui->Language->setCurrentIndex(p);
     this->Reload();
     if (!QSslSocket::supportsSsl())
@@ -101,15 +108,16 @@ void Login::Localize()
     this->ui->ButtonExit->setText(Localizations::HuggleLocalizations->Localize("main-system-exit"));
     this->ui->ButtonOK->setText(Localizations::HuggleLocalizations->Localize("login-start"));
     this->ui->checkBox->setText(Localizations::HuggleLocalizations->Localize("login-ssl"));
-    this->ui->label_2->setText(Localizations::HuggleLocalizations->Localize("login-username"));
+    this->ui->labelOauthUsername->setText(Localizations::HuggleLocalizations->Localize("login-username"));
     this->ui->pushButton->setText(Localizations::HuggleLocalizations->Localize("reload"));
-    this->ui->label_3->setText(Localizations::HuggleLocalizations->Localize("login-username"));
-    this->ui->label_4->setText(Localizations::HuggleLocalizations->Localize("login-project"));
-    this->ui->label_5->setText(Localizations::HuggleLocalizations->Localize("login-language"));
-    this->ui->label_7->setText(Localizations::HuggleLocalizations->Localize("login-password"));
-    this->ui->label_6->setText(Localizations::HuggleLocalizations->Localize("login-intro"));
-    this->ui->label_9->setText(QString("<html><head/><body><p><a href=\"http://meta.wikimedia.org/wiki/Huggle/Localization\"><span style=\" text-decoration: underline; color:#0000ff;\">%1</span></a></p></body></html>")
-                               .arg(Localizations::HuggleLocalizations->Localize("login-translate")));
+    this->ui->labelUsername->setText(Localizations::HuggleLocalizations->Localize("login-username"));
+    this->ui->labelProject->setText(Localizations::HuggleLocalizations->Localize("login-project"));
+    this->ui->labelLanguage->setText(Localizations::HuggleLocalizations->Localize("login-language"));
+    this->ui->labelPassword->setText(Localizations::HuggleLocalizations->Localize("login-password"));
+    this->ui->labelIntro->setText(Localizations::HuggleLocalizations->Localize("login-intro"));
+    this->ui->labelTranslate->setText(QString("<html><head/><body><p><a href=\"http://meta.wikimedia.org/wiki/Huggle/Localization\"><span style=\""\
+                                              " text-decoration: underline; color:#0000ff;\">%1</span></a></p></body></html>")
+                                              .arg(Localizations::HuggleLocalizations->Localize("login-translate")));
 }
 
 void Login::Update(QString ms)
@@ -119,7 +127,7 @@ void Login::Update(QString ms)
         this->loadingForm->Info(ms);
 
     // update the label
-    this->ui->label_6->setText(ms);
+    this->ui->labelIntro->setText(ms);
 }
 
 void Login::Kill()
@@ -136,7 +144,7 @@ void Login::Kill()
 
 void Login::Reset()
 {
-    this->ui->label_6->setText(Localizations::HuggleLocalizations->Localize("[[login-intro]]"));
+    this->ui->labelIntro->setText(Localizations::HuggleLocalizations->Localize("[[login-intro]]"));
 }
 
 void Login::CancelLogin()
@@ -150,7 +158,7 @@ void Login::CancelLogin()
         this->loadingForm = nullptr;
     }
     this->_Status = Nothing;
-    this->ui->label_6->setText(Localizations::HuggleLocalizations->Localize("login-intro"));
+    this->ui->labelIntro->setText(Localizations::HuggleLocalizations->Localize("login-intro"));
     this->ui->lineEdit_password->setText("");
     this->ui->ButtonOK->setText(Localizations::HuggleLocalizations->Localize("login-start"));
 }
@@ -257,11 +265,15 @@ void Login::PressOK()
     this->timer->start(200);
     //! \todo Localize string for loadingForm
     this->loadingForm->Insert(LOGINFORM_LOGIN, "Logging in to " + Configuration::HuggleConfiguration->Project->Name, LoadingForm_Icon_Loading);
-    this->loadingForm->Insert(LOGINFORM_SITEINFO, "Retrieving information about mediawiki for " + Configuration::HuggleConfiguration->Project->Name, LoadingForm_Icon_Waiting);
+    this->loadingForm->Insert(LOGINFORM_SITEINFO, "Retrieving information about mediawiki for " +
+                              Configuration::HuggleConfiguration->Project->Name, LoadingForm_Icon_Waiting);
     this->loadingForm->Insert(LOGINFORM_GLOBALCONFIG, "Retrieving global configuration", LoadingForm_Icon_Waiting);
-    this->loadingForm->Insert(LOGINFORM_WHITELIST, Localizations::HuggleLocalizations->Localize("login-progress-whitelist"), LoadingForm_Icon_Waiting);
-    this->loadingForm->Insert(LOGINFORM_LOCALCONFIG, "Retrieving local configuration for " + Configuration::HuggleConfiguration->Project->Name, LoadingForm_Icon_Waiting);
-    this->loadingForm->Insert(LOGINFORM_USERCONFIG, "Retrieving user configuration for " + Configuration::HuggleConfiguration->Project->Name, LoadingForm_Icon_Waiting);
+    this->loadingForm->Insert(LOGINFORM_WHITELIST, Localizations::HuggleLocalizations->Localize("login-progress-whitelist"),
+                              LoadingForm_Icon_Waiting);
+    this->loadingForm->Insert(LOGINFORM_LOCALCONFIG, "Retrieving local configuration for " +
+                              Configuration::HuggleConfiguration->Project->Name, LoadingForm_Icon_Waiting);
+    this->loadingForm->Insert(LOGINFORM_USERCONFIG, "Retrieving user configuration for " +
+                              Configuration::HuggleConfiguration->Project->Name, LoadingForm_Icon_Waiting);
     this->loadingForm->Insert(LOGINFORM_USERINFO, "Retrieving the user information", LoadingForm_Icon_Waiting);
 }
 
@@ -301,8 +313,8 @@ void Login::PerformLoginPart2()
     this->LoginQuery = new ApiQuery(ActionLogin);
     this->LoginQuery->HiddenQuery = true;
     this->LoginQuery->Parameters = "lgname=" + QUrl::toPercentEncoding(Configuration::HuggleConfiguration->SystemConfig_Username)
-            + "&lgpassword=" + QUrl::toPercentEncoding(Configuration::HuggleConfiguration->TemporaryConfig_Password) + "&lgtoken="
-            + Token;
+            + "&lgpassword=" + QUrl::toPercentEncoding(Configuration::HuggleConfiguration->TemporaryConfig_Password)
+            + "&lgtoken=" + Token;
     this->LoginQuery->UsingPOST = true;
     this->LoginQuery->IncRef();
     this->LoginQuery->Process();
@@ -389,9 +401,8 @@ void Login::FinishLogin()
 
     // Assume login was successful
     if (this->ProcessOutput())
-    {
         this->_Status = RetrievingGlobalConfig;
-    }
+
     // that's all
     this->LoginQuery->DecRef();
     this->LoginQuery = nullptr;
@@ -917,11 +928,37 @@ void Login::on_Language_currentIndexChanged(const QString &arg1)
         }
         c++;
     }
+    if (Localizations::LANG_QQX == arg1)
+    {
+        lang = Localizations::LANG_QQX;
+    }
     Localizations::HuggleLocalizations->PreferredLanguage = lang;
     this->Localize();
 }
 
-void Huggle::Login::on_label_9_linkActivated(const QString &link)
+void Huggle::Login::on_labelTranslate_linkActivated(const QString &link)
 {
     QDesktopServices::openUrl(link);
 }
+
+void Huggle::Login::on_lineEdit_username_textChanged(const QString &arg1)
+{
+    Q_UNUSED( arg1 )
+    Login::VerifyLogin();
+}
+
+void Huggle::Login::on_lineEdit_password_textChanged(const QString &arg1)
+{
+    Q_UNUSED( arg1 )
+    Login::VerifyLogin();
+}
+
+void Login::VerifyLogin()
+{
+    if((this->ui->lineEdit_username->text().size() == 0 || this->ui->lineEdit_password->text().size() == 0) &&
+            (this->ui->lineEdit_username->text() != "Developer Mode"))
+        this->ui->ButtonOK->setEnabled( false );
+    else
+        this->ui->ButtonOK->setEnabled( true );
+}
+

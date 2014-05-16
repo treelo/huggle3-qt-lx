@@ -17,6 +17,7 @@
 using namespace Huggle;
 
 Localizations *Localizations::HuggleLocalizations = NULL;
+const QString Localizations::LANG_QQX = "qqx";
 
 Localizations::Localizations()
 {
@@ -131,19 +132,16 @@ void Localizations::LocalInit(QString name, bool xml)
     }
     f->open(QIODevice::ReadOnly);
     if (!xml)
-    {
         this->LocalizationData.append(Localizations::MakeLanguage(QString(f->readAll()), name));
-    }
     else
-    {
         this->LocalizationData.append(Localizations::MakeLanguageUsingXML(QString(f->readAll()), name));
-    }
     f->close();
     delete f;
 }
 
 QString Localizations::Localize(QString key)
 {
+    /// \todo almost duplicates Localize(QString key, QStringList parameters)
     QString id = key;
     if (id.endsWith("]]"))
     {
@@ -175,6 +173,12 @@ QString Localizations::Localize(QString key)
                 break;
             }
             c++;
+        }
+
+        // performance wise check this last
+        if (this->PreferredLanguage == LANG_QQX)
+        {
+            return "("+key+")";
         }
         if (this->LocalizationData.at(0)->Messages.contains(id))
         {
@@ -219,6 +223,12 @@ QString Localizations::Localize(QString key, QStringList parameters)
             }
             c++;
         }
+
+        // performance wise check this last
+        if (this->PreferredLanguage == LANG_QQX)
+        {
+            return "("+key+")";
+        }
         if (this->LocalizationData.at(0)->Messages.contains(id))
         {
             QString text = this->LocalizationData.at(0)->Messages[id];
@@ -241,10 +251,10 @@ QString Localizations::Localize(QString key, QString par1, QString par2)
     return Localize(key, list);
 }
 
-QString Localizations::Localize(QString key, QString parameters)
+QString Localizations::Localize(QString key, QString parameter)
 {
     QStringList list;
-    list << parameters;
+    list << parameter;
     return Localize(key, list);
 }
 

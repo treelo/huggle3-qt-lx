@@ -199,6 +199,7 @@ namespace Huggle
             //! Parse all information from local config, this function is used in login
             bool ParseProjectConfig(QString config);
             bool ParseUserConfig(QString config);
+            QDateTime ServerTime();
             ////////////////////////////////////////////
             // System
             ////////////////////////////////////////////
@@ -294,6 +295,8 @@ namespace Huggle
             //! was removed from the list, we would have nonexistent wiki in list
             int             IndexOfLastWiki = 0;
             QString         TemporaryConfig_EditToken = "";
+            //! This is a number that can be used to get a current server time
+            qint64          ServerOffset = 0;
 
             //////////////////////////////////////////////
             // User
@@ -377,23 +380,6 @@ namespace Huggle
             QString         ProjectConfig_RUTemplateReport = "User $1: $2$3 ~~~~";
             QString         ProjectConfig_ReportDefaultReason = "vandalism";
             QString         ProjectConfig_WelcomeSummary = "Welcoming user";
-            QString         ProjectConfig_NSTalk;
-            QString         ProjectConfig_NSUserTalk;
-            QString         ProjectConfig_NSProject;
-            QString         ProjectConfig_NSUser;
-            QString         ProjectConfig_NSProjectTalk;
-            QString         ProjectConfig_NSFile;
-            QString         ProjectConfig_NSFileTalk;
-            QString         ProjectConfig_NSMediaWiki;
-            QString         ProjectConfig_NSMediaWikiTalk;
-            QString         ProjectConfig_NSTemplate;
-            QString         ProjectConfig_NSTemplateTalk;
-            QString         ProjectConfig_NSHelp;
-            QString         ProjectConfig_NSHelpTalk;
-            QString         ProjectConfig_NSCategory;
-            QString         ProjectConfig_NSCategoryTalk;
-            QString         ProjectConfig_NSPortal;
-            QString         ProjectConfig_NSPortalTalk;
             Headings        ProjectConfig_Headings;
             int             ProjectConfig_TemplateAge = -30;
             bool            ProjectConfig_ConfirmTalk = true;
@@ -453,36 +439,37 @@ namespace Huggle
             QString         ProjectConfig_SharedIPTemplate = "";
 
             // Definitions
-            QList<ScoreWord> ProjectConfig_ScoreParts;
-            QList<ScoreWord> ProjectConfig_ScoreWords;
-            int              ProjectConfig_ScoreFlag = -60;
-            int              ProjectConfig_ForeignUser = 800;
-            int              ProjectConfig_ScoreTalk = -200;
+            QList<ScoreWord>        ProjectConfig_ScoreParts;
+            QList<ScoreWord>        ProjectConfig_ScoreWords;
+            int                     ProjectConfig_ScoreFlag = -60;
+            int                     ProjectConfig_ForeignUser = 800;
+            int                     ProjectConfig_ScoreTalk = -200;
             //! Score that is added for every edit that has really big size
-            int              ProjectConfig_ScoreChange = 100;
-            int              ProjectConfig_ScoreUser = -600;
-            QStringList      ProjectConfig_Ignores;
-            QStringList      ProjectConfig_RevertPatterns;
-            QStringList      ProjectConfig_Assisted;
-            QStringList      ProjectConfig_Templates;
-            QStringList      ProjectConfig_IgnorePatterns;
-            int              ProjectConfig_TalkPageWarningScore = -800;
-            bool             ProjectConfig_GlobalRequired = true;
+            int                     ProjectConfig_ScoreChange = 100;
+            int                     ProjectConfig_ScoreUser = -600;
+            QStringList             ProjectConfig_Ignores;
+            QStringList             ProjectConfig_RevertPatterns;
+            QStringList             ProjectConfig_Assisted;
+            QStringList             ProjectConfig_Templates;
+            QStringList             ProjectConfig_IgnorePatterns;
+            int                     ProjectConfig_TalkPageWarningScore = -800;
+            bool                    ProjectConfig_GlobalRequired = true;
             // This is internal only do not prefix it!!
-            QList<QRegExp>   RevertPatterns;
-            int              ProjectConfig_BotScore = -200;
-            int              ProjectConfig_IPScore = 800;
-            int              ProjectConfig_WarningScore = 2000;
-            QStringList      ProjectConfig_WarningTypes;
-            QString          ProjectConfig_SpeedyEditSummary = "Tagging page for deletion";
-            QString          ProjectConfig_SpeedyWarningSummary = "Sending user a notification regarding deletion of their page";
-            QStringList      ProjectConfig_SpeedyTemplates;
-            QStringList      ProjectConfig_WelcomeTypes;
-            long             ProjectConfig_WhitelistScore = -800;
+            QList<QRegExp>          RevertPatterns;
+            int                     ProjectConfig_BotScore = -200;
+            int                     ProjectConfig_IPScore = 800;
+            int                     ProjectConfig_WarningScore = 2000;
+            QStringList             ProjectConfig_WarningTypes;
+            QString                 ProjectConfig_SpeedyEditSummary = "Tagging page for deletion";
+            QString                 ProjectConfig_SpeedyWarningSummary = "Sending user a notification regarding deletion of their page";
+            QHash<int,QStringList>  ProjectConfig_AlternativeMonths;
+            QStringList             ProjectConfig_SpeedyTemplates;
+            QStringList             ProjectConfig_WelcomeTypes;
+            long                    ProjectConfig_WhitelistScore = -800;
             // UAA
-            QString          ProjectConfig_UAAPath = "Project:Usernames for administrator attention";
-            bool             ProjectConfig_UAAavailable = false;
-            QString          ProjectConfig_UAATemplate = "* {{user-uaa|1=$1}} $2 ~~~~";
+            QString                 ProjectConfig_UAAPath = "Project:Usernames for administrator attention";
+            bool                    ProjectConfig_UAAavailable = false;
+            QString                 ProjectConfig_UAATemplate = "* {{user-uaa|1=$1}} $2 ~~~~";
 
             //////////////////////////////////////////////
             // Login

@@ -190,18 +190,28 @@ QString HuggleParser::GetKeyFromValue(QString item)
     return item;
 }
 
-static QString DateMark(QString page)
+static int DateMark(QString page)
 {
     QStringList marks;
     marks << "(UTC)" << "(CET)" << "(CEST)";
     int m = 0;
+    int position = 0;
+    QString mark = "";
     while (m < marks.count())
     {
-        if (page.contains(marks.at(m)))
-            return marks.at(m);
+        QString m_ = marks.at(m);
+        if (page.contains(m_))
+        {
+            int mp = page.lastIndexOf(m_);
+            if (mp > position)
+            {
+                mark = m_;
+                position = mp;
+            }
+        }
         m++;
     }
-    return "";
+    return position;
 }
 
 byte_ht HuggleParser::GetLevel(QString page, QDate bt)
@@ -238,16 +248,16 @@ byte_ht HuggleParser::GetLevel(QString page, QDate bt)
         page = "";
         while (CurrentIndex < sections.count())
         {
-            QString Datem_ = DateMark(sections.at(CurrentIndex));
+            int dp = DateMark(sections.at(CurrentIndex));
             // we need to find a date in this section
-            if (!Datem_.size())
+            if (!dp)
             {
                 // there is none
                 CurrentIndex++;
                 continue;
             }
             QString section = sections.at(CurrentIndex);
-            section = section.mid(0, section.indexOf(Datem_)).trimmed();
+            section = section.mid(0, dp).trimmed();
             if (!section.contains(","))
             {
                 // this is some borked date let's remove it
@@ -586,6 +596,12 @@ int HuggleParser::GetIDOfMonth(QString month)
         if (Configuration::HuggleConfiguration->Months.at(i).toLower() == month)
             return i+1;
         i++;
+    }
+    i = 1;
+    while (i < 13)
+    {
+        if (Configuration::HuggleConfiguration->ProjectConfig_AlternativeMonths[i].contains(month))
+            return i;
     }
     return -800;
 }

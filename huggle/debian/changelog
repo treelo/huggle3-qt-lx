@@ -1,3 +1,15 @@
+huggle (3.0.0.0-ppa48) precise; urgency=medium
+
+  * fixed
+
+ -- Petr Bena <benapetr@gmail.com>  Sun, 18 May 2014 21:46:59 +0200
+
+huggle (3.0.0.0-ppa47) precise; urgency=medium
+
+  * rc4
+
+ -- Petr Bena <benapetr@gmail.com>  Fri, 16 May 2014 19:06:03 +0200
+
 huggle (3.0.0.0-ppa46) precise; urgency=medium
 
   * Rel2.000000221

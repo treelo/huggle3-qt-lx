@@ -5,4 +5,3 @@ Huggle 3 QT-LX is an anti-vandalism tool for use on Wikipedia and other Wikimedi
 
 This is a repository that is used to build debian packages
 
-run ./ubuntu.sh

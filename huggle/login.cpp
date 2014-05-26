@@ -32,7 +32,7 @@ using namespace Huggle;
 
 QString Login::Test = "<login result=\"NeedToken\" token=\"";
 
-Login::Login(QWidget *parent) :   QDialog(parent),   ui(new Ui::Login)
+Login::Login(QWidget *parent) :   QDialog(parent), ui(new Ui::Login)
 {
     this->Loading = true;
     this->ui->setupUi(this);
@@ -111,6 +111,9 @@ void Login::Localize()
     this->ui->checkBox->setText(Localizations::HuggleLocalizations->Localize("login-ssl"));
     this->ui->labelOauthUsername->setText(Localizations::HuggleLocalizations->Localize("login-username"));
     this->ui->pushButton->setText(Localizations::HuggleLocalizations->Localize("reload"));
+    this->ui->tabWidget->setTabText(0, Localizations::HuggleLocalizations->Localize("login-tab-oauth"));
+    this->ui->tabWidget->setTabText(1, Localizations::HuggleLocalizations->Localize("login-tab-login"));
+    this->ui->labelOauthNotSupported->setText(Localizations::HuggleLocalizations->Localize("login-oauth-notsupported"));
     this->ui->labelUsername->setText(Localizations::HuggleLocalizations->Localize("login-username"));
     this->ui->labelProject->setText(Localizations::HuggleLocalizations->Localize("login-project"));
     this->ui->labelLanguage->setText(Localizations::HuggleLocalizations->Localize("login-language"));
@@ -236,8 +239,12 @@ void Login::Disable()
 
 void Login::PressOK()
 {
-    if (this->ui->tab->isVisible())
+    this->processedSiteinfo = false;
+    this->processedLogin = false;
+    this->processedWlQuery = false;
+    if (this->ui->tab_oauth->isVisible())
     {
+        // can't be currently reached?
         QMessageBox mb;
         mb.setWindowTitle(Localizations::HuggleLocalizations->Localize("function-miss"));
         mb.setText("This function is not available for wmf wikis in this moment");
@@ -264,23 +271,24 @@ void Login::PressOK()
     this->loadingForm->show();
     // First of all, we need to login to the site
     this->timer->start(200);
-    //! \todo Localize string for loadingForm
-    this->loadingForm->Insert(LOGINFORM_LOGIN, "Logging in to " + Configuration::HuggleConfiguration->Project->Name, LoadingForm_Icon_Loading);
-    this->loadingForm->Insert(LOGINFORM_SITEINFO, "Retrieving information about mediawiki for " +
-                              Configuration::HuggleConfiguration->Project->Name, LoadingForm_Icon_Waiting);
-    this->loadingForm->Insert(LOGINFORM_GLOBALCONFIG, "Retrieving global configuration", LoadingForm_Icon_Waiting);
+    this->loadingForm->Insert(LOGINFORM_LOGIN, Localizations::HuggleLocalizations->Localize("login-progress-start",
+                              Configuration::HuggleConfiguration->Project->Name), LoadingForm_Icon_Loading);
+    this->loadingForm->Insert(LOGINFORM_SITEINFO, Localizations::HuggleLocalizations->Localize("login-progress-retrieve-mw",
+                              Configuration::HuggleConfiguration->Project->Name), LoadingForm_Icon_Waiting);
+    this->loadingForm->Insert(LOGINFORM_GLOBALCONFIG, Localizations::HuggleLocalizations->Localize("login-progress-global"), LoadingForm_Icon_Waiting);
     this->loadingForm->Insert(LOGINFORM_WHITELIST, Localizations::HuggleLocalizations->Localize("login-progress-whitelist"),
                               LoadingForm_Icon_Waiting);
-    this->loadingForm->Insert(LOGINFORM_LOCALCONFIG, "Retrieving local configuration for " +
-                              Configuration::HuggleConfiguration->Project->Name, LoadingForm_Icon_Waiting);
-    this->loadingForm->Insert(LOGINFORM_USERCONFIG, "Retrieving user configuration for " +
-                              Configuration::HuggleConfiguration->Project->Name, LoadingForm_Icon_Waiting);
-    this->loadingForm->Insert(LOGINFORM_USERINFO, "Retrieving the user information", LoadingForm_Icon_Waiting);
+    this->loadingForm->Insert(LOGINFORM_LOCALCONFIG, Localizations::HuggleLocalizations->Localize("login-progress-local",
+                              Configuration::HuggleConfiguration->Project->Name), LoadingForm_Icon_Waiting);
+    this->loadingForm->Insert(LOGINFORM_USERCONFIG, Localizations::HuggleLocalizations->Localize("login-progress-user",
+                              Configuration::HuggleConfiguration->Project->Name), LoadingForm_Icon_Waiting);
+    this->loadingForm->Insert(LOGINFORM_USERINFO, Localizations::HuggleLocalizations->Localize("login-progress-user-info",
+                              Configuration::HuggleConfiguration->Project->Name), LoadingForm_Icon_Waiting);
 }
 
 void Login::PerformLogin()
 {
-    this->Update(Localizations::HuggleLocalizations->Localize("[[login-progress-start]]"));
+    this->Update(Localizations::HuggleLocalizations->Localize("[[login-progress-start]]", Configuration::HuggleConfiguration->Project->Name));
     GC_DECREF(this->LoginQuery);
     // we create an api request to login
     this->LoginQuery = new ApiQuery(ActionLogin);
@@ -370,13 +378,11 @@ void Login::RetrieveGlobalConfig()
     this->loadingForm->ModifyIcon(LOGINFORM_LOGIN, LoadingForm_Icon_Success);
     this->loadingForm->ModifyIcon(LOGINFORM_GLOBALCONFIG, LoadingForm_Icon_Loading);
     this->Update(Localizations::HuggleLocalizations->Localize("[[login-progress-global]]"));
-
     this->LoginQuery = new ApiQuery(ActionQuery);
     this->LoginQuery->IncRef();
     this->LoginQuery->OverrideWiki = Configuration::HuggleConfiguration->GlobalConfigurationWikiAddress;
     this->LoginQuery->Parameters = "prop=revisions&format=xml&rvprop=content&rvlimit=1&titles=Huggle/Config";
     this->LoginQuery->Process();
-
     this->loadingForm->ModifyIcon(LOGINFORM_SITEINFO, LoadingForm_Icon_Loading);
     this->qSiteInfo = new ApiQuery(ActionQuery);
     this->qSiteInfo->IncRef();
@@ -424,6 +430,7 @@ void Login::RetrieveWhitelist()
                 Configuration::HuggleConfiguration->WhiteList = list.split("|");
                 Configuration::HuggleConfiguration->WhiteList.removeAll("");
             }
+            this->processedWlQuery = true;
             this->loadingForm->ModifyIcon(LOGINFORM_WHITELIST, LoadingForm_Icon_Success);
             this->wq->DecRef();
             this->wq = nullptr;
@@ -643,7 +650,6 @@ void Login::RetrieveUserInfo()
             }
 
             QDomNodeList userinfos = dLoginResult.elementsByTagName("userinfo");
-            this->Kill();
             this->LoginQuery->DecRef();
             this->LoginQuery = nullptr;
             int editcount = userinfos.at(0).toElement().attribute("editcount", "-1").toInt();
@@ -651,13 +657,14 @@ void Login::RetrieveUserInfo()
             {
                 /// \todo LOCALIZE ME
                 this->Update("Login failed because you don't have enough edits on this project");
+                this->Kill();
                 return;
             }
 
             /// \todo Implement check for "require-time"
-            ///
+            this->loadingForm->ModifyIcon(LOGINFORM_USERINFO, LoadingForm_Icon_Success);
+            this->processedLogin = true;
             this->_Status = LoginDone;
-            this->Finish();
         }
         return;
     }
@@ -719,6 +726,7 @@ void Login::ProcessSiteInfo()
                                                                                      e.attribute("canonical")));
             }
         }
+        this->processedSiteinfo = true;
         this->qSiteInfo->DecRef();
         this->qSiteInfo = nullptr;
         this->loadingForm->ModifyIcon(LOGINFORM_SITEINFO,LoadingForm_Icon_Success);
@@ -735,7 +743,7 @@ void Login::DisplayError(QString message)
 void Login::Finish()
 {
     // let's check if all processes are finished
-    if (this->wq || this->qSiteInfo || this->_Status != LoginDone)
+    if (!this->processedWlQuery || !this->processedLogin || !this->processedSiteinfo || this->_Status != LoginDone)
         return;
     // we generate a random string of same size of current password
     QString pw = "";
@@ -757,7 +765,6 @@ void Login::Finish()
     }
     this->hide();
     MainWindow::HuggleMain = new MainWindow();
-    MainWindow::HuggleMain->show();
     Core::HuggleCore->Main = MainWindow::HuggleMain;
     Core::HuggleCore->Main->show();
 }
@@ -904,7 +911,9 @@ void Login::OnTimerTick()
         this->timer->stop();
         this->ui->ButtonOK->setText("Login");
         this->_Status = Nothing;
-    } else
+    }
+
+    if (this->processedLogin && this->processedSiteinfo && this->processedWlQuery)
     {
         this->Finish();
     }

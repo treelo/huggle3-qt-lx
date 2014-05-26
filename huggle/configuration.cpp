@@ -546,7 +546,7 @@ bool Configuration::ParseProjectConfig(QString config)
     this->ProjectConfig_WelcomeGood = SafeBool(ConfigurationParse("welcome-on-good-edit", config, "true"));
     this->ProjectConfig_WelcomeTypes = HuggleParser::ConfigurationParse_QL("welcome-messages", config);
     // Reporting
-    this->ProjectConfig_SpeedyEditSummary = ConfigurationParse("speedy-message-summary", config, "Notification: Speedy deletion of [[$1]]");
+    this->ProjectConfig_SpeedyEditSummary = ConfigurationParse("speedy-summary", config, "Tagging page for deletion");
     this->ProjectConfig_SpeedyWarningSummary = ConfigurationParse("speedy-message-summary", config, "Notification: [[$1]] has been listed for deletion");
     this->ProjectConfig_Patrolling = SafeBool(ConfigurationParse("patrolling-enabled", config));
     this->ProjectConfig_ReportSummary = ConfigurationParse("report-summary", config);
@@ -627,6 +627,8 @@ bool Configuration::ParseProjectConfig(QString config)
     int month_ = 1;
     foreach (QString months, AMH_)
     {
+        if (months.endsWith(","))
+            months = months.mid(0, months.size() - 1);
         this->ProjectConfig_AlternativeMonths.insert(month_, months.split(';'));
         month_++;
     }

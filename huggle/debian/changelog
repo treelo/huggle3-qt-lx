@@ -1,3 +1,9 @@
+huggle (3.0.0.0-ppa51) precise; urgency=medium
+
+  * testing
+
+ -- Petr Bena <benapetr@gmail.com>  Tue, 27 May 2014 08:26:57 +0200
+
 huggle (3.0.0.0-ppa48) precise; urgency=medium
 
   * fixed

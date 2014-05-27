@@ -1,3 +1,21 @@
+huggle (3.0.0.0-ppa55) precise; urgency=medium
+
+  * t4
+
+ -- Petr Bena <benapetr@gmail.com>  Tue, 27 May 2014 21:30:05 +0200
+
+huggle (3.0.0.0-ppa53) precise; urgency=medium
+
+  * t2
+
+ -- Petr Bena <benapetr@gmail.com>  Tue, 27 May 2014 21:19:00 +0200
+
+huggle (3.0.0.0-ppa52) precise; urgency=medium
+
+  * testing
+
+ -- Petr Bena <benapetr@gmail.com>  Tue, 27 May 2014 21:14:48 +0200
+
 huggle (3.0.0.0-ppa51) precise; urgency=medium
 
   * testing

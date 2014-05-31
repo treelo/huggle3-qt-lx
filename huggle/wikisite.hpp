@@ -37,6 +37,26 @@ namespace Huggle
             int ID;
     };
 
+    inline QString WikiPageNS::GetName()
+    {
+        return this->Name;
+    }
+
+    inline QString WikiPageNS::GetCanonicalName()
+    {
+        return this->CanonicalName;
+    }
+
+    inline bool WikiPageNS::IsTalkPage()
+    {
+        return this->Talk;
+    }
+
+    inline int WikiPageNS::GetID()
+    {
+        return this->ID;
+    }
+
     //! Site
     class WikiSite
     {
@@ -64,6 +84,7 @@ namespace Huggle
             WikiPageNS *RetrieveNSByCanonicalName(QString CanonicalName);
             void InsertNS(WikiPageNS *Ns);
             void RemoveNS(int ns);
+            void ClearNS();
             QHash<int, WikiPageNS*> NamespaceList;
             //! Name of wiki, used by huggle only
             QString Name;

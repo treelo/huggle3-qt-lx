@@ -37,7 +37,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->ui->setupUi(this);
     this->Localize();
     this->Status = new QLabel();
-    this->ui->statusBar->addWidget(this->Status);
+    this->Status->setWordWrap(true);
+    this->Status->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    this->ui->statusBar->addWidget(this->Status, 1);
     this->tb = new HuggleTool();
     this->Queries = new ProcessList(this);
     this->SystemLog = new HuggleLog(this);
@@ -65,7 +67,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->ui->actionBlock_user->setEnabled(PermissionBlock);
     this->ui->actionBlock_user_2->setEnabled(PermissionBlock);
     bool PermissionDelete = Configuration::HuggleConfiguration->Rights.contains("delete");
-    this->ui->actionDelete_page->setEnabled(PermissionDelete);
     this->ui->actionDelete->setEnabled(PermissionDelete);
     this->ui->actionProtect->setEnabled(Configuration::HuggleConfiguration->Rights.contains("protect"));
     this->addDockWidget(Qt::LeftDockWidgetArea, this->_History);
@@ -1050,14 +1051,14 @@ void MainWindow::on_actionShow_ignore_list_of_current_wiki_triggered()
 
 void MainWindow::on_actionForward_triggered()
 {
-    if (this->CurrentEdit == nullptr || this->CurrentEdit->Next == NULL)
+    if (this->CurrentEdit == nullptr || this->CurrentEdit->Next == nullptr)
         return;
     this->ProcessEdit(this->CurrentEdit->Next, true);
 }
 
 void MainWindow::on_actionBack_triggered()
 {
-    if (this->CurrentEdit == nullptr || this->CurrentEdit->Previous == NULL)
+    if (this->CurrentEdit == nullptr || this->CurrentEdit->Previous == nullptr)
         return;
     this->ProcessEdit(this->CurrentEdit->Previous, true);
 }
@@ -1312,8 +1313,23 @@ void MainWindow::Localize()
     this->ui->actionClear->setText(Localizations::HuggleLocalizations->Localize("main-queue-clear"));
     this->ui->actionClear_talk_page_of_user->setText(Localizations::HuggleLocalizations->Localize("main-user-clear-tp"));
     this->ui->actionDecrease_badness_score_by_20->setText(Localizations::HuggleLocalizations->Localize("main-user-db"));
+    this->ui->actionNext_2->setText(Localizations::HuggleLocalizations->Localize("main-page-next"));
+    this->ui->actionEdit_page_in_browser->setText(Localizations::HuggleLocalizations->Localize("main-page-edit"));
+    this->ui->actionFlag_as_suspicious_edit->setText(Localizations::HuggleLocalizations->Localize("main-page-flag-suspicious-edit"));
+    this->ui->actionFlag_as_a_good_edit->setText(Localizations::HuggleLocalizations->Localize("main-page-flag-good-edit"));
+    this->ui->actionRequest_speedy_deletion->setText(Localizations::HuggleLocalizations->Localize("main-page-reqdeletion"));
     this->ui->actionDelete->setText(Localizations::HuggleLocalizations->Localize("main-page-delete"));
-    this->ui->actionDelete_page->setText(Localizations::HuggleLocalizations->Localize("main-page-delete"));
+    // button action depends on adminrights
+    if (Configuration::HuggleConfiguration->Rights.contains("delete"))
+    {
+        this->ui->actionDelete_page->setText(Localizations::HuggleLocalizations->Localize("main-page-delete"));
+    } else
+    {
+        this->ui->actionDelete_page->setText(Localizations::HuggleLocalizations->Localize("main-page-reqdeletion"));
+    }
+    this->ui->actionRequest_protection->setText(Localizations::HuggleLocalizations->Localize("main-page-reqprotection"));
+    this->ui->actionProtect->setText(Localizations::HuggleLocalizations->Localize("main-page-protect"));
+    this->ui->actionRestore_this_revision->setText(Localizations::HuggleLocalizations->Localize("main-page-restore"));
     this->ui->actionDisplay_a_session_data->setText(Localizations::HuggleLocalizations->Localize("main-display-session-data"));
     this->ui->actionDisplay_whitelist->setText(Localizations::HuggleLocalizations->Localize("main-display-whitelist"));
     this->ui->actionDisplay_history_in_browser->setText(Localizations::HuggleLocalizations->Localize("main-page-historypage"));
@@ -1389,7 +1405,7 @@ void MainWindow::DeletePage()
         return;
     if (this->CurrentEdit == nullptr)
     {
-        Syslog::HuggleLogs->ErrorLog("No, you cannot delete a nullptr page :)");
+        Syslog::HuggleLogs->ErrorLog("unable to delete: nullptr page");
         return;
     }
     if (this->fDeleteForm != nullptr)
@@ -1439,7 +1455,7 @@ void MainWindow::Welcome()
     }
     this->CurrentEdit->User->Resync();
     bool create_only = true;
-    if (this->CurrentEdit->User->TalkPage_GetContents() != "")
+    if (this->CurrentEdit->User->TalkPage_GetContents().size() > 0)
     {
         if (QMessageBox::question(this, "Welcome :o", Localizations::HuggleLocalizations->Localize("welcome-tp-empty-fail"),
                                   QMessageBox::Yes|QMessageBox::No) == QMessageBox::No)
@@ -1454,7 +1470,7 @@ void MainWindow::Welcome()
     }
     if (this->CurrentEdit->User->IsIP())
     {
-        if (this->CurrentEdit->User->TalkPage_GetContents() == "")
+        if (this->CurrentEdit->User->TalkPage_GetContents().size() == 0)
         {
             // write something to talk page so that we don't welcome this user twice
             this->CurrentEdit->User->TalkPage_SetContents(Configuration::HuggleConfiguration->ProjectConfig_WelcomeAnon);
@@ -1909,7 +1925,13 @@ void Huggle::MainWindow::on_actionClear_triggered()
 
 void Huggle::MainWindow::on_actionDelete_page_triggered()
 {
-    this->DeletePage();
+    if (Configuration::HuggleConfiguration->Rights.contains("delete"))
+    {
+        this->DeletePage();
+    } else
+    {
+        this->RequestPD();
+    }
 }
 
 void Huggle::MainWindow::on_actionBlock_user_2_triggered()
@@ -2005,6 +2027,7 @@ void Huggle::MainWindow::on_actionEnforce_sysop_rights_triggered()
     this->ui->actionDelete_page->setEnabled(true);
     this->ui->actionDelete->setEnabled(true);
     this->ui->actionProtect->setEnabled(true);
+    this->Localize();
 }
 
 void Huggle::MainWindow::on_actionFeedback_triggered()

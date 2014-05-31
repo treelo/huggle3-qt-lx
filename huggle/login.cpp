@@ -95,12 +95,9 @@ Login::Login(QWidget *parent) :   QDialog(parent), ui(new Ui::Login)
 Login::~Login()
 {
     delete this->Updater;
+    this->DeleteQr();
     delete this->ui;
     delete this->loadingForm;
-    GC_DECREF(this->wq);
-    GC_DECREF(this->LoginQuery);
-    GC_DECREF(this->qSiteInfo);
-    GC_DECREF(this->qCfg);
     delete this->timer;
 }
 
@@ -136,6 +133,7 @@ void Login::Update(QString ms)
 
 void Login::Kill()
 {
+    this->DeleteQr();
     this->_Status = LoginFailed;
     this->timer->stop();
     if (this->loadingForm != nullptr)
@@ -165,6 +163,14 @@ void Login::CancelLogin()
     this->ui->labelIntro->setText(Localizations::HuggleLocalizations->Localize("login-intro"));
     this->ui->lineEdit_password->setText("");
     this->ui->ButtonOK->setText(Localizations::HuggleLocalizations->Localize("login-start"));
+}
+
+void Login::DeleteQr()
+{
+    GC_DECREF(this->wq);
+    GC_DECREF(this->LoginQuery);
+    GC_DECREF(this->qSiteInfo);
+    GC_DECREF(this->qCfg);
 }
 
 void Login::Enable()
@@ -197,7 +203,7 @@ void Login::Reload()
 
 void Login::DB()
 {
-    if (this->LoginQuery == nullptr || this->LoginQuery->IsProcessed())
+    if (this->LoginQuery == nullptr || !this->LoginQuery->IsProcessed())
     {
         return;
     }
@@ -302,7 +308,7 @@ void Login::PerformLogin()
 
 void Login::PerformLoginPart2()
 {
-    if (!this->LoginQuery->IsProcessed())
+    if (!this->LoginQuery || !this->LoginQuery->IsProcessed())
     {
         return;
     }
@@ -392,10 +398,9 @@ void Login::RetrieveGlobalConfig()
 
 void Login::FinishLogin()
 {
-    if (!this->LoginQuery->IsProcessed())
-    {
+    if (!this->LoginQuery || !this->LoginQuery->IsProcessed())
         return;
-    }
+
     if (this->LoginQuery->Result->Failed)
     {
         this->Update("Login failed: " + this->LoginQuery->Result->ErrorMessage);
@@ -410,8 +415,7 @@ void Login::FinishLogin()
         this->_Status = RetrievingGlobalConfig;
 
     // that's all
-    this->LoginQuery->DecRef();
-    this->LoginQuery = nullptr;
+    GC_DECREF(this->LoginQuery);
 }
 
 void Login::RetrieveWhitelist()
@@ -714,6 +718,8 @@ void Login::ProcessSiteInfo()
             Syslog::HuggleLogs->WarningLog("Mediawiki provided no information about namespaces");
         } else
         {
+            // let's prepare a NS list
+            Configuration::HuggleConfiguration->Project->ClearNS();
             register int index = 0;
             while (index < l.count())
             {

@@ -57,12 +57,12 @@ int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
     Localizations::HuggleLocalizations = new Localizations();
+    Localizations::HuggleLocalizations->LocalInit("en"); // English
     Localizations::HuggleLocalizations->LocalInit("ar"); // Arabic
     Localizations::HuggleLocalizations->LocalInit("bg"); // Bulgarian
     Localizations::HuggleLocalizations->LocalInit("bn"); // Bengali
     Localizations::HuggleLocalizations->LocalInit("cz"); // Czech
     Localizations::HuggleLocalizations->LocalInit("de"); // Deutsch
-    Localizations::HuggleLocalizations->LocalInit("en"); // English
     Localizations::HuggleLocalizations->LocalInit("es"); // Spanish
     Localizations::HuggleLocalizations->LocalInit("fa"); // Persian
     Localizations::HuggleLocalizations->LocalInit("fr"); // French
@@ -73,8 +73,10 @@ int main(int argc, char *argv[])
     Localizations::HuggleLocalizations->LocalInit("km"); // Khmer
     Localizations::HuggleLocalizations->LocalInit("kn"); // Kannada
     Localizations::HuggleLocalizations->LocalInit("ko"); // Korean
+    Localizations::HuggleLocalizations->LocalInit("lb"); // Lebanese
     Localizations::HuggleLocalizations->LocalInit("ml"); // Malayalam
     Localizations::HuggleLocalizations->LocalInit("mr"); // Marathi
+    Localizations::HuggleLocalizations->LocalInit("mk"); // Macedonian
     Localizations::HuggleLocalizations->LocalInit("nl"); // Dutch
     Localizations::HuggleLocalizations->LocalInit("no"); // Norwegian
     Localizations::HuggleLocalizations->LocalInit("oc"); // Occitan

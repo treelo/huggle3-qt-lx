@@ -9,11 +9,14 @@
 //GNU General Public License for more details.
 
 #include "blockuser.hpp"
-#include <QCheckBox>
 #include <QtXml>
+#include <QLineEdit>
 #include <QMessageBox>
+#include "exception.hpp"
 #include "wikiutil.hpp"
 #include "querypool.hpp"
+#include "localization.hpp"
+#include "syslog.hpp"
 #include "configuration.hpp"
 #include "ui_blockuser.h"
 
@@ -24,11 +27,11 @@ BlockUser::BlockUser(QWidget *parent) : QDialog(parent), ui(new Ui::BlockUser)
     this->ui->setupUi(this);
     // we should initialise every variable
     this->BlockToken = "";
-    this->user = NULL;
-    this->qTokenApi = NULL;
+    this->user = nullptr;
+    this->qTokenApi = nullptr;
     this->t0 = new QTimer(this);
     connect(this->t0, SIGNAL(timeout()), this, SLOT(onTick()));
-    this->qUser = NULL;
+    this->qUser = nullptr;
     this->ui->comboBox->addItem(Configuration::HuggleConfiguration->ProjectConfig_BlockReason);
     int x = 0;
     while (Configuration::HuggleConfiguration->ProjectConfig_BlockExpiryOptions.count() > x)
@@ -48,7 +51,7 @@ BlockUser::~BlockUser()
 
 void BlockUser::SetWikiUser(WikiUser *User)
 {
-    if (User == NULL)
+    if (User == nullptr)
     {
         throw new Exception("WikiUser *User can't be NULL", "void BlockUser::SetWikiUser(WikiUser *User)");
     }
@@ -71,7 +74,7 @@ void BlockUser::GetToken()
     this->qTokenApi->SetAction(ActionQuery);
     this->qTokenApi->Parameters = "prop=info&intoken=block&titles=User:" +
             QUrl::toPercentEncoding(this->user->Username);
-    this->qTokenApi->Target = Localizations::HuggleLocalizations->Localize("block-token-1", this->user->Username);
+    this->qTokenApi->Target = _l("block-token-1", this->user->Username);
     this->qTokenApi->IncRef();
     QueryPool::HugglePool->AppendQuery(this->qTokenApi);
     this->qTokenApi->Process();
@@ -103,11 +106,11 @@ void BlockUser::onTick()
 
 void BlockUser::CheckToken()
 {
-    if (this->qTokenApi == NULL || !this->qTokenApi->IsProcessed())
+    if (this->qTokenApi == nullptr || !this->qTokenApi->IsProcessed())
         return;
     if (this->qTokenApi->Result->Failed)
     {
-        this->Failed(Localizations::HuggleLocalizations->Localize("block-token-e1", this->qTokenApi->Result->ErrorMessage));
+        this->Failed(_l("block-token-e1", this->qTokenApi->Result->ErrorMessage));
         return;
     }
     QDomDocument d;
@@ -116,19 +119,19 @@ void BlockUser::CheckToken()
     if (l.count() == 0)
     {
         Huggle::Syslog::HuggleLogs->DebugLog(this->qTokenApi->Result->Data);
-        this->Failed(Localizations::HuggleLocalizations->Localize("block-error-no-info"));
+        this->Failed(_l("block-error-no-info"));
         return;
     }
     QDomElement element = l.at(0).toElement();
     if (!element.attributes().contains("blocktoken"))
     {
-        this->Failed(Localizations::HuggleLocalizations->Localize("no-token"));
+        this->Failed(_l("no-token"));
         return;
     }
     this->BlockToken = element.attribute("blocktoken");
     this->QueryPhase++;
     this->qTokenApi->DecRef();
-    this->qTokenApi = NULL;
+    this->qTokenApi = nullptr;
     Huggle::Syslog::HuggleLogs->DebugLog("Block token for " + this->user->Username + ": " + this->BlockToken);
 
     // let's block them
@@ -153,7 +156,7 @@ void BlockUser::CheckToken()
             + QUrl::toPercentEncoding(this->ui->comboBox->currentText()) + "&expiry="
             + QUrl::toPercentEncoding(this->ui->comboBox_2->currentText()) + nocreate + anononly
             + noemail + autoblock + allowusertalk + "&token=" + QUrl::toPercentEncoding(BlockToken);
-    this->qUser->Target = Localizations::HuggleLocalizations->Localize("blocking", this->user->Username);
+    this->qUser->Target = _l("blocking", this->user->Username);
     this->qUser->UsingPOST = true;
     this->qUser->IncRef();
     QueryPool::HugglePool->AppendQuery(this->qUser);
@@ -162,11 +165,11 @@ void BlockUser::CheckToken()
 
 void BlockUser::Block()
 {
-    if (this->qUser == NULL || !this->qUser->IsProcessed())
+    if (this->qUser == nullptr || !this->qUser->IsProcessed())
         return;
     if (this->qUser->Result->Failed)
     {
-        this->Failed(Huggle::Localizations::HuggleLocalizations->Localize("block-fail", this->qUser->Result->ErrorMessage));
+        this->Failed(_l("block-fail", this->qUser->Result->ErrorMessage));
         return;
     }
     QDomDocument d;
@@ -181,14 +184,14 @@ void BlockUser::Block()
             reason = node.attribute("info");
         }
         QMessageBox mb;
-        mb.setWindowTitle(Localizations::HuggleLocalizations->Localize("error"));
-        mb.setText(Localizations::HuggleLocalizations->Localize("block-fail", reason));
+        mb.setWindowTitle(_l("error"));
+        mb.setText(_l("block-fail", reason));
         mb.exec();
         this->ui->pushButton->setText("Block");
         this->qUser->Result->Failed = true;
         this->qUser->Result->ErrorMessage = "Unable to block: " + reason;
         this->qUser->DecRef();
-        this->qUser = NULL;
+        this->qUser = nullptr;
         this->ui->pushButton->setEnabled(true);
         this->t0->stop();
         return;
@@ -198,9 +201,9 @@ void BlockUser::Block()
     this->ui->pushButton->setText("Blocked");
     Huggle::Syslog::HuggleLogs->DebugLog("block result: " + this->qUser->Result->Data, 2);
     this->qUser->DecRef();
-    this->qUser = NULL;
+    this->qUser = nullptr;
     this->t0->stop();
-    this->sendBlockNotice(NULL);
+    this->sendBlockNotice(nullptr);
 }
 
 void BlockUser::Failed(QString reason)
@@ -212,14 +215,10 @@ void BlockUser::Failed(QString reason)
     delete _b;
     this->t0->stop();
     delete this->t0;
-    this->t0 = NULL;
+    this->t0 = nullptr;
     this->ui->pushButton->setEnabled(true);
-    if (this->qTokenApi != NULL)
-        this->qTokenApi->DecRef();
-    if (this->qUser != NULL)
-        this->qUser->DecRef();
-    this->qUser = NULL;
-    this->qTokenApi = NULL;
+    GC_DECREF(this->qTokenApi);
+    GC_DECREF(this->qUser);
 }
 
 void BlockUser::on_pushButton_clicked()
@@ -249,7 +248,7 @@ void BlockUser::sendBlockNotice(ApiQuery *dependency)
 
 void Huggle::BlockUser::on_pushButton_3_clicked()
 {
-    if (this->qUser != NULL)
+    if (this->qUser != nullptr)
         return;
     this->ui->pushButton_3->setEnabled(false);
     this->ui->pushButton->setEnabled(false);
@@ -271,8 +270,8 @@ void Huggle::BlockUser::on_pushButton_3_clicked()
 
 void BlockUser::Recheck()
 {
-    if (this->qUser == NULL)
-        throw new Huggle::Exception("user must not be NULL",  "void BlockUser::Recheck()");
+    if (this->qUser == nullptr)
+        throw new Huggle::Exception("user must not be NULLPTR",  "void BlockUser::Recheck()");
     if (this->qUser->IsProcessed())
     {
         QDomDocument d;
@@ -291,7 +290,7 @@ void BlockUser::Recheck()
         }
         mb.exec();
         this->qUser->DecRef();
-        this->qUser = NULL;
+        this->qUser = nullptr;
         this->t0->stop();
         this->ui->pushButton_3->setEnabled(true);
         this->ui->pushButton->setEnabled(true);

@@ -9,6 +9,7 @@
 //GNU General Public License for more details.
 
 #include "collectable.hpp"
+#include "exception.hpp"
 #include "syslog.hpp"
 
 using namespace Huggle;
@@ -48,7 +49,7 @@ bool Collectable::SafeDelete()
 {
     if (this->_collectableRefs == 0 && this->Consumers.count() == 0 && this->iConsumers.count() == 0)
     {
-        if (GC::gc != NULL)
+        if (GC::gc != nullptr)
         {
             GC::gc->Lock->lock();
             if (GC::gc->list.contains(this))
@@ -69,6 +70,16 @@ bool Collectable::SafeDelete()
 void Collectable::SetReclaimable()
 {
     this->ReclaimingAllowed = true;
+}
+
+void Collectable::DecRef()
+{
+    if (!this->_collectableRefs)
+    {
+        throw new Huggle::Exception("Decrementing negative reference",
+                  "inline void Collectable::DecRef()");
+    }
+    this->_collectableRefs--;
 }
 
 void Collectable::RegisterConsumer(int consumer)
@@ -158,7 +169,7 @@ void Collectable::SetManaged()
         return;
     }
     this->_collectableManaged = true;
-    if (GC::gc == NULL)
+    if (GC::gc == nullptr)
     {
         // huggle is probably shutting down
         return;

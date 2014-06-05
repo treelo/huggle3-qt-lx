@@ -12,7 +12,9 @@
 #include "core.hpp"
 #include "configuration.hpp"
 #include "exception.hpp"
+#include "localization.hpp"
 #include "ui_hugglequeue.h"
+#include "syslog.hpp"
 
 using namespace Huggle;
 
@@ -20,7 +22,7 @@ HuggleQueue::HuggleQueue(QWidget *parent) : QDockWidget(parent), ui(new Ui::Hugg
 {
     this->ui->setupUi(this);
     this->CurrentFilter = HuggleQueueFilter::DefaultFilter;
-    this->setWindowTitle(Localizations::HuggleLocalizations->Localize("main-queue"));
+    this->setWindowTitle(_l("main-queue"));
     this->Filters();
 }
 
@@ -127,6 +129,7 @@ void HuggleQueue::AddItem(WikiEdit *page)
         this->ui->itemList->insertWidget(id, label);
     }
     this->Items.append(label);
+    this->RedrawTitle();
 }
 
 void HuggleQueue::Next()
@@ -289,6 +292,7 @@ bool HuggleQueue::DeleteItem(HuggleQueueItemLabel *item)
     this->Delete(item);
     if (removed > 0)
     {
+        this->RedrawTitle();
         return true;
     }
     return false;
@@ -359,6 +363,7 @@ int HuggleQueue::DeleteByScore(long Score)
         }
         c++;
     }
+    this->RedrawTitle();
     return result;
 }
 
@@ -435,6 +440,7 @@ void HuggleQueue::DeleteOlder(WikiEdit *edit)
         }
         i++;
     }
+    this->RedrawTitle();
 }
 
 void HuggleQueue::Clear()
@@ -450,6 +456,12 @@ void HuggleQueue::Clear()
             return;
         }
     }
+    this->RedrawTitle();
+}
+
+void HuggleQueue::RedrawTitle()
+{
+    this->setWindowTitle(_l("main-queue") + "[" + QString::number(this->Items.count()) + "]");
 }
 
 long HuggleQueue::GetScore(int id)

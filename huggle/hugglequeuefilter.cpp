@@ -8,6 +8,7 @@
 //MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //GNU General Public License for more details.
 
+#include "configuration.hpp"
 #include "hugglequeuefilter.hpp"
 #include "exception.hpp"
 
@@ -35,7 +36,7 @@ HuggleQueueFilter::HuggleQueueFilter()
 
 bool HuggleQueueFilter::Matches(WikiEdit *edit)
 {
-    if (edit == NULL)
+    if (edit == nullptr)
         throw new Exception("WikiEdit *edit must not be NULL in this context", "bool HuggleQueueFilter::Matches(WikiEdit *edit)");
     if (this->Ignore_UserSpace && edit->Page->GetNS()->GetCanonicalName() == "User")
         return false;

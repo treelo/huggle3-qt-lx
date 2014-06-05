@@ -16,10 +16,10 @@
 
 typedef char byte_ht;
 
-#define HUGGLE_VERSION                  "3.0.0"
+#define HUGGLE_VERSION                  "3.0.1"
 #define HUGGLE_BYTE_VERSION_MAJOR       0x3
 #define HUGGLE_BYTE_VERSION_MINOR       0x0
-#define HUGGLE_BYTE_VERSION_RELEASE     0x0
+#define HUGGLE_BYTE_VERSION_RELEASE     0x1
 
 // uncomment this if you want to enable python support
 // #define PYTHONENGINE
@@ -72,6 +72,7 @@ typedef char byte_ht;
 #define EXTENSION_PATH                  "extensions"
 //! Change this to DEBIAN / UBUNTU / WINDOWS to get automatic updates for selected channels
 #define HUGGLE_UPDATER_PLATFORM_TYPE            "huggle-devs"
+
 //! Revid of edit that doesn't exist
 #define WIKI_UNKNOWN_REVID -1
 

@@ -10,10 +10,12 @@
 
 #include "historyform.hpp"
 #include "querypool.hpp"
-#include "resources.hpp"
+#include "configuration.hpp"
 #include "exception.hpp"
 #include "mainwindow.hpp"
 #include "localization.hpp"
+#include "resources.hpp"
+#include "syslog.hpp"
 #include "wikiutil.hpp"
 #include "ui_historyform.h"
 
@@ -25,17 +27,17 @@ HistoryForm::HistoryForm(QWidget *parent) : QDockWidget(parent), ui(new Ui::Hist
     this->RetrievingEdit = false;
     this->ui->setupUi(this);
     this->ui->pushButton->setEnabled(false);
-    this->setWindowTitle(Localizations::HuggleLocalizations->Localize("historyform-title"));
-    this->ui->pushButton->setText(Localizations::HuggleLocalizations->Localize("historyform-no-info"));
+    this->setWindowTitle(_l("historyform-title"));
+    this->ui->pushButton->setText(_l("historyform-no-info"));
     this->ui->tableWidget->setColumnCount(6);
     this->SelectedRow = -1;
     this->PreviouslySelectedRow = 2;
     QStringList header;
-    header << "" << Huggle::Localizations::HuggleLocalizations->Localize("user")
-                 << Huggle::Localizations::HuggleLocalizations->Localize("size")
-                 << Huggle::Localizations::HuggleLocalizations->Localize("summary")
-                 << Huggle::Localizations::HuggleLocalizations->Localize("id")
-                 << Huggle::Localizations::HuggleLocalizations->Localize("date");
+    header << "" << _l("user")
+                 << _l("size")
+                 << _l("summary")
+                 << _l("id")
+                 << _l("date");
     this->ui->tableWidget->setHorizontalHeaderLabels(header);
     this->ui->tableWidget->verticalHeader()->setVisible(false);
     this->ui->tableWidget->horizontalHeader()->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -59,9 +61,7 @@ HistoryForm::HistoryForm(QWidget *parent) : QDockWidget(parent), ui(new Ui::Hist
         this->ui->tableWidget->setColumnWidth(4, 60);
     }
     this->ui->tableWidget->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
-    this->query = nullptr;
     this->ui->tableWidget->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-    this->t1 = nullptr;
 }
 
 HistoryForm::~HistoryForm()
@@ -74,7 +74,7 @@ HistoryForm::~HistoryForm()
 
 void HistoryForm::Read()
 {
-    //this->ui->pushButton->setText(Localizations::HuggleLocalizations->Localize("historyform-retrieving-history"));
+    //this->ui->pushButton->setText(Localizations::HuggleLocalizations->nullptrze("historyform-retrieving-history"));
     this->ui->pushButton->hide();
     this->query = new ApiQuery();
     this->query->SetAction(ActionQuery);
@@ -96,11 +96,9 @@ void HistoryForm::Read()
 void HistoryForm::Update(WikiEdit *edit)
 {
     if (edit == nullptr)
-    {
         throw new Exception("WikiEdit edit must not be nullptr", "void HistoryForm::Update(WikiEdit *edit)");
-    }
     this->CurrentEdit = edit;
-    this->ui->pushButton->setText(Localizations::HuggleLocalizations->Localize("historyform-retrieve-history"));
+    this->ui->pushButton->setText(_l("historyform-retrieve-history"));
     this->ui->pushButton->show();
     this->ui->pushButton->setEnabled(true);
     this->Clear();
@@ -234,7 +232,6 @@ void HistoryForm::onTick01()
                 }
             }
         }
-
         if (this->CurrentEdit->RevID == RevID.toInt())
         {
             if (x == 0)
@@ -309,7 +306,7 @@ void HistoryForm::onTick01()
             {
                 pntr.setX(this->pos().x() + 100);
             }
-            QToolTip::showText(pntr, "<b><big>" +Localizations::HuggleLocalizations->Localize("historyform-not-latest-tip")
+            QToolTip::showText(pntr, "<b><big>" + _l("historyform-not-latest-tip")
                                + "</big></b>", this);
         }
     }
@@ -322,7 +319,7 @@ void HistoryForm::on_pushButton_clicked()
 
 void HistoryForm::on_tableWidget_clicked(const QModelIndex &index)
 {
-    this->Display(index.row(), Huggle::Localizations::HuggleLocalizations->Localize("wait"));
+    this->Display(index.row(), _l("wait"));
 }
 
 void HistoryForm::Clear()
@@ -341,14 +338,9 @@ void HistoryForm::Display(int row, QString html, bool turtlemode)
         // there is nothing to do because we want to display exactly that row which was already selected
         return;
     }
-    if (this->query != nullptr || this->RetrievingEdit)
+    if (this->query != nullptr || this->RetrievingEdit || this->ui->tableWidget->rowCount() == 0 || this->CurrentEdit == nullptr)
     {
         // we must not retrieve edit until previous operation did finish
-        return;
-    }
-
-    if (this->ui->tableWidget->rowCount() == 0 || this->CurrentEdit == nullptr)
-    {
         return;
     }
 

@@ -13,10 +13,11 @@
 #include <QFile>
 #include "exception.hpp"
 #include "configuration.hpp"
+#include "syslog.hpp"
 
 using namespace Huggle;
 unsigned int Localizations::EnglishID = 0;
-Localizations *Localizations::HuggleLocalizations = NULL;
+Localizations *Localizations::HuggleLocalizations = nullptr;
 const QString Localizations::LANG_QQX = "qqx";
 
 Localizations::Localizations()
@@ -232,11 +233,19 @@ QString Localizations::Localize(QString key, QStringList parameters)
         // performance wise check this last
         if (this->PreferredLanguage == LANG_QQX)
         {
-            return "("+key+")";
+            QString result = "("+key;
+            int x = 0;
+            while (x<parameters.count())
+            {
+                result += "|$" + QString::number(x + 1) + "=" + parameters.at(x);
+                x++;
+            }
+            result = result + ")";
+            return result;
         }
-        if (this->LocalizationData.at(0)->Messages.contains(id))
+        if (this->LocalizationData.at(Localizations::EnglishID)->Messages.contains(id))
         {
-            QString text = this->LocalizationData.at(0)->Messages[id];
+            QString text = this->LocalizationData.at(Localizations::EnglishID)->Messages[id];
             int x = 0;
             while (x<parameters.count())
             {

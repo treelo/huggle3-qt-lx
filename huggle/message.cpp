@@ -10,9 +10,11 @@
 
 #include "message.hpp"
 #include <QtXml>
+#include "configuration.hpp"
 #include "core.hpp"
 #include "collectable.hpp"
 #include "querypool.hpp"
+#include "localization.hpp"
 #include "syslog.hpp"
 #include "generic.hpp"
 
@@ -61,7 +63,7 @@ void Message::RetrieveToken()
     this->qToken = new ApiQuery();
     this->qToken->SetAction(ActionQuery);
     this->qToken->Parameters = "prop=info&intoken=edit&titles=" + QUrl::toPercentEncoding(this->user->GetTalk());
-    this->qToken->Target = Localizations::HuggleLocalizations->Localize("message-retrieve-new-token", this->user->GetTalk());
+    this->qToken->Target = _l("message-retrieve-new-token", this->user->GetTalk());
     this->qToken->RegisterConsumer(HUGGLECONSUMER_MESSAGE_SEND);
     QueryPool::HugglePool->AppendQuery(this->qToken);
     this->qToken->Process();
@@ -82,20 +84,12 @@ void Message::Fail(QString reason)
 {
     QStringList parameters;
     parameters << this->user->Username << reason;
-    Huggle::Syslog::HuggleLogs->ErrorLog(Localizations::HuggleLocalizations->Localize("message-er", parameters));
+    Huggle::Syslog::HuggleLogs->ErrorLog(_l("message-er", parameters));
     this->_Status = Huggle::MessageStatus_Failed;
     this->Error = Huggle::MessageError_Unknown;
     this->ErrorText = reason;
-    if (this->qToken != nullptr)
-    {
-        this->qToken->UnregisterConsumer(HUGGLECONSUMER_MESSAGE_SEND);
-        this->qToken = nullptr;
-    }
-    if (this->query != nullptr)
-    {
-        this->query->UnregisterConsumer(HUGGLECONSUMER_MESSAGE_SEND);
-        this->query = nullptr;
-    }
+    GC_DECNAMEDREF(this->qToken, HUGGLECONSUMER_MESSAGE_SEND);
+    GC_DECNAMEDREF(this->query, HUGGLECONSUMER_MESSAGE_SEND);
 }
 
 bool Message::IsFinished()
@@ -145,7 +139,7 @@ bool Message::IsFailed()
 
 bool Message::HasValidEditToken()
 {
-    return (Configuration::HuggleConfiguration->TemporaryConfig_EditToken.size() != 0);
+    return (!Configuration::HuggleConfiguration->TemporaryConfig_EditToken.isEmpty());
 }
 
 bool Message::RetrievingToken()
@@ -198,7 +192,7 @@ void Message::Finish()
         }
         if (this->query->Result->Failed)
         {
-            this->Fail(Localizations::HuggleLocalizations->Localize("message-fail-retrieve-talk"));
+            this->Fail(_l("message-fail-retrieve-talk"));
             return;
         }
         this->ProcessTalk();
@@ -257,7 +251,7 @@ void Message::Finish()
             {
                 if (element.attribute("result") == "Success")
                 {
-                    Huggle::Syslog::HuggleLogs->Log(Localizations::HuggleLocalizations->Localize("message-done", this->user->Username));
+                    Huggle::Syslog::HuggleLogs->Log(_l("message-done", this->user->Username));
                     sent = true;
                     HistoryItem *item = new HistoryItem();
                     item->Result = "Success";
@@ -388,7 +382,7 @@ void Message::ProcessSend()
     this->query->SetAction(ActionEdit);
     QString s = Summary;
     QString parameters = "";
-    if (this->BaseTimestamp != "")
+    if (!this->BaseTimestamp.isEmpty())
     {
         parameters = "&basetimestamp=" + QUrl::toPercentEncoding(this->BaseTimestamp);
         Syslog::HuggleLogs->DebugLog("Using base timestamp for edit of " + user->GetTalk() + ": " + this->BaseTimestamp, 2);
@@ -414,10 +408,8 @@ void Message::ProcessSend()
         } else
         {
             // original page needs to be included in new value
-            if (this->Page != "")
-            {
+            if (!this->Page.isEmpty())
                 this->Text = this->Page + "\n\n" + this->Text;
-            }
         }
         this->query->Parameters = "title=" + QUrl::toPercentEncoding(user->GetTalk()) + "&summary=" + QUrl::toPercentEncoding(s)
                 + "&text=" + QUrl::toPercentEncoding(this->Text) + parameters
@@ -461,16 +453,15 @@ void Message::ProcessTalk()
             return;
         } else
         {
-            /// \todo LOCALIZE ME
-            this->Fail("Unable to retrieve " + this->user->GetTalk() + " stopping message delivery to that user");
+            // Unable to retrieve this->user->GetTalk() stopping message delivery to that user
+            this->Fail(_l("message-fail-re-user-tp", this->user->GetTalk()));
             return;
         }
     } else
     {
         if (!missing)
         {
-            /// \todo LOCALIZE ME
-            this->Fail("Unable to retrieve " + this->user->GetTalk() + " stopping message delivery to that user");
+            this->Fail(_l("message-fail-re-user-tp", this->user->GetTalk()));
             Huggle::Syslog::HuggleLogs->DebugLog(this->query->Result->Data);
             return;
         }
@@ -483,7 +474,7 @@ QString Message::Append(QString text, QString OriginalText, QString Label)
     if (!OriginalText.contains(regex))
     {
         // there is no section to append to
-        if (OriginalText != "")
+        if (!OriginalText.isEmpty())
         {
             OriginalText = OriginalText + "\n\n";
         }

@@ -14,6 +14,8 @@
 #include "wikiutil.hpp"
 #include "configuration.hpp"
 #include "generic.hpp"
+#include "syslog.hpp"
+#include "localization.hpp"
 #include "querypool.hpp"
 #include "ui_uaareport.h"
 
@@ -56,13 +58,10 @@ void UAAReport::setUserForUAA(WikiUser *user)
 
 void UAAReport::getPageContents()
 {
-    if (this->qUAApage != NULL)
-    {
+    if (this->qUAApage != nullptr)
         this->qUAApage->DecRef();
-    }
     this->qUAApage = Generic::RetrieveWikiPageContents(Configuration::HuggleConfiguration->ProjectConfig_UAAPath);
-    /// \todo LOCALIZE THIS
-    this->qUAApage->Target = "Getting content of UAA";
+    this->qUAApage->Target = _l("uaa-g1");
     this->qUAApage->IncRef();
     QueryPool::HugglePool->AppendQuery(this->qUAApage);
     this->qUAApage->Process();
@@ -71,38 +70,37 @@ void UAAReport::getPageContents()
 
 void UAAReport::onTick()
 {
-    if (this->qUAApage == NULL || !this->qUAApage->IsProcessed())
+    if (this->qUAApage == nullptr || !this->qUAApage->IsProcessed())
         return;
     QDomDocument r;
     r.setContent(this->qUAApage->Result->Data);
     this->qUAApage->DecRef();
-    this->qUAApage = NULL;
+    this->qUAApage = nullptr;
     QDomNodeList l = r.elementsByTagName("rev");
     if (l.count() == 0)
     {
-        /// \todo LOCALIZE ME
-        this->failed("the query for the page contents returned no data.");
+        // the query for the page contents returned no data
+        this->failed(_l("uaa-e1"));
         return;
     }
     QDomElement element = l.at(0).toElement();
     if (!element.text().length())
     {
-        /// \todo LOCALIZE ME
-        this->failed("the page contents weren't available.");
+        // the page contents weren't available
+        this->failed(_l("uaa-e2"));
         return;
     }
     this->Timer->stop();
     this->dr = element.text();
     /// \todo Check if user isn't already reported
     Huggle::Syslog::HuggleLogs->DebugLog("Contents of UAA: " + this->dr);
-    /// \todo LOCALIZE ME
+    /// \todo Insert this to project config so that each project can have their own system here
     QString uaasum = "Reporting " + this->User->Username + " to UAA " + Configuration::HuggleConfiguration->ProjectConfig_EditSuffixOfHuggle;
     this->whatToReport();
     this->insertUsername();
     WikiUtil::EditPage(Configuration::HuggleConfiguration->UAAP, dr, uaasum, true)->DecRef();
-    /// \todo LOCALIZE ME
-    Huggle::Syslog::HuggleLogs->Log("Reporting" + this->User->Username + " to UAA" );
-    this->ui->pushButton->setText("Reported");
+    Huggle::Syslog::HuggleLogs->Log(_l("uaa-reporting", this->User->Username));
+    this->ui->pushButton->setText(_l("uaa-reported"));
 
 }
 void UAAReport::insertUsername()
@@ -158,11 +156,9 @@ void UAAReport::on_pushButton_clicked()
             && !this->ui->checkBox_4->isChecked() && this->ui->lineEdit->text().isEmpty())
     {
         QMessageBox *g = new QMessageBox();
-        /// \todo LOCALIZE ME
-        g->setWindowTitle("No reason specified");
-        /// \todo LOCALIZE ME
-        g->setText("You didn't specify a reason as to why the username is a policy violation. "\
-                   "Please specify a reason.");
+        g->setWindowTitle(_l("uaa-nr"));
+        // You didn't specify a reason as to why the username is a policy violatio
+        g->setText(_l("uaa-no-reason-warn"));
         g->setAttribute(Qt::WA_DeleteOnClose);
         g->exec();
         return;
@@ -194,14 +190,14 @@ bool UAAReport::checkIfReported()
 
 void UAAReport::onStartOfSearch()
 {
-    if (this->qCheckUAAUser == NULL || !this->qCheckUAAUser->IsProcessed())
+    if (this->qCheckUAAUser == nullptr || !this->qCheckUAAUser->IsProcessed())
         return;
     QDomDocument tj;
     tj.setContent(this->qCheckUAAUser->Result->Data);
     QDomNodeList chkusr = tj.elementsByTagName("rev");
     this->TimerCheck->stop();
     this->qCheckUAAUser->DecRef();
-    this->qCheckUAAUser = NULL;
+    this->qCheckUAAUser = nullptr;
     QMessageBox mb;
     if (chkusr.count() == 0)
     {

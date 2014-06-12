@@ -11,11 +11,13 @@
 #include "mainwindow.hpp"
 #include <QDesktopServices>
 #include <QMessageBox>
+#include <QToolButton>
 #include "configuration.hpp"
 #include "reloginform.hpp"
 #include "generic.hpp"
 #include "gc.hpp"
 #include "querypool.hpp"
+#include "hooks.hpp"
 #include "collectable.hpp"
 #include "core.hpp"
 #include "wikiutil.hpp"
@@ -58,10 +60,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->addDockWidget(Qt::BottomDockWidgetArea, this->VandalDock);
     this->preferencesForm = new Preferences(this);
     this->aboutForm = new AboutForm(this);
-    this->ui->actionRequest_protection->setEnabled(Configuration::HuggleConfiguration->ProjectConfig_RFPP);
-    this->ui->actionDisplay_bot_data->setChecked(Configuration::HuggleConfiguration->UserConfig_HAN_DisplayBots);
-    this->ui->actionDisplay_user_data->setChecked(Configuration::HuggleConfiguration->UserConfig_HAN_DisplayUser);
-    this->ui->actionDisplay_user_messages->setChecked(Configuration::HuggleConfiguration->UserConfig_HAN_DisplayUserTalk);
+    this->ui->actionRequest_protection->setEnabled(Configuration::HuggleConfiguration->ProjectConfig->RFPP);
+    this->ui->actionDisplay_bot_data->setChecked(Configuration::HuggleConfiguration->UserConfig->HAN_DisplayBots);
+    this->ui->actionDisplay_user_data->setChecked(Configuration::HuggleConfiguration->UserConfig->HAN_DisplayUser);
+    this->ui->actionDisplay_user_messages->setChecked(Configuration::HuggleConfiguration->UserConfig->HAN_DisplayUserTalk);
     // we store the value in bool so that we don't need to call expensive string function twice
     bool PermissionBlock = Configuration::HuggleConfiguration->Rights.contains("block");
     this->ui->actionBlock_user->setEnabled(PermissionBlock);
@@ -79,7 +81,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->setWindowTitle("Huggle 3 QT-LX on " + Configuration::HuggleConfiguration->Project->Name);
     this->ui->verticalLayout->addWidget(this->Browser);
     this->DisplayWelcomeMessage();
-    if (Configuration::HuggleConfiguration->UserConfig_RemoveOldQueueEdits)
+    if (Configuration::HuggleConfiguration->UserConfig->RemoveOldQueueEdits)
     {
         this->ui->actionRemove_old_edits->setChecked(true);
         this->ui->actionStop_feed->setChecked(false);
@@ -89,13 +91,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         this->ui->actionStop_feed->setChecked(true);
     }
     // initialise queues
-    if (!Configuration::HuggleConfiguration->ProjectConfig_UseIrc)
+    if (!Configuration::HuggleConfiguration->ProjectConfig->UseIrc)
     {
         Syslog::HuggleLogs->Log(_l("irc-not"));
         this->ui->actionReconnect_IRC->setEnabled(false);
         this->ui->actionIRC->setEnabled(false);
     }
-    if (Configuration::HuggleConfiguration->UsingIRC && Configuration::HuggleConfiguration->ProjectConfig_UseIrc)
+    if (Configuration::HuggleConfiguration->UsingIRC && Configuration::HuggleConfiguration->ProjectConfig->UseIrc)
     {
         this->ChangeProvider(new HuggleFeedProviderIRC());
         this->ui->actionIRC->setChecked(true);
@@ -114,17 +116,17 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         this->ChangeProvider(new HuggleFeedProviderWiki());
         Core::HuggleCore->PrimaryFeedProvider->Start();
     }
-    if (Configuration::HuggleConfiguration->ProjectConfig_WarningTypes.count() > 0)
+    if (Configuration::HuggleConfiguration->ProjectConfig->WarningTypes.count() > 0)
     {
         this->RevertSummaries = new QMenu(this);
         this->WarnMenu = new QMenu(this);
         this->RevertWarn = new QMenu(this);
         int r=0;
-        while (r<Configuration::HuggleConfiguration->ProjectConfig_WarningTypes.count())
+        while (r<Configuration::HuggleConfiguration->ProjectConfig->WarningTypes.count())
         {
-            QAction *action = new QAction(HuggleParser::GetValueFromKey(Configuration::HuggleConfiguration->ProjectConfig_WarningTypes.at(r)), this);
-            QAction *actiona = new QAction(HuggleParser::GetValueFromKey(Configuration::HuggleConfiguration->ProjectConfig_WarningTypes.at(r)), this);
-            QAction *actionb = new QAction(HuggleParser::GetValueFromKey(Configuration::HuggleConfiguration->ProjectConfig_WarningTypes.at(r)), this);
+            QAction *action = new QAction(HuggleParser::GetValueFromKey(Configuration::HuggleConfiguration->ProjectConfig->WarningTypes.at(r)), this);
+            QAction *actiona = new QAction(HuggleParser::GetValueFromKey(Configuration::HuggleConfiguration->ProjectConfig->WarningTypes.at(r)), this);
+            QAction *actionb = new QAction(HuggleParser::GetValueFromKey(Configuration::HuggleConfiguration->ProjectConfig->WarningTypes.at(r)), this);
             this->RevertWarn->addAction(actiona);
             this->WarnMenu->addAction(actionb);
             this->RevertSummaries->addAction(action);
@@ -136,6 +138,26 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         this->ui->actionWarn->setMenu(this->WarnMenu);
         this->ui->actionRevert->setMenu(this->RevertSummaries);
         this->ui->actionRevert_and_warn->setMenu(this->RevertWarn);
+
+        // replace abstract QAction with QToolButton to be able to set PopupMode for nicer menu opening
+        QToolButton* aW = new QToolButton(this->ui->mainToolBar);
+        QToolButton* aR = new QToolButton(this->ui->mainToolBar);
+        QToolButton* aRaW = new QToolButton(this->ui->mainToolBar);
+        aW->setDefaultAction(this->ui->actionWarn);
+        aR->setDefaultAction(this->ui->actionRevert);
+        aRaW->setDefaultAction(this->ui->actionRevert_and_warn);
+
+        aW->setPopupMode(QToolButton::MenuButtonPopup);
+        aR->setPopupMode(QToolButton::MenuButtonPopup);
+        aRaW->setPopupMode(QToolButton::MenuButtonPopup);
+
+        // insert them before their counterparts and then delete the counterpart
+        this->ui->mainToolBar->insertWidget(this->ui->actionRevert_and_warn, aRaW);
+        this->ui->mainToolBar->removeAction(this->ui->actionRevert_and_warn);
+        this->ui->mainToolBar->insertWidget(this->ui->actionRevert, aR);
+        this->ui->mainToolBar->removeAction(this->ui->actionRevert);
+        this->ui->mainToolBar->insertWidget(this->ui->actionWarn, aW);
+        this->ui->mainToolBar->removeAction(this->ui->actionWarn);
     }
     this->tabifyDockWidget(this->SystemLog, this->Queries);
     this->GeneralTimer = new QTimer(this);
@@ -193,6 +215,21 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
 MainWindow::~MainWindow()
 {
+    while (this->Historical.count())
+    {
+        this->Historical.at(0)->UnregisterConsumer(HUGGLECONSUMER_MAINFORM_HISTORICAL);
+        this->Historical.removeAt(0);
+    }
+    while (this->RevertStack.count())
+    {
+        this->RevertStack.at(0)->DecRef();
+        this->RevertStack.removeAt(0);
+    }
+    while (this->PatrolledEdits.count())
+    {
+        this->PatrolledEdits.at(0)->UnregisterConsumer("patrol");
+        this->PatrolledEdits.removeAt(0);
+    }
     delete this->OnNext_EvPage;
     delete this->fSpeedyDelete;
     delete this->wUserInfo;
@@ -243,7 +280,7 @@ void MainWindow::DisplayReportUserWindow(WikiUser *User)
         Syslog::HuggleLogs->ErrorLog(_l("report-duplicate"));
         return;
     }
-    if (!Configuration::HuggleConfiguration->ProjectConfig_AIV)
+    if (!Configuration::HuggleConfiguration->ProjectConfig->AIV)
     {
         QMessageBox mb;
         mb.setText(_l("missing-aiv"));
@@ -275,7 +312,7 @@ void MainWindow::ProcessEdit(WikiEdit *e, bool IgnoreHistory, bool KeepHistory, 
         this->qNext->DecRef();
         this->qNext = nullptr;
     }
-    if (e->Page == nullptr || e->User == NULL)
+    if (e->Page == nullptr || e->User == nullptr)
     {
         throw new Huggle::Exception("Page and User must not be nullptr in edit that is supposed to be displayed on form",
                   "void MainWindow::ProcessEdit(WikiEdit *e, bool IgnoreHistory, bool KeepHistory, bool KeepUser)");
@@ -322,13 +359,13 @@ void MainWindow::ProcessEdit(WikiEdit *e, bool IgnoreHistory, bool KeepHistory, 
     if (!KeepUser)
     {
         this->wUserInfo->ChangeUser(e->User);
-        if (Configuration::HuggleConfiguration->UserConfig_HistoryLoad)
+        if (Configuration::HuggleConfiguration->UserConfig->HistoryLoad)
             this->wUserInfo->Read();
     }
     if (!KeepHistory)
     {
         this->wHistory->Update(e);
-        if (Configuration::HuggleConfiguration->UserConfig_HistoryLoad)
+        if (Configuration::HuggleConfiguration->UserConfig->HistoryLoad)
             this->wHistory->Read();
     }
     this->CurrentEdit = e;
@@ -343,7 +380,7 @@ void MainWindow::Render()
     if (this->CurrentEdit != nullptr)
     {
         if (this->CurrentEdit->Page == nullptr)
-            throw new Exception("Page of CurrentEdit can't be nullptr at MainWindow::Render()");
+            throw new Huggle::Exception("Page of CurrentEdit can't be nullptr at MainWindow::Render()");
 
         this->tb->SetTitle(this->CurrentEdit->Page->PageName);
         this->tb->SetPage(this->CurrentEdit->Page);
@@ -399,16 +436,17 @@ void MainWindow::closeEvent(QCloseEvent *event)
 void MainWindow::FinishPatrols()
 {
     int x = 0;
-    while (x < this->PatroledEdits.count())
+    bool flaggedrevs = Configuration::HuggleConfiguration->ProjectConfig->PatrollingFlaggedRevs;
+    while (x < this->PatrolledEdits.count())
     {
-        ApiQuery *query = this->PatroledEdits.at(x);
+        ApiQuery *query = this->PatrolledEdits.at(x);
         // check if this query has actually some edit associated to it
         if (query->CallbackResult == nullptr)
         {
             // we really don't want to mess up with this
             query->UnregisterConsumer("patrol");
             // get rid of it
-            this->PatroledEdits.removeAt(x);
+            this->PatrolledEdits.removeAt(x);
             continue;
         }
         // check if it's done
@@ -422,14 +460,15 @@ void MainWindow::FinishPatrols()
             if (l.count() > 0)
             {
                 QDomElement element = l.at(0).toElement();
-                if (element.attributes().contains("patroltoken"))
+                const char *tokenname = flaggedrevs ? "edittoken" : "patroltoken";
+                if (element.attributes().contains(tokenname))
                 {
                     // we can finish this
-                    QString token = element.attribute("patroltoken");
+                    QString token = element.attribute(tokenname);
                     edit->PatrolToken = token;
                     this->PatrolThis(edit);
                     // get rid of it
-                    this->PatroledEdits.removeAt(x);
+                    this->PatrolledEdits.removeAt(x);
                     edit->UnregisterConsumer("patrol");
                     query->CallbackResult = nullptr;
                     query->UnregisterConsumer("patrol");
@@ -439,7 +478,7 @@ void MainWindow::FinishPatrols()
             // this edit is fucked up
             Syslog::HuggleLogs->DebugLog("Unable to retrieve token for " + edit->Page->PageName);
             // get rid of it
-            this->PatroledEdits.removeAt(x);
+            this->PatrolledEdits.removeAt(x);
             edit->UnregisterConsumer("patrol");
             query->CallbackResult = nullptr;
             query->UnregisterConsumer("patrol");
@@ -534,6 +573,17 @@ void MainWindow::ProcessReverts()
     }
 }
 
+QString MainWindow::WikiScriptURL()
+{
+    if (this->CurrentEdit == nullptr || this->CurrentEdit->Page == nullptr)
+    {
+        return Configuration::GetProjectScriptURL();
+    } else
+    {
+        return Configuration::GetProjectScriptURL(this->CurrentEdit->Page->Site);
+    }
+}
+
 RevertQuery *MainWindow::Revert(QString summary, bool nd, bool next)
 {
     bool rollback = true;
@@ -602,16 +652,16 @@ bool MainWindow::PreflightCheck(WikiEdit *_e)
     {
         Warn = true;
         type = "in userspace";
-    } else if (Configuration::HuggleConfiguration->ProjectConfig_ConfirmOnSelfRevs
+    } else if (Configuration::HuggleConfiguration->ProjectConfig->ConfirmOnSelfRevs
                &&(_e->User->Username.toLower() == Configuration::HuggleConfiguration->SystemConfig_Username.toLower()))
     {
         type = "made by you";
         Warn = true;
-    } else if (Configuration::HuggleConfiguration->ProjectConfig_ConfirmTalk && _e->Page->IsTalk())
+    } else if (Configuration::HuggleConfiguration->ProjectConfig->ConfirmTalk && _e->Page->IsTalk())
     {
         type = "made on talk page";
         Warn = true;
-    } else if (Configuration::HuggleConfiguration->ProjectConfig_ConfirmWL && _e->User->IsWhitelisted())
+    } else if (Configuration::HuggleConfiguration->ProjectConfig->ConfirmWL && _e->User->IsWhitelisted())
     {
         type = "made by a user who is on white list";
         Warn = true;
@@ -650,12 +700,12 @@ QString MainWindow::GetSummaryKey(QString item)
     {
         QString type = item.mid(0, item.indexOf(";"));
         int c=0;
-        while(c < Configuration::HuggleConfiguration->ProjectConfig_WarningTypes.count())
+        while(c < Configuration::HuggleConfiguration->ProjectConfig->WarningTypes.count())
         {
-            QString x = Configuration::HuggleConfiguration->ProjectConfig_WarningTypes.at(c);
+            QString x = Configuration::HuggleConfiguration->ProjectConfig->WarningTypes.at(c);
             if (x.startsWith(type + ";"))
             {
-                x = Configuration::HuggleConfiguration->ProjectConfig_WarningTypes.at(c);
+                x = Configuration::HuggleConfiguration->ProjectConfig->WarningTypes.at(c);
                 x = x.mid(x.indexOf(";") + 1);
                 if (x.endsWith(","))
                 {
@@ -718,7 +768,7 @@ void MainWindow::FinishRestore()
             this->RestoreEdit = nullptr;
             return;
         }
-        QString sm = Configuration::HuggleConfiguration->ProjectConfig_RestoreSummary;
+        QString sm = this->RestoreEdit->Page->Site->GetProjectConfig()->RestoreSummary;
         sm = sm.replace("$1", QString::number(this->RestoreEdit->RevID));
         sm = sm.replace("$2", this->RestoreEdit->User->Username);
         sm = sm.replace("$3", this->RestoreEdit_RevertReason);
@@ -743,7 +793,7 @@ void MainWindow::TriggerWarn()
         Generic::DeveloperError();
         return;
     }
-    if (Configuration::HuggleConfiguration->UserConfig_ManualWarning)
+    if (Configuration::HuggleConfiguration->UserConfig->ManualWarning)
     {
         if (this->fWarningList != nullptr)
             delete this->fWarningList;
@@ -761,7 +811,7 @@ void MainWindow::on_actionPreferences_triggered()
 
 void MainWindow::on_actionContents_triggered()
 {
-    QDesktopServices::openUrl(Configuration::HuggleConfiguration->GlobalConfig_DocumentationPath);
+    QDesktopServices::openUrl(QUrl(Configuration::HuggleConfiguration->GlobalConfig_DocumentationPath));
 }
 
 void MainWindow::on_actionAbout_triggered()
@@ -774,10 +824,12 @@ void MainWindow::OnMainTimerTick()
     this->ProcessReverts();
     WikiUtil::FinalizeMessages();
     bool RetrieveEdit = true;
-    // if garbage collector is already destroyed there is no point in doing anything in here
-    if (GC::gc == nullptr)
-        return;
-    GC::gc->DeleteOld();
+#ifndef MTGC
+    if (Core::HuggleCore->gc)
+    {
+        Core::HuggleCore->gc->DeleteOld();
+    }
+#endif
     // if there is no working feed, let's try to fix it
     if (Core::HuggleCore->PrimaryFeedProvider->IsWorking() != true && this->ShuttingDown != true)
     {
@@ -890,7 +942,7 @@ void MainWindow::TruncateReverts()
     while (QueryPool::HugglePool->UncheckedReverts.count() > 0)
     {
         WikiEdit *edit = QueryPool::HugglePool->UncheckedReverts.at(0);
-        if (Huggle::Configuration::HuggleConfiguration->UserConfig_DeleteEditsAfterRevert)
+        if (Huggle::Configuration::HuggleConfiguration->UserConfig->DeleteEditsAfterRevert)
         {
             // we need to delete older edits that we know and that may be somewhere in queue
             if (this->Queue1 != nullptr)
@@ -914,6 +966,8 @@ void MainWindow::OnTimerTick0()
 {
     if (this->Shutdown != ShutdownOpUpdatingConf)
     {
+        // we can clear the queue meanwhile
+        this->Queue1->Clear();
         if (this->Shutdown == ShutdownOpRetrievingWhitelist)
         {
             this->Shutdown = ShutdownOpUpdatingWhitelist;
@@ -1119,11 +1173,11 @@ void MainWindow::CustomWarn()
 QString MainWindow::GetSummaryText(QString text)
 {
     int id=0;
-    while (id<Configuration::HuggleConfiguration->ProjectConfig_RevertSummaries.count())
+    while (id<Configuration::HuggleConfiguration->ProjectConfig->RevertSummaries.count())
     {
-        if (text == this->GetSummaryKey(Configuration::HuggleConfiguration->ProjectConfig_RevertSummaries.at(id)))
+        if (text == this->GetSummaryKey(Configuration::HuggleConfiguration->ProjectConfig->RevertSummaries.at(id)))
         {
-            QString data = Configuration::HuggleConfiguration->ProjectConfig_RevertSummaries.at(id);
+            QString data = Configuration::HuggleConfiguration->ProjectConfig->RevertSummaries.at(id);
             if (data.contains(";"))
             {
                 data = data.mid(data.indexOf(";") + 1);
@@ -1132,7 +1186,7 @@ QString MainWindow::GetSummaryText(QString text)
         }
         id++;
     }
-    return Configuration::HuggleConfiguration->ProjectConfig_DefaultSummary;
+    return Configuration::HuggleConfiguration->ProjectConfig->DefaultSummary;
 }
 
 void MainWindow::ForceWarn(int level)
@@ -1164,6 +1218,11 @@ void MainWindow::Exit()
     delete layout;
     if (Configuration::HuggleConfiguration->Restricted)
     {
+        this->tCheck->stop();
+        this->GeneralTimer->stop();
+        Core::HuggleCore->Main = nullptr;
+        this->deleteLater();
+        this->close();
         Core::HuggleCore->Shutdown();
         return;
     }
@@ -1263,32 +1322,53 @@ void MainWindow::PatrolThis(WikiEdit *e)
 {
     if (e == nullptr)
         e = this->CurrentEdit;
-    if (e == nullptr || !Configuration::HuggleConfiguration->ProjectConfig_Patrolling)
+    if (e == nullptr || !Configuration::HuggleConfiguration->ProjectConfig->Patrolling)
         return;
     ApiQuery *query = nullptr;
+    bool flaggedrevs = Configuration::HuggleConfiguration->ProjectConfig->PatrollingFlaggedRevs;
+
     // if this edit doesn't have the patrol token we need to get one
+    // if we're using flaggedrevs this will actually be an edit token, but we pretend it's a patrol one
     if (e->PatrolToken.isEmpty())
     {
         // register consumer so that gc doesn't delete this edit meanwhile
         e->RegisterConsumer("patrol");
         query = new ApiQuery();
         query->SetAction(ActionTokens);
-        query->Target = "Retrieving patrol token for " + e->Page->PageName;
-        query->Parameters = "type=patrol";
+        if (flaggedrevs)
+        {
+            query->Target = "Retrieving patrol token (FlaggedRevs) for " + e->Page->PageName;
+            query->Parameters = "type=edit";
+        } else
+        {
+            query->Target = "Retrieving patrol token for " + e->Page->PageName;
+            query->Parameters = "type=patrol";
+        }
         // this uggly piece of code actually rocks
         query->CallbackResult = (void*)e;
         query->RegisterConsumer("patrol");
         QueryPool::HugglePool->AppendQuery(query);
         query->Process();
-        this->PatroledEdits.append(query);
+        this->PatrolledEdits.append(query);
         return;
     }
+
     // we can execute patrol now
     query = new ApiQuery();
-    query->SetAction(ActionPatrol);
-    query->Target = "Patrolling " + e->Page->PageName;
     query->UsingPOST = true;
+    if (flaggedrevs)
+    {
+        query->SetAction(ActionReview);
+        query->Target = "Patrolling (FlaggedRevs) " + e->Page->PageName;
+    } else
+    {
+        query->SetAction(ActionPatrol);
+        query->Target = "Patrolling " + e->Page->PageName;
+    }
     query->Parameters = "revid=" + QString::number(e->RevID) + "&token=" + QUrl::toPercentEncoding(e->PatrolToken);
+    if (flaggedrevs)
+        query->Parameters += "&flag_accuracy=1";
+
     QueryPool::HugglePool->AppendQuery(query);
     Syslog::HuggleLogs->DebugLog("Patrolling " + e->Page->PageName);
     query->Process();
@@ -1315,6 +1395,7 @@ void MainWindow::Localize()
     this->ui->actionClear_talk_page_of_user->setText(_l("main-user-clear-tp"));
     this->ui->actionDecrease_badness_score_by_20->setText(_l("main-user-db"));
     this->ui->actionNext_2->setText(_l("main-page-next"));
+    this->ui->actionIncrease_badness_score_by_20->setText(_l("main-user-ib"));
     this->ui->actionEdit_page_in_browser->setText(_l("main-page-edit"));
     this->ui->actionFlag_as_suspicious_edit->setText(_l("main-page-flag-suspicious-edit"));
     this->ui->actionFlag_as_a_good_edit->setText(_l("main-page-flag-good-edit"));
@@ -1337,7 +1418,7 @@ void MainWindow::Localize()
     this->ui->actionDisplay_this_page_in_browser->setText(_l("main-browser-open"));
     this->ui->actionFeedback->setText(_l("main-help-feedback"));
     this->ui->actionReport_user->setText(_l("main-user-report"));
-    this->ui->actionUser_contributions->setText(_l("main-tip-contribs"));
+    this->ui->actionUser_contributions->setText(_l("main-user-contribs"));
     this->ui->actionPreferences->setText(_l("main-system-options"));
     this->ui->actionReconnect_IRC->setText(_l("main-system-reconnectirc"));
     this->ui->actionShow_talk->setText(_l("main-goto-mytalk"));
@@ -1351,6 +1432,17 @@ void MainWindow::Localize()
     this->ui->actionDisplay_bot_data->setText(_l("main-han-display-bot-data"));
     this->ui->actionWiki->setText(_l("main-system-change-provider-wiki"));
     this->ui->actionNext->setText(_l("main-queue-next"));
+    this->ui->actionStop_provider->setText(_l("main-menu-provider-stop"));
+    this->ui->actionResume_provider->setText(_l("main-menu-provider-resume"));
+    this->ui->actionShow_list_of_score_words->setText(_l("main-tools-scoreword-list"));
+    this->ui->actionRevert_currently_displayed_edit->setText(_l("main-revision-revert"));
+    this->ui->actionRevert_currently_displayed_edit_and_stay_on_page->setText(_l("main-revision-rv-stay"));
+    this->ui->actionRevert_currently_displayed_edit_and_warn_the_user->setText(_l("main-revision-revert-warn"));
+    this->ui->actionRevert_currently_displayed_edit_warn_user_and_stay_on_page->setText(_l("main-revision-rws"));
+    this->ui->actionRevert_AGF->setText(_l("main-revision-faith"));
+    this->ui->actionWarn_the_user->setText(_l("main-user-warn"));
+    this->ui->actionOpen_in_a_browser->setText(_l("main-browser-open"));
+    this->ui->actionDisplay_this_page->setText(_l("main-page-display"));
 }
 
 void MainWindow::_BlockUser()
@@ -1373,7 +1465,7 @@ void MainWindow::_BlockUser()
 
 void MainWindow::DisplayNext(Query *q)
 {
-    switch(Configuration::HuggleConfiguration->UserConfig_GoNext)
+    switch(Configuration::HuggleConfiguration->UserConfig->GoNext)
     {
         case Configuration_OnNext_Stay:
             return;
@@ -1431,6 +1523,15 @@ void MainWindow::LockPage()
     this->EditablePage = false;
 }
 
+QString MainWindow::ProjectURL()
+{
+    if (this->CurrentEdit == nullptr || this->CurrentEdit->Page == nullptr)
+    {
+        return Configuration::GetProjectWikiURL();
+    }
+    return Configuration::GetProjectWikiURL(this->CurrentEdit->Page->Site);
+}
+
 bool MainWindow::CheckExit()
 {
     if (this->ShuttingDown)
@@ -1472,21 +1573,21 @@ void MainWindow::Welcome()
         if (this->CurrentEdit->User->TalkPage_GetContents().isEmpty())
         {
             // write something to talk page so that we don't welcome this user twice
-            this->CurrentEdit->User->TalkPage_SetContents(Configuration::HuggleConfiguration->ProjectConfig_WelcomeAnon);
+            this->CurrentEdit->User->TalkPage_SetContents(Configuration::HuggleConfiguration->ProjectConfig->WelcomeAnon);
         }
-        WikiUtil::MessageUser(this->CurrentEdit->User, Configuration::HuggleConfiguration->ProjectConfig_WelcomeAnon + " ~~~~",
-                              Configuration::HuggleConfiguration->ProjectConfig_WelcomeTitle,
-                              Configuration::HuggleConfiguration->ProjectConfig_WelcomeSummary,
+        WikiUtil::MessageUser(this->CurrentEdit->User, Configuration::HuggleConfiguration->ProjectConfig->WelcomeAnon + " ~~~~",
+                              Configuration::HuggleConfiguration->ProjectConfig->WelcomeTitle,
+                              Configuration::HuggleConfiguration->ProjectConfig->WelcomeSummary,
                               false, nullptr, false, false, true, this->CurrentEdit->TPRevBaseTime, create_only);
         return;
     }
-    if (Configuration::HuggleConfiguration->ProjectConfig_WelcomeTypes.count() == 0)
+    if (Configuration::HuggleConfiguration->ProjectConfig->WelcomeTypes.count() == 0)
     {
         // This error should never happen so we don't need to localize this
         Syslog::HuggleLogs->Log("There are no welcome messages defined for this project");
         return;
     }
-    QString message = HuggleParser::GetValueFromKey(Configuration::HuggleConfiguration->ProjectConfig_WelcomeTypes.at(0));
+    QString message = HuggleParser::GetValueFromKey(Configuration::HuggleConfiguration->ProjectConfig->WelcomeTypes.at(0));
     if (message.isEmpty())
     {
         // This error should never happen so we don't need to localize this
@@ -1495,8 +1596,8 @@ void MainWindow::Welcome()
     }
     // write something to talk page so that we don't welcome this user twice
     this->CurrentEdit->User->TalkPage_SetContents(message);
-    WikiUtil::MessageUser(this->CurrentEdit->User, message, Configuration::HuggleConfiguration->ProjectConfig_WelcomeTitle,
-                          Configuration::HuggleConfiguration->ProjectConfig_WelcomeSummary, false, nullptr,
+    WikiUtil::MessageUser(this->CurrentEdit->User, message, Configuration::HuggleConfiguration->ProjectConfig->WelcomeTitle,
+                          Configuration::HuggleConfiguration->ProjectConfig->WelcomeSummary, false, nullptr,
                           false, false, true, this->CurrentEdit->TPRevBaseTime, create_only);
 }
 
@@ -1517,7 +1618,7 @@ void MainWindow::on_actionOpen_in_a_browser_triggered()
 {
     if (this->CurrentEdit != nullptr)
     {
-        QDesktopServices::openUrl(QString(Configuration::GetProjectWikiURL() + QUrl::toPercentEncoding(this->CurrentEdit->Page->PageName)));
+        QDesktopServices::openUrl(QUrl::fromEncoded(QString(this->ProjectURL() + this->CurrentEdit->Page->EncodedName()).toUtf8()));
     }
 }
 
@@ -1538,7 +1639,7 @@ void MainWindow::on_actionGood_edit_triggered()
         this->CurrentEdit->User->SetBadnessScore(this->CurrentEdit->User->GetBadnessScore() - 200);
         Hooks::OnGood(this->CurrentEdit);
         this->PatrolThis();
-        if (Configuration::HuggleConfiguration->ProjectConfig_WelcomeGood && this->CurrentEdit->User->TalkPage_GetContents().isEmpty())
+        if (Configuration::HuggleConfiguration->ProjectConfig->WelcomeGood && this->CurrentEdit->User->TalkPage_GetContents().isEmpty())
             this->Welcome();
     }
     this->DisplayNext();
@@ -1548,8 +1649,8 @@ void MainWindow::on_actionUser_contributions_triggered()
 {
     if (this->CurrentEdit != nullptr)
     {
-        QDesktopServices::openUrl(QString(Configuration::GetProjectWikiURL() + "Special:Contributions/"
-                                          + QUrl::toPercentEncoding(this->CurrentEdit->User->Username)));
+        QDesktopServices::openUrl(QUrl::fromEncoded(QString(this->ProjectURL() + "Special:Contributions/"
+                                          + QUrl::toPercentEncoding(this->CurrentEdit->User->Username)).toUtf8()));
     }
 }
 
@@ -1567,7 +1668,7 @@ void MainWindow::on_actionFlag_as_a_good_edit_triggered()
         Hooks::OnGood(this->CurrentEdit);
         this->PatrolThis();
         this->CurrentEdit->User->SetBadnessScore(this->CurrentEdit->User->GetBadnessScore() - 200);
-        if (Configuration::HuggleConfiguration->ProjectConfig_WelcomeGood && this->CurrentEdit->User->TalkPage_GetContents() == "")
+        if (Configuration::HuggleConfiguration->ProjectConfig->WelcomeGood && this->CurrentEdit->User->TalkPage_GetContents() == "")
             this->Welcome();
     }
     this->DisplayNext();
@@ -1578,34 +1679,34 @@ void MainWindow::on_actionDisplay_this_page_in_browser_triggered()
     if (this->CurrentEdit != nullptr)
     {
         if (this->CurrentEdit->Diff > 0)
-            QDesktopServices::openUrl(QString(Configuration::GetProjectScriptURL() + "index.php?diff=" + QString::number(this->CurrentEdit->Diff)));
+            QDesktopServices::openUrl(QUrl::fromEncoded(QString(this->WikiScriptURL() + "index.php?diff=" + QString::number(this->CurrentEdit->Diff)).toUtf8()));
         else
-            QDesktopServices::openUrl(QString(Configuration::GetProjectWikiURL() + this->CurrentEdit->Page->PageName));
+            QDesktopServices::openUrl(QUrl::fromEncoded(QString(this->ProjectURL() + this->CurrentEdit->Page->EncodedName()).toUtf8()));
     }
 }
 
 void MainWindow::on_actionEdit_page_in_browser_triggered()
 {
     if (this->CurrentEdit != nullptr)
-        QDesktopServices::openUrl(QString(Configuration::GetProjectWikiURL() + this->CurrentEdit->Page->PageName + "?action=edit"));
+        QDesktopServices::openUrl(QUrl::fromEncoded(QString(this->ProjectURL() + this->CurrentEdit->Page->EncodedName() + "?action=edit").toUtf8()));
 }
 
 void MainWindow::on_actionDisplay_history_in_browser_triggered()
 {
     if (this->CurrentEdit != nullptr)
-        QDesktopServices::openUrl(QString(Configuration::GetProjectWikiURL() + this->CurrentEdit->Page->PageName + "?action=history"));
+        QDesktopServices::openUrl(QUrl::fromEncoded(QString(this->ProjectURL() + this->CurrentEdit->Page->EncodedName() + "?action=history").toUtf8()));
 }
 
 void MainWindow::on_actionStop_feed_triggered()
 {
-    Configuration::HuggleConfiguration->UserConfig_RemoveOldQueueEdits = false;
+    Configuration::HuggleConfiguration->UserConfig->RemoveOldQueueEdits = false;
     this->ui->actionRemove_old_edits->setChecked(false);
     this->ui->actionStop_feed->setChecked(true);
 }
 
 void MainWindow::on_actionRemove_old_edits_triggered()
 {
-    Configuration::HuggleConfiguration->UserConfig_RemoveOldQueueEdits = true;
+    Configuration::HuggleConfiguration->UserConfig->RemoveOldQueueEdits = true;
     this->ui->actionRemove_old_edits->setChecked(true);
     this->ui->actionStop_feed->setChecked(false);
 }
@@ -1626,9 +1727,9 @@ void MainWindow::on_actionClear_talk_page_of_user_triggered()
     }
     WikiPage *page = new WikiPage(this->CurrentEdit->User->GetTalk());
     /// \todo LOCALIZE ME
-    WikiUtil::EditPage(page, Configuration::HuggleConfiguration->ProjectConfig_ClearTalkPageTemp
-                       + "\n" + Configuration::HuggleConfiguration->ProjectConfig_WelcomeAnon + " ~~~~",
-                       "Cleaned old templates from talk page " + Configuration::HuggleConfiguration->ProjectConfig_EditSuffixOfHuggle)->DecRef();
+    WikiUtil::EditPage(page, Configuration::HuggleConfiguration->ProjectConfig->ClearTalkPageTemp
+                       + "\n" + Configuration::HuggleConfiguration->ProjectConfig->WelcomeAnon + " ~~~~",
+                       "Cleaned old templates from talk page " + Configuration::HuggleConfiguration->ProjectConfig->EditSuffixOfHuggle)->DecRef();
     delete page;
 }
 
@@ -1719,7 +1820,8 @@ void MainWindow::on_actionWarning_4_triggered()
 void MainWindow::on_actionEdit_user_talk_triggered()
 {
     if (this->CurrentEdit != nullptr)
-        QDesktopServices::openUrl(QString(Configuration::GetProjectWikiURL() + this->CurrentEdit->User->GetTalk() + "?action=edit"));
+        QDesktopServices::openUrl(QUrl::fromEncoded(QString(this->ProjectURL() + QUrl::toPercentEncoding(this->CurrentEdit->User->GetTalk()) +
+                                                            "?action=edit").toUtf8()));
 }
 
 void MainWindow::on_actionReconnect_IRC_triggered()
@@ -1770,7 +1872,7 @@ void Huggle::MainWindow::on_actionShow_talk_triggered()
     // we switch this to false so that in case we have received a message,
     // before we display the talk page, it get marked as read
     Configuration::HuggleConfiguration->NewMessage = false;
-    this->Browser->DisplayPreFormattedPage(Configuration::GetProjectScriptURL() + "index.php?title=User_talk:" + Configuration::HuggleConfiguration->SystemConfig_Username);
+    this->Browser->DisplayPreFormattedPage(this->WikiScriptURL() + "index.php?title=User_talk:" + Configuration::HuggleConfiguration->SystemConfig_Username);
 }
 
 void MainWindow::on_actionProtect_triggered()
@@ -1812,7 +1914,7 @@ void MainWindow::on_actionReport_username_triggered()
     {
         return;
     }
-    if (!Configuration::HuggleConfiguration->ProjectConfig_UAAavailable)
+    if (!Configuration::HuggleConfiguration->ProjectConfig->UAAavailable)
     {
         QMessageBox dd;
         dd.setIcon(dd.Information);
@@ -1854,7 +1956,7 @@ void Huggle::MainWindow::on_actionRevert_AGF_triggered()
                                            "No reason was provided / custom revert", &ok);
     if (!ok)
         return;
-    QString summary = Configuration::HuggleConfiguration->ProjectConfig_AgfRevert.replace("$2", this->CurrentEdit->User->Username);
+    QString summary = Configuration::HuggleConfiguration->ProjectConfig->AgfRevert.replace("$2", this->CurrentEdit->User->Username);
     summary = summary.replace("$1", reason);
     this->Revert(summary);
 }
@@ -1947,7 +2049,7 @@ void MainWindow::TimerCheckTPOnTick()
         this->tCheck->stop();
         return;
     }
-    if (!Configuration::HuggleConfiguration->UserConfig_CheckTP)
+    if (!Configuration::HuggleConfiguration->UserConfig->CheckTP)
         return;
     if (this->qTalkPage == nullptr)
     {
@@ -2001,7 +2103,7 @@ void Huggle::MainWindow::on_actionHtml_dump_triggered()
     f->write(this->Browser->RetrieveHtml().toUtf8());
     f->close();
     delete f;
-    QDesktopServices::openUrl( QDir().absoluteFilePath( name ) );
+    QDesktopServices::openUrl(QDir().absoluteFilePath(name));
 }
 
 void Huggle::MainWindow::on_actionEnforce_sysop_rights_triggered()
@@ -2022,7 +2124,10 @@ void Huggle::MainWindow::on_actionEnforce_sysop_rights_triggered()
 
 void Huggle::MainWindow::on_actionFeedback_triggered()
 {
-    QDesktopServices::openUrl(Configuration::HuggleConfiguration->GlobalConfig_FeedbackPath);
+    QString feedback = Configuration::HuggleConfiguration->ProjectConfig->Feedback;
+    if (feedback.isEmpty())
+        feedback = Configuration::HuggleConfiguration->GlobalConfig_FeedbackPath;
+    QDesktopServices::openUrl(feedback);
 }
 
 void Huggle::MainWindow::on_actionConnect_triggered()
@@ -2032,22 +2137,22 @@ void Huggle::MainWindow::on_actionConnect_triggered()
 
 void Huggle::MainWindow::on_actionDisplay_user_data_triggered()
 {
-    Configuration::HuggleConfiguration->UserConfig_HAN_DisplayUser = this->ui->actionDisplay_user_data->isChecked();
+    Configuration::HuggleConfiguration->UserConfig->HAN_DisplayUser = this->ui->actionDisplay_user_data->isChecked();
 }
 
 void Huggle::MainWindow::on_actionDisplay_user_messages_triggered()
 {
-    Configuration::HuggleConfiguration->UserConfig_HAN_DisplayUserTalk = this->ui->actionDisplay_user_messages->isChecked();
+    Configuration::HuggleConfiguration->UserConfig->HAN_DisplayUserTalk = this->ui->actionDisplay_user_messages->isChecked();
 }
 
 void Huggle::MainWindow::on_actionDisplay_bot_data_triggered()
 {
-    Configuration::HuggleConfiguration->UserConfig_HAN_DisplayBots = this->ui->actionDisplay_bot_data->isChecked();
+    Configuration::HuggleConfiguration->UserConfig->HAN_DisplayBots = this->ui->actionDisplay_bot_data->isChecked();
 }
 
 void Huggle::MainWindow::on_actionRequest_protection_triggered()
 {
-    if (!this->CheckExit() || !Configuration::HuggleConfiguration->ProjectConfig_RFPP || this->CurrentEdit == nullptr)
+    if (!this->CheckExit() || !Configuration::HuggleConfiguration->ProjectConfig->RFPP || this->CurrentEdit == nullptr)
         return;
     if (Configuration::HuggleConfiguration->Restricted)
     {
@@ -2064,7 +2169,7 @@ void Huggle::MainWindow::on_actionRemove_edits_made_by_whitelisted_users_trigger
 {
     // the number must be higher that the real score so that we match even the edits
     // which have the same score (-800 + 1) > (-800)
-    this->Queue1->DeleteByScore(Configuration::HuggleConfiguration->ProjectConfig_WhitelistScore + 1);
+    this->Queue1->DeleteByScore(Configuration::HuggleConfiguration->ProjectConfig->WhitelistScore + 1);
 }
 
 void Huggle::MainWindow::on_actionDelete_all_edits_with_score_lower_than_200_triggered()
@@ -2104,4 +2209,18 @@ void Huggle::MainWindow::on_actionDisplay_this_page_triggered()
         return;
     this->Browser->DisplayPreFormattedPage(this->CurrentEdit->Page);
     this->LockPage();
+}
+
+void Huggle::MainWindow::on_actionResume_provider_triggered()
+{
+    this->ui->actionResume_provider->setVisible(false);
+    this->ui->actionStop_provider->setVisible(true);
+    Core::HuggleCore->PrimaryFeedProvider->Resume();
+}
+
+void Huggle::MainWindow::on_actionStop_provider_triggered()
+{
+    Core::HuggleCore->PrimaryFeedProvider->Pause();
+    this->ui->actionResume_provider->setVisible(true);
+    this->ui->actionStop_provider->setVisible(false);
 }

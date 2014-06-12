@@ -35,9 +35,8 @@ HuggleQueue::~HuggleQueue()
 void HuggleQueue::AddItem(WikiEdit *page)
 {
     if (page == nullptr)
-    {
-        throw new Exception("WikiEdit *page must not be nullptr", "void HuggleQueue::AddItem(WikiEdit *page)");
-    }
+        throw new Huggle::Exception("WikiEdit *page must not be nullptr", "void HuggleQueue::AddItem(WikiEdit *page)");
+
     page->RegisterConsumer(HUGGLECONSUMER_QUEUE);
     if (Core::HuggleCore->Main != nullptr)
     {
@@ -53,7 +52,7 @@ void HuggleQueue::AddItem(WikiEdit *page)
         }
     }
     // in case that we don't want to have this edit in queue, we can ignore this
-    if (Configuration::HuggleConfiguration->UserConfig_DeleteEditsAfterRevert)
+    if (Configuration::HuggleConfiguration->UserConfig->DeleteEditsAfterRevert)
     {
         // check if there was a revert to this edit which is newer than itself
         int i = 0;
@@ -83,7 +82,7 @@ void HuggleQueue::AddItem(WikiEdit *page)
         }
         WikiEdit::Lock_EditList->unlock();
     }
-    if (Configuration::HuggleConfiguration->UserConfig_TruncateEdits)
+    if (Configuration::HuggleConfiguration->UserConfig->TruncateEdits)
     {
         // if we want to keep only newest edits in queue we can remove all older edits made to this page
         this->DeleteOlder(page);
@@ -302,8 +301,8 @@ void HuggleQueue::Delete(HuggleQueueItemLabel *item, QLayoutItem *qi)
 {
     if (item == nullptr)
     {
-        throw new Exception("HuggleQueueItemLabel *item must not be nullptr in this context",
-               "void HuggleQueue::Delete(HuggleQueueItemLabel *item, QLayoutItem *qi)");
+        throw new Huggle::Exception("HuggleQueueItemLabel *item must not be nullptr in this context",
+                            "void HuggleQueue::Delete(HuggleQueueItemLabel *item, QLayoutItem *qi)");
     }
     if (qi != nullptr)
     {
@@ -407,7 +406,7 @@ void HuggleQueue::Filters()
     while (x < HuggleQueueFilter::Filters.count())
     {
         HuggleQueueFilter *FilthyFilter = HuggleQueueFilter::Filters.at(x);
-        if (Configuration::HuggleConfiguration->UserConfig_QueueID == FilthyFilter->QueueName)
+        if (Configuration::HuggleConfiguration->UserConfig->QueueID == FilthyFilter->QueueName)
         {
             id = x;
         }
@@ -492,7 +491,7 @@ void HuggleQueue::on_comboBox_currentIndexChanged(int index)
         {
             this->CurrentFilter = HuggleQueueFilter::Filters.at(index);
         }
-        Configuration::HuggleConfiguration->UserConfig_QueueID = this->CurrentFilter->QueueName;
+        Configuration::HuggleConfiguration->UserConfig->QueueID = this->CurrentFilter->QueueName;
     }
 }
 

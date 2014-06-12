@@ -8,37 +8,28 @@
 //MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //GNU General Public License for more details.
 
-#ifndef RELOGINFORM_HPP
-#define RELOGINFORM_HPP
+#ifndef GC_THREAD_HPP
+#define GC_THREAD_HPP
 
-#include "definitions.hpp"
-#ifdef PYTHONENGINE
-#include <Python.h>
-#endif
-#include <QDialog>
-
-namespace Ui
-{
-    class ReloginForm;
-}
+#include <QThread>
 
 namespace Huggle
 {
-    //! Relogin form used to login back to mediawiki when session is removed
-    class ReloginForm : public QDialog
+    class GC_t : public QThread
     {
             Q_OBJECT
         public:
-            explicit ReloginForm(QWidget *parent = 0);
-            ~ReloginForm();
-
-        private slots:
-            void on_pushButton_clicked();
-            void on_pushButton_2_clicked();
-
+            GC_t(QObject *parent = nullptr);
+            ~GC_t();
+            void Stop();
+            bool IsStopped() const;
+            bool IsRunning() const;
+        protected:
+            void run();
         private:
-            Ui::ReloginForm *ui;
+            bool Running;
+            bool Stopped;
     };
 }
 
-#endif // RELOGINFORM_HPP
+#endif // GC_THREAD_HPP

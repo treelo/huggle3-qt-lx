@@ -372,12 +372,6 @@ void Core::Shutdown()
     }
 #endif
     QueryPool::HugglePool = nullptr;
-    delete Configuration::HuggleConfiguration;
-    delete Localizations::HuggleLocalizations;
-    delete GC::gc;
-    delete this->HGQP;
-    GC::gc = nullptr;
-    this->gc = nullptr;
     if (this->fLogin != nullptr)
     {
         delete this->fLogin;
@@ -388,6 +382,20 @@ void Core::Shutdown()
         delete this->Main;
         this->Main = nullptr;
     }
+    // now stop the garbage collector and wait for it to finish
+    GC::gc->Stop();
+    Syslog::HuggleLogs->Log("SHUTDOWN: waiting for garbage collector to finish");
+    while(GC::gc->IsRunning())
+        Sleeper::usleep(200);
+    // last garbage removal
+    GC::gc->DeleteOld();
+    Syslog::HuggleLogs->DebugLog("GC: " + QString::number(GC::gc->list.count()) + " objects");
+    delete GC::gc;
+    delete this->HGQP;
+    GC::gc = nullptr;
+    this->gc = nullptr;
+    delete Configuration::HuggleConfiguration;
+    delete Localizations::HuggleLocalizations;
     QApplication::quit();
 }
 
@@ -444,6 +452,7 @@ void Core::LoadLocalizations()
     Localizations::HuggleLocalizations->LocalInit("es"); // Spanish
     Localizations::HuggleLocalizations->LocalInit("fa"); // Persian
     Localizations::HuggleLocalizations->LocalInit("fr"); // French
+    Localizations::HuggleLocalizations->LocalInit("he"); // Hebrew
     Localizations::HuggleLocalizations->LocalInit("hi"); // Hindi
     //Localizations::HuggleLocalizations->LocalInit("it"); // Italian
     Localizations::HuggleLocalizations->LocalInit("ja"); // Japanese

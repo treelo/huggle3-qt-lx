@@ -37,21 +37,22 @@ HuggleQueueFilter::HuggleQueueFilter()
 bool HuggleQueueFilter::Matches(WikiEdit *edit)
 {
     if (edit == nullptr)
-        throw new Exception("WikiEdit *edit must not be NULL in this context", "bool HuggleQueueFilter::Matches(WikiEdit *edit)");
+        throw new Huggle::Exception("WikiEdit *edit must not be NULL in this context", "bool HuggleQueueFilter::Matches(WikiEdit *edit)");
+
     if (this->Ignore_UserSpace && edit->Page->GetNS()->GetCanonicalName() == "User")
         return false;
     if (edit->Page->IsTalk() && this->IgnoreTalk)
         return false;
     int i = 0;
-    while (i < Configuration::HuggleConfiguration->ProjectConfig_IgnorePatterns.count())
+    while (i < Configuration::HuggleConfiguration->ProjectConfig->IgnorePatterns.count())
     {
-        if (edit->Page->PageName.contains(Configuration::HuggleConfiguration->ProjectConfig_IgnorePatterns.at(i)))
+        if (edit->Page->PageName.contains(Configuration::HuggleConfiguration->ProjectConfig->IgnorePatterns.at(i)))
         {
             return false;
         }
         i++;
     }
-    if (Configuration::HuggleConfiguration->ProjectConfig_Ignores.contains(edit->Page->PageName))
+    if (Configuration::HuggleConfiguration->ProjectConfig->Ignores.contains(edit->Page->PageName))
         return false;
     if (edit->User->IsWhitelisted() && this->IgnoreWL)
         return false;

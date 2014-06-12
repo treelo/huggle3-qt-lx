@@ -117,7 +117,7 @@ bool WikiUser::IsIPv6(QString user)
 void WikiUser::UpdateWl(WikiUser *us, long score)
 {
     if (!us->IsIP() &&
-        score <= Configuration::HuggleConfiguration->ProjectConfig_WhitelistScore &&
+        score <= Configuration::HuggleConfiguration->ProjectConfig->WhitelistScore &&
         !us->IsWhitelisted())
     {
         if (Configuration::HuggleConfiguration->WhiteList.contains(us->Username))
@@ -166,7 +166,7 @@ WikiUser::WikiUser(WikiUser *u)
     this->IsReported = u->IsReported;
     this->_talkPageWasRetrieved = u->_talkPageWasRetrieved;
     this->Site = u->Site;
-    this->WhitelistInfo = u->WhitelistInfo;
+    this->WhitelistInfo = 0;
     this->Bot = u->Bot;
     this->EditCount = u->EditCount;
     this->RegistrationDate = u->RegistrationDate;
@@ -185,7 +185,7 @@ WikiUser::WikiUser(const WikiUser &u)
     this->ContentsOfTalkPage = u.ContentsOfTalkPage;
     this->Site = u.Site;
     this->_talkPageWasRetrieved = u._talkPageWasRetrieved;
-    this->WhitelistInfo = u.WhitelistInfo;
+    this->WhitelistInfo = 0;
     this->Bot = u.Bot;
     this->EditCount = u.EditCount;
     this->RegistrationDate = u.RegistrationDate;
@@ -231,6 +231,7 @@ WikiUser::WikiUser(QString user)
     this->WarningLevel = 0;
     this->Bot = false;
     this->IsReported = false;
+    this->WhitelistInfo = 0;
     this->EditCount = -1;
     this->RegistrationDate = "";
 }
@@ -327,11 +328,11 @@ QString WikiUser::GetTalk()
 
 bool WikiUser::TalkPage_ContainsSharedIPTemplate()
 {
-    if (Configuration::HuggleConfiguration->ProjectConfig_SharedIPTemplateTags.length() < 1)
+    if (Configuration::HuggleConfiguration->ProjectConfig->SharedIPTemplateTags.length() < 1)
         return false;
     if (this->TalkPage_WasRetrieved())
     {
-        return this->TalkPage_GetContents().contains(Configuration::HuggleConfiguration->ProjectConfig_SharedIPTemplateTags);
+        return this->TalkPage_GetContents().contains(Configuration::HuggleConfiguration->ProjectConfig->SharedIPTemplateTags);
     }
     return false;
 }

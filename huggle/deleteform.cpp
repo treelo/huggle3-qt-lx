@@ -26,9 +26,9 @@ DeleteForm::DeleteForm(QWidget *parent) : QDialog(parent), ui(new Ui::DeleteForm
 {
     this->ui->setupUi(this);
     int xx = 0;
-    while (xx < Configuration::HuggleConfiguration->ProjectConfig_DeletionSummaries.count())
+    while (xx < Configuration::HuggleConfiguration->ProjectConfig->DeletionSummaries.count())
     {
-        this->ui->comboBox->addItem(Configuration::HuggleConfiguration->ProjectConfig_DeletionSummaries.at(xx));
+        this->ui->comboBox->addItem(Configuration::HuggleConfiguration->ProjectConfig->DeletionSummaries.at(xx));
         xx++;
     }
     this->page = nullptr;
@@ -55,7 +55,7 @@ void DeleteForm::SetPage(WikiPage *Page, WikiUser *User)
 {
     if (Page == nullptr)
     {
-        throw new Exception("Page must not be NULL", "void DeleteForm::setPage(WikiPage *Page)");
+        throw new Huggle::Exception("Page must not be NULL", "void DeleteForm::setPage(WikiPage *Page)");
     }
     this->page = new WikiPage(Page);
     if (this->page->IsTalk())
@@ -149,7 +149,7 @@ void DeleteForm::CheckDeleteToken()
         // let's delete the page
         this->qTalk = new ApiQuery(ActionDelete);
         this->qTalk->Parameters = "title=" + QUrl::toPercentEncoding(this->TalkPage->PageName)
-                + "&reason=" + QUrl::toPercentEncoding(Configuration::HuggleConfiguration->ProjectConfig_AssociatedDelete);
+                + "&reason=" + QUrl::toPercentEncoding(Configuration::HuggleConfiguration->ProjectConfig->AssociatedDelete);
                 + "&token=" + QUrl::toPercentEncoding(this->DeleteToken2);
         this->qTalk->Target = "Deleting "  + this->TalkPage->PageName;
         this->qTalk->UsingPOST = true;

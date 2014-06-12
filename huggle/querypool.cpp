@@ -23,6 +23,30 @@ QueryPool::QueryPool()
     this->Processes = nullptr;
 }
 
+QueryPool::~QueryPool()
+{
+    while (this->PendingMods.count() != 0)
+    {
+        this->PendingMods.at(0)->UnregisterConsumer(HUGGLECONSUMER_QP_MODS);
+        this->PendingMods.removeAt(0);
+    }
+    while (this->ProcessingEdits.count() != 0)
+    {
+        this->ProcessingEdits.at(0)->UnregisterConsumer(HUGGLECONSUMER_CORE_POSTPROCESS);
+        this->ProcessingEdits.removeAt(0);
+    }
+    while(this->RunningQueries.count() != 0)
+    {
+        this->RunningQueries.at(0)->UnregisterConsumer(HUGGLECONSUMER_QP);
+        this->RunningQueries.removeAt(0);
+    }
+    while (this->UncheckedReverts.count() != 0)
+    {
+        this->UncheckedReverts.at(0)->UnregisterConsumer(HUGGLECONSUMER_QP_UNCHECKED);
+        this->UncheckedReverts.removeAt(0);
+    }
+}
+
 void QueryPool::AppendQuery(Query *item)
 {
     item->RegisterConsumer(HUGGLECONSUMER_QP);
@@ -32,20 +56,20 @@ void QueryPool::AppendQuery(Query *item)
 void QueryPool::PreProcessEdit(WikiEdit *edit)
 {
     if (edit == nullptr)
-        throw new Exception("NULL edit", "void QueryPool::PreProcessEdit(WikiEdit *edit)");
+        throw new Huggle::Exception("NULL edit", "void QueryPool::PreProcessEdit(WikiEdit *edit)");
     if (edit->Status == StatusProcessed)
         return;
     if (edit->User == nullptr)
-        throw new Exception("Edit user was NULL in Core::PreProcessEdit");
+        throw new Huggle::Exception("Edit user was NULL in Core::PreProcessEdit");
     if (edit->Bot)
         edit->User->SetBot(true);
 
-    edit->EditMadeByHuggle = edit->Summary.contains(Configuration::HuggleConfiguration->ProjectConfig_EditSuffixOfHuggle);
+    edit->EditMadeByHuggle = edit->Summary.contains(Configuration::HuggleConfiguration->ProjectConfig->EditSuffixOfHuggle);
 
     int x = 0;
-    while (x < Configuration::HuggleConfiguration->ProjectConfig_Assisted.count())
+    while (x < Configuration::HuggleConfiguration->ProjectConfig->Assisted.count())
     {
-        if (edit->Summary.contains(Configuration::HuggleConfiguration->ProjectConfig_Assisted.at(x)))
+        if (edit->Summary.contains(Configuration::HuggleConfiguration->ProjectConfig->Assisted.at(x)))
         {
             edit->TrustworthEdit = true;
             break;
@@ -60,7 +84,7 @@ void QueryPool::PreProcessEdit(WikiEdit *edit)
         {
             HuggleFeed::PrimaryFeedProvider->RvCounter++;
         }
-        if (Configuration::HuggleConfiguration->UserConfig_DeleteEditsAfterRevert)
+        if (Configuration::HuggleConfiguration->UserConfig->DeleteEditsAfterRevert)
         {
             edit->RegisterConsumer(HUGGLECONSUMER_QP_UNCHECKED);
             this->UncheckedReverts.append(edit);

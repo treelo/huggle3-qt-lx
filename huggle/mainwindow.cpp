@@ -127,6 +127,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
             QAction *action = new QAction(HuggleParser::GetValueFromKey(Configuration::HuggleConfiguration->ProjectConfig->WarningTypes.at(r)), this);
             QAction *actiona = new QAction(HuggleParser::GetValueFromKey(Configuration::HuggleConfiguration->ProjectConfig->WarningTypes.at(r)), this);
             QAction *actionb = new QAction(HuggleParser::GetValueFromKey(Configuration::HuggleConfiguration->ProjectConfig->WarningTypes.at(r)), this);
+            this->RevertAndWarnItems.append(actiona);
+            this->WarnItems.append(actionb);
+            this->RevertItems.append(action);
             this->RevertWarn->addAction(actiona);
             this->WarnMenu->addAction(actionb);
             this->RevertSummaries->addAction(action);
@@ -167,7 +170,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     QFile *layout;
     if (QFile().exists(Configuration::GetConfigurationPath() + "mainwindow_state"))
     {
-        Syslog::HuggleLogs->DebugLog("Loading state");
+        HUGGLE_DEBUG1("Loading state");
         layout = new QFile(Configuration::GetConfigurationPath() + "mainwindow_state");
         if (!layout->open(QIODevice::ReadOnly))
         {
@@ -176,7 +179,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         {
             if (!this->restoreState(layout->readAll()))
             {
-                Syslog::HuggleLogs->DebugLog("Failed to restore state");
+                HUGGLE_DEBUG1("Failed to restore state");
             }
         }
         layout->close();
@@ -184,7 +187,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     }
     if (QFile().exists(Configuration::GetConfigurationPath() + "mainwindow_geometry"))
     {
-        Syslog::HuggleLogs->DebugLog("Loading geometry");
+        HUGGLE_DEBUG1("Loading geometry");
         layout = new QFile(Configuration::GetConfigurationPath() + "mainwindow_geometry");
         if (!layout->open(QIODevice::ReadOnly))
         {
@@ -193,7 +196,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
         {
             if (!this->restoreGeometry(layout->readAll()))
             {
-                Syslog::HuggleLogs->DebugLog("Failed to restore layout");
+                HUGGLE_DEBUG1("Failed to restore layout");
             }
         }
         layout->close();
@@ -239,6 +242,7 @@ MainWindow::~MainWindow()
     delete this->VandalDock;
     delete this->_History;
     delete this->RevertWarn;
+    delete this->fRelogin;
     delete this->WarnMenu;
     delete this->fProtectForm;
     delete this->RevertSummaries;
@@ -476,7 +480,7 @@ void MainWindow::FinishPatrols()
                 }
             }
             // this edit is fucked up
-            Syslog::HuggleLogs->DebugLog("Unable to retrieve token for " + edit->Page->PageName);
+            HUGGLE_DEBUG1("Unable to retrieve token for " + edit->Page->PageName);
             // get rid of it
             this->PatrolledEdits.removeAt(x);
             edit->UnregisterConsumer("patrol");
@@ -538,6 +542,19 @@ void MainWindow::UpdateStatusBarData()
     this->Status->setText(_l("main-status-bar", params));
 }
 
+bool MainWindow::EditingChecks()
+{
+    if (!this->CheckExit() || !this->CheckEditableBrowserPage())
+        return false;
+
+    if (Configuration::HuggleConfiguration->Restricted)
+    {
+        Generic::DeveloperError();
+        return false;
+    }
+    return true;
+}
+
 void MainWindow::DecreaseBS()
 {
     if (this->CurrentEdit != nullptr)
@@ -548,6 +565,172 @@ void MainWindow::IncreaseBS()
 {
     if (this->CurrentEdit != nullptr)
         this->CurrentEdit->User->SetBadnessScore(this->CurrentEdit->User->GetBadnessScore() + 200);
+}
+
+void MainWindow::ReloadSc()
+{
+    Configuration::HuggleConfiguration->ReloadOfMainformNeeded = false;
+    QStringList shorts = Configuration::HuggleConfiguration->Shortcuts.keys();
+    foreach (QString sh, shorts)
+    {
+        this->ReloadShort(sh);
+    }
+}
+
+static inline void ReloadIndexedMenuShortcut(QList<QAction *> list, int item, Shortcut s)
+{
+    if (list.count() <= item)
+        return;
+
+    list.at(item)->setShortcut(s.QAccel);
+}
+
+void MainWindow::ReloadShort(QString id)
+{
+    if (!Configuration::HuggleConfiguration->Shortcuts.contains(id))
+        throw new Huggle::Exception("Invalid shortcut name");
+    Shortcut s = Configuration::HuggleConfiguration->Shortcuts[id];
+    QAction *q = nullptr;
+    QAction *tip = nullptr;
+    // now this horrid switch
+    switch (s.ID)
+    {
+        case HUGGLE_ACCEL_MAIN_REVERT_AND_WARN:
+            tip = this->ui->actionRevert_and_warn;
+            q = this->ui->actionRevert_currently_displayed_edit_and_warn_the_user;
+            break;
+        case HUGGLE_ACCEL_MAIN_REVERT:
+            q = this->ui->actionRevert_currently_displayed_edit;
+            tip = this->ui->actionRevert;
+            break;
+        case HUGGLE_ACCEL_MAIN_REVERT_AND_WARN0:
+            ReloadIndexedMenuShortcut(this->RevertAndWarnItems, 0, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_REVERT_AND_WARN1:
+            ReloadIndexedMenuShortcut(this->RevertAndWarnItems, 1, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_REVERT_AND_WARN2:
+            ReloadIndexedMenuShortcut(this->RevertAndWarnItems, 2, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_REVERT_AND_WARN3:
+            ReloadIndexedMenuShortcut(this->RevertAndWarnItems, 3, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_REVERT_AND_WARN4:
+            ReloadIndexedMenuShortcut(this->RevertAndWarnItems, 4, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_REVERT_AND_WARN5:
+            ReloadIndexedMenuShortcut(this->RevertAndWarnItems, 5, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_REVERT_AND_WARN6:
+            ReloadIndexedMenuShortcut(this->RevertAndWarnItems, 6, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_REVERT_AND_WARN7:
+            ReloadIndexedMenuShortcut(this->RevertAndWarnItems, 7, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_REVERT_AND_WARN8:
+            ReloadIndexedMenuShortcut(this->RevertAndWarnItems, 8, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_REVERT_AND_WARN9:
+            ReloadIndexedMenuShortcut(this->RevertAndWarnItems, 9, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_WARN0:
+            ReloadIndexedMenuShortcut(this->WarnItems, 0, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_WARN1:
+            ReloadIndexedMenuShortcut(this->WarnItems, 1, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_WARN2:
+            ReloadIndexedMenuShortcut(this->WarnItems, 2, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_WARN3:
+            ReloadIndexedMenuShortcut(this->WarnItems, 3, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_WARN4:
+            ReloadIndexedMenuShortcut(this->WarnItems, 4, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_WARN5:
+            ReloadIndexedMenuShortcut(this->WarnItems, 5, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_WARN6:
+            ReloadIndexedMenuShortcut(this->WarnItems, 6, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_WARN7:
+            ReloadIndexedMenuShortcut(this->WarnItems, 7, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_WARN8:
+            ReloadIndexedMenuShortcut(this->WarnItems, 8, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_WARN9:
+            ReloadIndexedMenuShortcut(this->WarnItems, 9, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_REVERT_0:
+            ReloadIndexedMenuShortcut(this->RevertItems, 0, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_REVERT_1:
+            ReloadIndexedMenuShortcut(this->RevertItems, 1, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_REVERT_2:
+            ReloadIndexedMenuShortcut(this->RevertItems, 2, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_REVERT_3:
+            ReloadIndexedMenuShortcut(this->RevertItems, 3, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_REVERT_4:
+            ReloadIndexedMenuShortcut(this->RevertItems, 4, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_REVERT_5:
+            ReloadIndexedMenuShortcut(this->RevertItems, 5, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_REVERT_6:
+            ReloadIndexedMenuShortcut(this->RevertItems, 6, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_REVERT_7:
+            ReloadIndexedMenuShortcut(this->RevertItems, 7, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_REVERT_8:
+            ReloadIndexedMenuShortcut(this->RevertItems, 8, s);
+            return;
+        case HUGGLE_ACCEL_MAIN_REVERT_9:
+            ReloadIndexedMenuShortcut(this->RevertItems, 9, s);
+            return;
+        case HUGGLE_ACCEL_SUSPICIOUS_EDIT:
+            q = this->ui->actionFlag_as_suspicious_edit;
+            break;
+        case HUGGLE_ACCEL_MAIN_WARN:
+            q = this->ui->actionWarn_the_user;
+            tip = this->ui->actionWarn;
+            break;
+        case HUGGLE_ACCEL_MAIN_GOOD:
+            q = this->ui->actionFlag_as_a_good_edit;
+            break;
+        case HUGGLE_ACCEL_MAIN_OPEN_IN_BROWSER:
+            q = this->ui->actionOpen_page_in_browser;
+            break;
+        case HUGGLE_ACCEL_MAIN_TALK:
+            q = this->ui->actionTalk_page;
+            break;
+        case HUGGLE_ACCEL_MAIN_FORWARD:
+            q = this->ui->actionForward;
+            break;
+        case HUGGLE_ACCEL_MAIN_BACK:
+            q = this->ui->actionBack;
+            break;
+        case HUGGLE_ACCEL_NEXT:
+            q = this->ui->actionNext_2;
+            tip = this->ui->actionNext;
+            break;
+        case HUGGLE_ACCEL_MAIN_EXIT:
+            q = this->ui->actionExit;
+            break;
+    }
+
+    if (q != nullptr)
+    {
+        q->setShortcut(QKeySequence(s.QAccel));
+        q->setToolTip(_l(s.Description));
+    }
+    if (tip != nullptr)
+        tip->setToolTip(_l(s.Description) + " [" + s.QAccel + "]");
 }
 
 void MainWindow::ProcessReverts()
@@ -584,7 +767,7 @@ QString MainWindow::WikiScriptURL()
     }
 }
 
-RevertQuery *MainWindow::Revert(QString summary, bool nd, bool next)
+RevertQuery *MainWindow::Revert(QString summary, bool nd, bool next, bool single_rv)
 {
     bool rollback = true;
     if (this->CurrentEdit == nullptr)
@@ -618,6 +801,7 @@ RevertQuery *MainWindow::Revert(QString summary, bool nd, bool next)
         this->CurrentEdit->User->SetBadnessScore(this->CurrentEdit->User->GetBadnessScore(false) - 10);
         Hooks::OnRevert(this->CurrentEdit);
         RevertQuery *q = WikiUtil::RevertEdit(this->CurrentEdit, summary, false, rollback, nd);
+        if (single_rv) { q->SetLast(); }
         if (Configuration::HuggleConfiguration->SystemConfig_InstantReverts)
         {
             q->Process();
@@ -775,7 +959,7 @@ void MainWindow::FinishRestore()
         WikiUtil::EditPage(this->RestoreEdit->Page, text, sm)->DecRef();
     } else
     {
-        Syslog::HuggleLogs->DebugLog(this->RestoreQuery->Result->Data);
+        HUGGLE_DEBUG1(this->RestoreQuery->Result->Data);
         Syslog::HuggleLogs->ErrorLog("Unable to restore the revision because wiki provided no data for selected version");
     }
     this->RestoreQuery->DecRef();
@@ -821,10 +1005,22 @@ void MainWindow::on_actionAbout_triggered()
 
 void MainWindow::OnMainTimerTick()
 {
+    if (!Configuration::HuggleConfiguration->ProjectConfig->IsLoggedIn && !Configuration::HuggleConfiguration->ProjectConfig->RequestingLogin
+            && !Configuration::HuggleConfiguration->Restricted)
+    {
+        delete this->fRelogin;
+        // we need to flag it here so that we don't reload the form next tick
+        Configuration::HuggleConfiguration->ProjectConfig->RequestingLogin = true;
+        this->fRelogin = new ReloginForm(this);
+        // exec to freeze
+        this->fRelogin->show();
+    }
+    if (Configuration::HuggleConfiguration->ReloadOfMainformNeeded)
+        this->ReloadSc();
     this->ProcessReverts();
     WikiUtil::FinalizeMessages();
     bool RetrieveEdit = true;
-#ifndef MTGC
+#ifndef HUGGLE_USE_MT_GC
     if (Core::HuggleCore->gc)
     {
         Core::HuggleCore->gc->DeleteOld();
@@ -923,7 +1119,7 @@ void MainWindow::OnMainTimerTick()
     }
     Syslog::HuggleLogs->lUnwrittenLogs.unlock();
     this->Queries->RemoveExpired();
-    if (this->OnNext_EvPage != nullptr && this->qNext != NULL && this->qNext->IsProcessed())
+    if (this->OnNext_EvPage != nullptr && this->qNext != nullptr && this->qNext->IsProcessed())
     {
         this->tb->SetPage(this->OnNext_EvPage);
         this->tb->RenderEdit();
@@ -1027,15 +1223,8 @@ void MainWindow::on_actionWarn_triggered()
 
 void MainWindow::on_actionRevert_currently_displayed_edit_triggered()
 {
-    if (!this->CheckExit() || !this->CheckEditableBrowserPage())
-        return;
-
-    if (Configuration::HuggleConfiguration->Restricted)
-    {
-        Generic::DeveloperError();
-        return;
-    }
-    this->Revert();
+    if (this->EditingChecks())
+        this->Revert();
 }
 
 void MainWindow::on_actionWarn_the_user_triggered()
@@ -1045,13 +1234,8 @@ void MainWindow::on_actionWarn_the_user_triggered()
 
 void MainWindow::on_actionRevert_currently_displayed_edit_and_warn_the_user_triggered()
 {
-    if (!this->CheckExit() || !this->CheckEditableBrowserPage())
+    if (!this->EditingChecks())
         return;
-    if (Configuration::HuggleConfiguration->Restricted)
-    {
-        Generic::DeveloperError();
-        return;
-    }
     RevertQuery *result = this->Revert("", true, false);
     if (result != nullptr)
     {
@@ -1086,13 +1270,9 @@ void MainWindow::on_actionRevert_and_warn_triggered()
 
 void MainWindow::on_actionRevert_triggered()
 {
-    if (!this->CheckExit() || !this->CheckEditableBrowserPage())
+    if (!this->EditingChecks())
         return;
-    if (Configuration::HuggleConfiguration->Restricted)
-    {
-        Generic::DeveloperError();
-        return;
-    }
+
     this->Revert();
 }
 
@@ -1120,13 +1300,8 @@ void MainWindow::on_actionBack_triggered()
 
 void MainWindow::CustomRevert()
 {
-    if (!this->CheckExit() || !this->CheckEditableBrowserPage())
+    if (!this->EditingChecks())
         return;
-    if (Configuration::HuggleConfiguration->Restricted)
-    {
-        Generic::DeveloperError();
-        return;
-    }
     QAction *revert = (QAction*) QObject::sender();
     QString k = HuggleParser::GetKeyOfWarningTypeFromWarningName(revert->text());
     QString rs = HuggleParser::GetSummaryOfWarningTypeFromWarningKey(k);
@@ -1136,13 +1311,8 @@ void MainWindow::CustomRevert()
 
 void MainWindow::CustomRevertWarn()
 {
-    if (!this->CheckExit() || !this->CheckEditableBrowserPage())
+    if (!this->EditingChecks())
         return;
-    if (Configuration::HuggleConfiguration->Restricted)
-    {
-        Generic::DeveloperError();
-        return;
-    }
     QAction *revert = (QAction*) QObject::sender();
     QString k = HuggleParser::GetKeyOfWarningTypeFromWarningName(revert->text());
     QString rs = HuggleParser::GetSummaryOfWarningTypeFromWarningKey(k);
@@ -1160,11 +1330,8 @@ void MainWindow::CustomRevertWarn()
 
 void MainWindow::CustomWarn()
 {
-    if (Configuration::HuggleConfiguration->Restricted)
-    {
-        Generic::DeveloperError();
+    if (!this->EditingChecks())
         return;
-    }
     QAction *revert = (QAction*) QObject::sender();
     QString k = HuggleParser::GetKeyOfWarningTypeFromWarningName(revert->text());
     this->Warn(k, nullptr);
@@ -1370,7 +1537,7 @@ void MainWindow::PatrolThis(WikiEdit *e)
         query->Parameters += "&flag_accuracy=1";
 
     QueryPool::HugglePool->AppendQuery(query);
-    Syslog::HuggleLogs->DebugLog("Patrolling " + e->Page->PageName);
+    HUGGLE_DEBUG1("Patrolling " + e->Page->PageName);
     query->Process();
 }
 
@@ -1403,12 +1570,9 @@ void MainWindow::Localize()
     this->ui->actionDelete->setText(_l("main-page-delete"));
     // button action depends on adminrights
     if (Configuration::HuggleConfiguration->Rights.contains("delete"))
-    {
         this->ui->actionDelete_page->setText(_l("main-page-delete"));
-    } else
-    {
+    else
         this->ui->actionDelete_page->setText(_l("main-page-reqdeletion"));
-    }
     this->ui->actionRequest_protection->setText(_l("main-page-reqprotection"));
     this->ui->actionProtect->setText(_l("main-page-protect"));
     this->ui->actionRestore_this_revision->setText(_l("main-page-restore"));
@@ -1518,6 +1682,19 @@ void MainWindow::DisplayTalk()
     delete page;
 }
 
+void MainWindow::WelcomeGood()
+{
+    if (this->CurrentEdit == nullptr || !this->CheckExit() || !this->CheckEditableBrowserPage())
+        return;
+    Hooks::OnGood(this->CurrentEdit);
+    this->PatrolThis();
+    this->CurrentEdit->User->SetBadnessScore(this->CurrentEdit->User->GetBadnessScore() - 200);
+    if (Configuration::HuggleConfiguration->UserConfig->WelcomeGood &&
+            this->CurrentEdit->User->TalkPage_GetContents().isEmpty())
+        this->Welcome();
+    this->DisplayNext();
+}
+
 void MainWindow::LockPage()
 {
     this->EditablePage = false;
@@ -1547,13 +1724,8 @@ bool MainWindow::CheckExit()
 
 void MainWindow::Welcome()
 {
-    if (!this->CheckExit() || this->CurrentEdit == nullptr)
+    if (!this->EditingChecks())
         return;
-    if (Configuration::HuggleConfiguration->Restricted)
-    {
-        Generic::DeveloperError();
-        return;
-    }
     this->CurrentEdit->User->Resync();
     bool create_only = true;
     if (!this->CurrentEdit->User->TalkPage_GetContents().isEmpty())
@@ -1634,23 +1806,15 @@ void MainWindow::on_actionDecrease_badness_score_by_20_triggered()
 
 void MainWindow::on_actionGood_edit_triggered()
 {
-    if (this->CurrentEdit != nullptr)
-    {
-        this->CurrentEdit->User->SetBadnessScore(this->CurrentEdit->User->GetBadnessScore() - 200);
-        Hooks::OnGood(this->CurrentEdit);
-        this->PatrolThis();
-        if (Configuration::HuggleConfiguration->ProjectConfig->WelcomeGood && this->CurrentEdit->User->TalkPage_GetContents().isEmpty())
-            this->Welcome();
-    }
-    this->DisplayNext();
+    this->WelcomeGood();
 }
 
 void MainWindow::on_actionUser_contributions_triggered()
 {
     if (this->CurrentEdit != nullptr)
     {
-        QDesktopServices::openUrl(QUrl::fromEncoded(QString(this->ProjectURL() + "Special:Contributions/"
-                                          + QUrl::toPercentEncoding(this->CurrentEdit->User->Username)).toUtf8()));
+        QDesktopServices::openUrl(QUrl::fromEncoded(QString(this->ProjectURL() + "Special:Contributions/" +
+                                  QUrl::toPercentEncoding(this->CurrentEdit->User->Username)).toUtf8()));
     }
 }
 
@@ -1661,17 +1825,7 @@ void MainWindow::on_actionTalk_page_triggered()
 
 void MainWindow::on_actionFlag_as_a_good_edit_triggered()
 {
-    if (!this->CheckExit() || !this->CheckEditableBrowserPage())
-        return;
-    if (this->CurrentEdit != nullptr)
-    {
-        Hooks::OnGood(this->CurrentEdit);
-        this->PatrolThis();
-        this->CurrentEdit->User->SetBadnessScore(this->CurrentEdit->User->GetBadnessScore() - 200);
-        if (Configuration::HuggleConfiguration->ProjectConfig->WelcomeGood && this->CurrentEdit->User->TalkPage_GetContents() == "")
-            this->Welcome();
-    }
-    this->DisplayNext();
+    this->WelcomeGood();
 }
 
 void MainWindow::on_actionDisplay_this_page_in_browser_triggered()
@@ -1679,9 +1833,11 @@ void MainWindow::on_actionDisplay_this_page_in_browser_triggered()
     if (this->CurrentEdit != nullptr)
     {
         if (this->CurrentEdit->Diff > 0)
-            QDesktopServices::openUrl(QUrl::fromEncoded(QString(this->WikiScriptURL() + "index.php?diff=" + QString::number(this->CurrentEdit->Diff)).toUtf8()));
+            QDesktopServices::openUrl(QUrl::fromEncoded(QString(this->WikiScriptURL() +
+              "index.php?diff=" + QString::number(this->CurrentEdit->Diff)).toUtf8()));
         else
-            QDesktopServices::openUrl(QUrl::fromEncoded(QString(this->ProjectURL() + this->CurrentEdit->Page->EncodedName()).toUtf8()));
+            QDesktopServices::openUrl(QUrl::fromEncoded(QString(this->ProjectURL() +
+                              this->CurrentEdit->Page->EncodedName()).toUtf8()));
     }
 }
 
@@ -1713,13 +1869,8 @@ void MainWindow::on_actionRemove_old_edits_triggered()
 
 void MainWindow::on_actionClear_talk_page_of_user_triggered()
 {
-    if (!this->CheckExit() || !this->CheckEditableBrowserPage() || this->CurrentEdit == nullptr)
+    if (!this->EditingChecks())
         return;
-    if (Configuration::HuggleConfiguration->Restricted)
-    {
-        Generic::DeveloperError();
-        return;
-    }
     if (!this->CurrentEdit->User->IsIP())
     {
         Syslog::HuggleLogs->Log(_l("feature-nfru"));
@@ -1746,13 +1897,8 @@ void MainWindow::on_actionList_all_QGC_items_triggered()
 
 void MainWindow::on_actionRevert_currently_displayed_edit_warn_user_and_stay_on_page_triggered()
 {
-    if (!this->CheckExit() || !this->CheckEditableBrowserPage())
+    if (!this->EditingChecks())
         return;
-    if (Configuration::HuggleConfiguration->Restricted)
-    {
-        Generic::DeveloperError();
-        return;
-    }
     RevertQuery *result = this->Revert("", false, false);
     if (result != nullptr)
     {
@@ -1762,13 +1908,8 @@ void MainWindow::on_actionRevert_currently_displayed_edit_warn_user_and_stay_on_
 
 void MainWindow::on_actionRevert_currently_displayed_edit_and_stay_on_page_triggered()
 {
-    if (!this->CheckExit() || !this->CheckEditableBrowserPage())
+    if (!this->EditingChecks())
         return;
-    if (Configuration::HuggleConfiguration->Restricted)
-    {
-        Generic::DeveloperError();
-        return;
-    }
     this->Revert("", true, false);
 }
 
@@ -2203,6 +2344,11 @@ void Huggle::MainWindow::on_actionAbort_2_triggered()
     revert_query->DecRef();
 }
 
+void Huggle::MainWindow::on_actionDryMode_triggered()
+{
+    Configuration::HuggleConfiguration->SystemConfig_DryMode = this->ui->actionDryMode->isChecked();
+}
+
 void Huggle::MainWindow::on_actionDisplay_this_page_triggered()
 {
     if (!this->CheckExit() || this->CurrentEdit == nullptr)
@@ -2223,4 +2369,10 @@ void Huggle::MainWindow::on_actionStop_provider_triggered()
     Core::HuggleCore->PrimaryFeedProvider->Pause();
     this->ui->actionResume_provider->setVisible(true);
     this->ui->actionStop_provider->setVisible(false);
+}
+
+void Huggle::MainWindow::on_actionRevert_only_this_revision_triggered()
+{
+    if (this->EditingChecks())
+        this->Revert("", false, true, true);
 }

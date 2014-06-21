@@ -41,14 +41,15 @@
 #include "preferences.hpp"
 #include "processlist.hpp"
 #include "protectpage.hpp"
+#include "reloginform.hpp"
+#include "reportuser.hpp"
+#include "revertquery.hpp"
+#include "requestprotect.hpp"
 #include "wikiuser.hpp"
 #include "ignorelist.hpp"
 #include "speedyform.hpp"
 #include "userinfoform.hpp"
 #include "vandalnw.hpp"
-#include "reportuser.hpp"
-#include "revertquery.hpp"
-#include "requestprotect.hpp"
 #include "whitelistform.hpp"
 #include "sessionform.hpp"
 #include "historyform.hpp"
@@ -91,6 +92,7 @@ namespace Huggle
     class VandalNw;
     class Syslog;
     class WikiUser;
+    class ReloginForm;
     class ReportUser;
     class RequestProtect;
     class DeleteForm;
@@ -135,7 +137,15 @@ namespace Huggle
              * \param ForceJump
              */
             void ProcessEdit(WikiEdit *e, bool IgnoreHistory = false, bool KeepHistory = false, bool KeepUser = false, bool ForceJump = false);
-            RevertQuery *Revert(QString summary = "", bool nd = false, bool next = true);
+            /*!
+             * \brief Revert perform a revert of an edit
+             * \param summary Summary that you want to use for this revert
+             * \param nd
+             * \param next
+             * \param single_rv If you want to revert only one revision
+             * \return
+             */
+            RevertQuery *Revert(QString summary = "", bool nd = false, bool next = true, bool single_rv = false);
             //! Warn a current user
             bool Warn(QString WarningType, RevertQuery *dependency);
             QString GetSummaryKey(QString item);
@@ -158,6 +168,7 @@ namespace Huggle
             void DisplayNext(Query *q = nullptr);
             void DeletePage();
             void DisplayTalk();
+            void WelcomeGood();
             //! Make currently displayed page unchangeable (useful when you render non-diff pages where rollback wouldn't work)
             void LockPage();
             //! List of edits that are being saved
@@ -307,7 +318,8 @@ namespace Huggle
             void on_actionDisplay_this_page_triggered();
             void on_actionResume_provider_triggered();
             void on_actionStop_provider_triggered();
-
+            void on_actionDryMode_triggered();
+            void on_actionRevert_only_this_revision_triggered();
         private:
             //! Check if huggle is shutting down or not, in case it is, message box is shown as well
             //! this function should be called before every action user can trigger
@@ -330,15 +342,23 @@ namespace Huggle
             void closeEvent(QCloseEvent *event);
             void FinishPatrols();
             void UpdateStatusBarData();
+            //! Perform all common tests that are needed before a page can be edited and return false if they fail
+            bool EditingChecks();
             void DecreaseBS();
             void IncreaseBS();
+            void ReloadSc();
+            void ReloadShort(QString id);
             void ProcessReverts();
             QString WikiScriptURL();
             QString ProjectURL();
+            QList<QAction*> RevertAndWarnItems;
+            QList<QAction*> RevertItems;
+            QList<QAction*> WarnItems;
             //! This timer periodically executes various jobs that needs to be executed in main thread loop
             QTimer *GeneralTimer;
             QDateTime EditLoad;
             QString RestoreEdit_RevertReason;
+            ReloginForm *fRelogin = nullptr;
             QTimer *wlt = nullptr;
             //! Status bar
             QLabel *Status;

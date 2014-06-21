@@ -29,6 +29,50 @@
 #include "userconfiguration.hpp"
 #include "projectconfiguration.hpp"
 
+#define HUGGLE_ACCEL_NONE ""
+#define HUGGLE_ACCEL_MAIN_EXIT                  0
+#define HUGGLE_ACCEL_MAIN_REVERT_AND_WARN       1
+#define HUGGLE_ACCEL_MAIN_REVERT                2
+#define HUGGLE_ACCEL_MAIN_WARN                  3
+#define HUGGLE_ACCEL_NEXT                       4
+#define HUGGLE_ACCEL_SUSPICIOUS_EDIT            5
+#define HUGGLE_ACCEL_MAIN_FORWARD               6
+#define HUGGLE_ACCEL_MAIN_BACK                  7
+#define HUGGLE_ACCEL_MAIN_REVERT_AND_WARN0      8
+#define HUGGLE_ACCEL_MAIN_REVERT_AND_WARN1      9
+#define HUGGLE_ACCEL_MAIN_REVERT_AND_WARN2      10
+#define HUGGLE_ACCEL_MAIN_REVERT_AND_WARN3      11
+#define HUGGLE_ACCEL_MAIN_REVERT_AND_WARN4      12
+#define HUGGLE_ACCEL_MAIN_REVERT_AND_WARN5      13
+#define HUGGLE_ACCEL_MAIN_REVERT_AND_WARN6      14
+#define HUGGLE_ACCEL_MAIN_REVERT_AND_WARN7      15
+#define HUGGLE_ACCEL_MAIN_REVERT_AND_WARN8      16
+#define HUGGLE_ACCEL_MAIN_REVERT_AND_WARN9      17
+#define HUGGLE_ACCEL_MAIN_WARN0                 18
+#define HUGGLE_ACCEL_MAIN_WARN1                 19
+#define HUGGLE_ACCEL_MAIN_WARN2                 20
+#define HUGGLE_ACCEL_MAIN_WARN3                 21
+#define HUGGLE_ACCEL_MAIN_WARN4                 22
+#define HUGGLE_ACCEL_MAIN_WARN5                 23
+#define HUGGLE_ACCEL_MAIN_WARN6                 24
+#define HUGGLE_ACCEL_MAIN_WARN7                 25
+#define HUGGLE_ACCEL_MAIN_WARN8                 26
+#define HUGGLE_ACCEL_MAIN_WARN9                 27
+#define HUGGLE_ACCEL_MAIN_REVERT_0              28
+#define HUGGLE_ACCEL_MAIN_REVERT_1              29
+#define HUGGLE_ACCEL_MAIN_REVERT_2              30
+#define HUGGLE_ACCEL_MAIN_REVERT_3              31
+#define HUGGLE_ACCEL_MAIN_REVERT_4              32
+#define HUGGLE_ACCEL_MAIN_REVERT_5              33
+#define HUGGLE_ACCEL_MAIN_REVERT_6              34
+#define HUGGLE_ACCEL_MAIN_REVERT_7              35
+#define HUGGLE_ACCEL_MAIN_REVERT_8              36
+#define HUGGLE_ACCEL_MAIN_REVERT_9              37
+#define HUGGLE_ACCEL_MAIN_TALK                  38
+#define HUGGLE_ACCEL_MAIN_OPEN_IN_BROWSER       40
+#define HUGGLE_ACCEL_MAIN_GOOD                  41
+
+
 //! Huggle namespace contains all objects that belongs to huggle only so that they don't colide with other objects
 namespace Huggle
 {
@@ -39,6 +83,19 @@ namespace Huggle
     class Syslog;
     class HuggleQueueParser;
     class HuggleOption;
+
+    class Shortcut
+    {
+        public:
+            Shortcut();
+            Shortcut(QString name, QString description);
+            Shortcut(const Shortcut &copy);
+            QString Name;
+            QString Description;
+            QString QAccel;
+            int ID;
+            bool Modified = false;
+    };
 
     //! Run time configuration of huggle
 
@@ -154,6 +211,9 @@ namespace Huggle
             // System
             ////////////////////////////////////////////
 
+            QHash<QString, Shortcut> Shortcuts;
+            //! If it's needed to reload config of main form
+            bool                     ReloadOfMainformNeeded = true;
             //! Verbosity for debugging to terminal etc, can be switched with parameter --verbosity
             unsigned int    Verbosity = 0;
             //! Version
@@ -169,6 +229,7 @@ namespace Huggle
             //! This is used in combination with --login option, so that huggle knows if it should
             //! login automatically or wait for user to fill in their user information
             bool            Login = false;
+            bool            SystemConfig_DryMode = false;
             //! Maximum number of queue stuff
             int             SystemConfig_QueueSize = 200;
             //! Whether python is available
@@ -226,6 +287,7 @@ namespace Huggle
             QString         SystemConfig_SyslogPath = "huggle.log";
             //! Whether huggle check for an update on startup
             bool            SystemConfig_UpdatesEnabled = true;
+            bool            SystemConfig_NotifyBeta = false;
             bool            SystemConfig_LanguageSanity = false;
             bool            SystemConfig_RequestDelay = false;
             unsigned int    SystemConfig_DelayVal = 0;
@@ -286,7 +348,7 @@ namespace Huggle
             //////////////////////////////////////////////
 
             //! User name
-            QString     SystemConfig_Username = "User";
+            QString     SystemConfig_Username = "";
             //! If SSL is being used
             bool        SystemConfig_UsingSSL = true;
             //! Consumer key
@@ -344,8 +406,8 @@ namespace Huggle
              */
             static void InsertConfig(QString key, QString value, QXmlStreamWriter *s);
             static QString Bool2ExcludeRequire(bool b);
-            // USER
 
+            void MakeShortcut(QString name, QString description, QString default_accel = HUGGLE_ACCEL_NONE);
     };
 }
 

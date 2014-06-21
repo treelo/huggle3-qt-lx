@@ -16,15 +16,30 @@
 
 typedef char byte_ht;
 
-#define HUGGLE_VERSION                  "3.0.2"
+#define HUGGLE_VERSION                  "3.0.3"
 #define HUGGLE_BYTE_VERSION_MAJOR       0x3
 #define HUGGLE_BYTE_VERSION_MINOR       0x0
-#define HUGGLE_BYTE_VERSION_RELEASE     0x2
+#define HUGGLE_BYTE_VERSION_RELEASE     0x3
 
 // we are using translatewiki and if this is not defined there is a huge overhead of Qt code
-#define QT_NO_TRANSLATION
+#ifndef QT_NO_TRANSLATION
+    #define QT_NO_TRANSLATION
+#endif
 
-#define MTGC true
+// comment this out to disable multithreaded garbage collector
+// this can be useful for debugging as multithreaded GC is not able to delete Qt objects, so if your code
+// is crashing with it only, it means your code suck and need a fix in destructor :))
+#ifdef __APPLE__
+    #include "TargetConditionals.h"
+    #ifdef TARGET_OS_MAC
+        #define HUGGLE_NO_MT_GC
+    #endif
+#endif
+// this is a nasty hack that will disable multi threaded gc on MacOS as we had some report that
+// it has problems there (need to be fixed though)
+#ifndef HUGGLE_NO_MT_GC
+#define HUGGLE_USE_MT_GC               "mt"
+#endif
 
 // uncomment this if you want to enable python support
 // #define PYTHONENGINE
@@ -77,7 +92,7 @@ typedef char byte_ht;
 #define EXTENSION_PATH                  "extensions"
 //! Change this to DEBIAN / UBUNTU / WINDOWS to get automatic updates for selected channels
 #define HUGGLE_UPDATER_PLATFORM_TYPE            "huggle-devs"
-
+#define HUGGLE_GLOBAL_EXTENSION_PATH            "/usr/share/huggle/extensions"
 //! Revid of edit that doesn't exist
 #define WIKI_UNKNOWN_REVID -1
 

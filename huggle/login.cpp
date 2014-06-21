@@ -16,6 +16,7 @@
 #include "syslog.hpp"
 #include "mediawiki.hpp"
 #include "localization.hpp"
+#include "wikiutil.hpp"
 #include "core.hpp"
 #include "configuration.hpp"
 #include "ui_login.h"
@@ -79,7 +80,7 @@ Login::Login(QWidget *parent) :   QDialog(parent), ui(new Ui::Login)
         this->Updater = new UpdateForm();
         this->Updater->Check();
     }
-    if (Configuration::HuggleConfiguration->SystemConfig_Username != "User")
+    if (!Configuration::HuggleConfiguration->SystemConfig_Username.isEmpty())
     {
         this->ui->lineEdit_username->setText(Configuration::HuggleConfiguration->SystemConfig_Username);
         this->ui->lineEdit_password->setFocus();
@@ -109,6 +110,7 @@ void Login::Localize()
     this->ui->ButtonOK->setText(_l("login-start"));
     this->ui->checkBox->setText(_l("login-ssl"));
     this->ui->labelOauthUsername->setText(_l("login-username"));
+    this->ui->pushButton->setToolTip(_l("login-reload-tool-tip"));
     this->ui->pushButton->setText(_l("reload"));
     this->ui->tabWidget->setTabText(0, _l("login-tab-oauth"));
     this->ui->tabWidget->setTabText(1, _l("login-tab-login"));
@@ -269,13 +271,13 @@ void Login::PressOK()
     }
     Configuration::HuggleConfiguration->IndexOfLastWiki = this->ui->Project->currentIndex();
     Configuration::HuggleConfiguration->Project = Configuration::HuggleConfiguration->ProjectList.at(this->ui->Project->currentIndex());
-    Configuration::HuggleConfiguration->SystemConfig_UsingSSL = ui->checkBox->isChecked();
+    Configuration::HuggleConfiguration->SystemConfig_UsingSSL = this->ui->checkBox->isChecked();
     if (this->ui->lineEdit_username->text() == "Developer Mode")
     {
         this->DeveloperMode();
         return;
     }
-    Configuration::HuggleConfiguration->SystemConfig_Username = ui->lineEdit_username->text();
+    Configuration::HuggleConfiguration->SystemConfig_Username = WikiUtil::SanitizeUser(ui->lineEdit_username->text());
     Configuration::HuggleConfiguration->TemporaryConfig_Password = ui->lineEdit_password->text();
     if (this->loadingForm != nullptr)
     {
@@ -316,7 +318,7 @@ void Login::PerformLoginPart2()
     {
         return;
     }
-    if (this->LoginQuery->Result->Failed)
+    if (this->LoginQuery->Result->IsFailed())
     {
         this->Update(_l("[[login-fail]]") + ": " + this->LoginQuery->Result->ErrorMessage);
         this->Kill();
@@ -342,7 +344,7 @@ void Login::RetrieveGlobalConfig()
     {
         if (this->LoginQuery->IsProcessed())
         {
-            if (this->LoginQuery->Result->Failed)
+            if (this->LoginQuery->Result->IsFailed())
             {
                 this->Update(_l("[[login-error-global]]") + ": " + this->LoginQuery->Result->ErrorMessage);
                 this->Kill();
@@ -399,7 +401,7 @@ void Login::FinishLogin()
     if (!this->LoginQuery || !this->LoginQuery->IsProcessed())
         return;
 
-    if (this->LoginQuery->Result->Failed)
+    if (this->LoginQuery->Result->IsFailed())
     {
         this->Update("Login failed: " + this->LoginQuery->Result->ErrorMessage);
         this->_Status = LoginFailed;
@@ -422,7 +424,7 @@ void Login::RetrieveWhitelist()
     {
         if (this->wq->IsProcessed())
         {
-            if (this->wq->Result->Failed)
+            if (this->wq->Result->IsFailed())
             {
                 Configuration::HuggleConfiguration->SystemConfig_WhitelistDisabled = true;
             } else
@@ -452,7 +454,7 @@ void Login::RetrieveProjectConfig()
     {
         if (this->LoginQuery->IsProcessed())
         {
-            if (this->LoginQuery->Result->Failed)
+            if (this->LoginQuery->Result->IsFailed())
             {
                 this->Update(_l("login-error-config", this->LoginQuery->Result->ErrorMessage));
                 this->LoginQuery->DecRef();
@@ -503,7 +505,7 @@ void Login::RetrieveUserConfig()
     {
         if (this->LoginQuery->IsProcessed())
         {
-            if (this->LoginQuery->Result->Failed)
+            if (this->LoginQuery->Result->IsFailed())
             {
                 this->Kill();
                 this->Update("Login failed unable to retrieve user config: " + this->LoginQuery->Result->ErrorMessage);
@@ -514,7 +516,7 @@ void Login::RetrieveUserConfig()
             QDomNodeList revisions = d.elementsByTagName("rev");
             if (revisions.count() == 0) // page is missing
             {
-                if(this->LoadedOldConfig == false && Configuration::HuggleConfiguration->GlobalConfig_UserConf_old != "")
+                if(this->LoadedOldConfig == false && !Configuration::HuggleConfiguration->GlobalConfig_UserConf_old.isEmpty())
                 {
                     // try first with old location of config, we don't need to switch the login step here we just
                     // replace the old query with new query that retrieves the old config and call this function
@@ -590,7 +592,7 @@ void Login::RetrieveUserInfo()
     {
         if (this->LoginQuery->IsProcessed())
         {
-            if (this->LoginQuery->Result->Failed)
+            if (this->LoginQuery->Result->IsFailed())
             {
                 this->Update(_l("login-fail-no-info", this->LoginQuery->Result->ErrorMessage));
                 this->Kill();
@@ -674,12 +676,14 @@ void Login::ProcessSiteInfo()
         QDomNodeList l = d.elementsByTagName("general");
         if( l.count() < 1 )
         {
-            //! \todo throw some exception
+            this->Update("No site info was returned for this wiki");
+            this->Kill();
+            return;
         }
         QDomElement item = l.at(0).toElement();
         if (item.attributes().contains("rtl"))
         {
-            //! \todo set a value and use this to determine project RTL status
+            Configuration::HuggleConfiguration->Project->IsRightToLeft = true;
         }
         if (item.attributes().contains("time"))
         {
@@ -701,9 +705,7 @@ void Login::ProcessSiteInfo()
                 index++;
                 if (!e.attributes().contains("id") || !e.attributes().contains("canonical"))
                     continue;
-                Configuration::HuggleConfiguration->Project->InsertNS(new WikiPageNS(e.attribute("id").toInt(),
-                                                                                     e.text(),
-                                                                                     e.attribute("canonical")));
+                Configuration::HuggleConfiguration->Project->InsertNS(new WikiPageNS(e.attribute("id").toInt(), e.text(), e.attribute("canonical")));
             }
         }
         this->processedSiteinfo = true;
@@ -736,23 +738,30 @@ void Login::Finish()
     Configuration::HuggleConfiguration->TemporaryConfig_Password = pw;
     this->ui->lineEdit_password->setText(pw);
     this->Update("Loading main huggle window");
+    Configuration::HuggleConfiguration->ProjectConfig->IsLoggedIn = true;
     this->timer->stop();
+    this->hide();
+    MainWindow::HuggleMain = new MainWindow();
+    Core::HuggleCore->Main = MainWindow::HuggleMain;
+    Core::HuggleCore->Main->show();
     if (this->loadingForm != nullptr)
     {
         this->loadingForm->close();
         delete this->loadingForm;
         this->loadingForm = nullptr;
     }
-    this->hide();
-    MainWindow::HuggleMain = new MainWindow();
-    Core::HuggleCore->Main = MainWindow::HuggleMain;
-    Core::HuggleCore->Main->show();
 }
 
 void Login::reject()
 {
     if (this->_Status != LoginDone)
-        QApplication::quit();
+    {
+        Core::HuggleCore->Shutdown();
+    }
+    else
+    {
+        QDialog::reject();
+    }
 }
 
 bool Login::ProcessOutput()

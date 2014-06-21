@@ -54,6 +54,10 @@ namespace Huggle
     class ProjectConfiguration
     {
         public:
+            void RequestLogin();
+            //! Set to false when you are logged out for some reason
+            bool            IsLoggedIn = false;
+            bool            RequestingLogin = false;
             //! Minimal version of huggle required to use it
             QString         MinimalVersion = HUGGLE_VERSION;
             bool            UseIrc = false;
@@ -181,8 +185,13 @@ namespace Huggle
             QString                 EditSuffixOfHuggle = "([[WP:HG|HG 3]])";
             //! Regexes that other tools can be identified with
             QStringList             EditRegexOfTools;
-
     };
+
+    inline void ProjectConfiguration::RequestLogin()
+    {
+        if (this->IsLoggedIn && !this->RequestingLogin)
+            this->IsLoggedIn = false;
+    }
 }
 
 #endif // PROJECTCONFIGURATION_H

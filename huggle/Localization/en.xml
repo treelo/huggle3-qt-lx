@@ -129,6 +129,8 @@
     <string name="config-logbrowsetitle">Log file location</string>
     <string name="config-shortcutconflict">Shortcut '$1' conflicts with the existing shortcut for '$1'.</string>
     <string name="config-no-colon">You can't use : in name of queue</string>
+    <string name="config-notify-update">Check for updates</string>
+    <string name="config-notify-beta">Check for beta versions if available</string>
     <string name="delete-title">Delete $1</string>
     <string name="delete-reason">Reason:</string>
     <string name="delete-deletionlog">Deletion log:</string>
@@ -163,6 +165,7 @@
     <string name="login-intro">Please pick a project and enter your username and password.</string>
     <string name="login-tab-oauth">OAuth</string>
     <string name="login-tab-login">Login</string>
+    <string name="login-reload-tool-tip">Reload a list of available projects that can be used in huggle, this can be useful in case you want to use huggle on a project where huggle was recently enabled on</string>
     <string name="login-language">Language:</string>
     <string name="login-project">Project:</string>
     <string name="login-username">Username:</string>
@@ -172,9 +175,9 @@
     <string name="login-proxyaddress">Address:</string>
     <string name="login-proxyport">Port:</string>
     <string name="login-proxydomain">Domain:</string>
+    <string name="login-retrieving-user-conf">Retrieving user config</string>
     <string name="login-fail-css">Login failed unable to retrieve user config, did you create huggle3.css in your userspace? (Special:MyPage/huggle3.css is missing)</string>
     <string name="login-fail-enable-true">Login failed because you don't have enable:true in your personal config</string>
-    <string name="login-retrieving-user-conf">Retrieving user config</string>
     <string name="login-fail-no-info">Login failed unable to retrieve user info: $1</string>
     <string name="login-fail-parse-config">Login failed unable to parse the user config, see debug log for more details</string>
     <string name="login-fail-user-data">Login failed unable to retrieve user info, the api query returned no data</string>
@@ -308,7 +311,6 @@
     <string name="main-user-unignore">Unignore</string>
     <string name="main-user-contribs">Show user contributions in a browser</string>
     <string name="main-user-clear-talk">Clear talk page of user</string>
-    <string name="main-user-contribs">Retrieve contributions</string>
     <string name="main-user-talk">View talk page</string>
     <string name="main-user-message">Message...</string>
     <string name="main-user-warn">Warn...</string>
@@ -322,6 +324,7 @@
     <string name="main-browser-open">View this in external browser</string>
     <string name="main-browser-newedits">Show new edits to page</string>
     <string name="main-browser-newcontribs">Show new contributions by user</string>
+    <string name="main-revert-manual">No rollback token, fallback to manual revert of $1</string>
     <string name="main-han">HAN</string>
     <string name="main-han-disconnect">Disconnect</string>
     <string name="main-han-connect">Connect</string>
@@ -490,6 +493,11 @@
     <string name="update-title">New version available</string>
     <string name="update-progress">Downloading new version...</string>
     <string name="update-error">Failed to download new version</string>
+    <string name="updater-title">New version of huggle is available</string>
+    <string name="updater-update">Update</string>
+    <string name="updater-open-manualdownloadpage">Open download page</string>
+    <string name="updater-close">Close</string>
+    <string name="updater-disable-notify">Disable updates</string>
     <string name="userinfo-generic">User info</string>
     <string name="userinfo-title">User information for $1</string>
     <string name="userinfo-anonymous">Anonymous:</string>
@@ -499,6 +507,20 @@
     <string name="userinfo-sharedip">Shared/dynamic IP:</string>
     <string name="userinfo-blocklog">Blocks:</string>
     <string name="userinfo-warnlog">Warnings:</string>
+    <string name="shortcut-raw">Revert edit and warn a user</string>
+    <string name="shortcut-exit">Terminate huggle in a usual way</string>
+    <string name="shortcut-next">Go to next edit</string>
+    <string name="shortcut-suspicious">Mark edit as suspicious</string>
+    <string name="shortcut-back">Go to previously displayed edit</string>
+    <string name="shortcut-forward">Go to edit you loaded in past but walked back from</string>
+    <string name="shortcut-warn">Send a warning to user, without reverting edit</string>
+    <string name="shortcut-revert">Revert edit</string>
+    <string name="shortcut-x-raw">Trigger N th item in revert and warn menu</string>
+    <string name="shortcut-x-revert">Trigger N th item in revert menu</string>
+    <string name="shortcut-x-warn">Trigger N th item in warn menu</string>
+    <string name="shortcut-good">Flag the currently displayed edit as good</string>
+    <string name="shortcut-open">Open currently displayed edit in a browser</string>
+    <string name="shortcut-talk">Display a talk page of user who did this change</string>
     <string name="warning-title">Warn $1</string>
     <string name="warning-levelgroup">Warning level</string>
     <string name="warning-levelauto">Automatic</string>

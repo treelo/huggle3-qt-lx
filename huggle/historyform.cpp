@@ -83,10 +83,7 @@ void HistoryForm::Read()
             "&titles=" + QUrl::toPercentEncoding(this->CurrentEdit->Page->PageName);
     this->query->RegisterConsumer(HUGGLECONSUMER_HISTORYWIDGET);
     this->query->Process();
-    if (this->t1 != nullptr)
-    {
-        delete this->t1;
-    }
+    delete this->t1;
     this->t1 = new QTimer(this);
     this->Clear();
     connect(t1, SIGNAL(timeout()), this, SLOT(onTick01()));
@@ -140,7 +137,7 @@ void HistoryForm::onTick01()
     if (this->query == nullptr || !this->query->IsProcessed())
         return;
 
-    if (this->query->Result->Failed)
+    if (this->query->Result->IsFailed())
     {
         this->ui->pushButton->setEnabled(true);
         Huggle::Syslog::HuggleLogs->ErrorLog("Unable to retrieve history");

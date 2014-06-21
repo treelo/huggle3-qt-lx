@@ -110,7 +110,7 @@ void DeleteForm::CheckDeleteToken()
     {
         return;
     }
-    if (this->qToken->Result->Failed)
+    if (this->qToken->Result->IsFailed())
     {
         this->Failed(_l("delete-error-token", this->qToken->Result->ErrorMessage));
         return;
@@ -122,7 +122,7 @@ void DeleteForm::CheckDeleteToken()
         if (this->qTokenOfTalkPage == nullptr || !this->qTokenOfTalkPage->IsProcessed())
             return;
 
-        if (this->qTokenOfTalkPage->Result->Failed)
+        if (this->qTokenOfTalkPage->Result->IsFailed())
         {
             this->Failed(_l("delete-error-token", this->qToken->Result->ErrorMessage));
             return;
@@ -131,7 +131,7 @@ void DeleteForm::CheckDeleteToken()
         l = d.elementsByTagName("page");
         if (l.count() == 0)
         {
-            Huggle::Syslog::HuggleLogs->DebugLog(this->qTokenOfTalkPage->Result->Data);
+            HUGGLE_DEBUG(this->qTokenOfTalkPage->Result->Data, 1);
             this->Failed(_l("delete-failed-no-info"));
             return;
         }
@@ -144,7 +144,7 @@ void DeleteForm::CheckDeleteToken()
         this->DeleteToken2 = element.attribute("deletetoken");
         this->qTokenOfTalkPage->DecRef();
         this->qTokenOfTalkPage = nullptr;
-        Huggle::Syslog::HuggleLogs->DebugLog("Delete token for " + this->TalkPage->PageName + ": " + this->DeleteToken2);
+        HUGGLE_DEBUG("Delete token for " + this->TalkPage->PageName + ": " + this->DeleteToken2, 1);
 
         // let's delete the page
         this->qTalk = new ApiQuery(ActionDelete);
@@ -161,7 +161,7 @@ void DeleteForm::CheckDeleteToken()
     l = d.elementsByTagName("page");
     if (l.count() == 0)
     {
-        Huggle::Syslog::HuggleLogs->DebugLog(this->qToken->Result->Data);
+        HUGGLE_DEBUG(this->qToken->Result->Data, 1);
         this->Failed(_l("delete-failed-no-info"));
         return;
     }
@@ -175,7 +175,7 @@ void DeleteForm::CheckDeleteToken()
     this->delQueryPhase++;
     this->qToken->DecRef();
     this->qToken = nullptr;
-    Huggle::Syslog::HuggleLogs->DebugLog("Delete token for " + this->page->PageName + ": " + this->DeleteToken);
+    HUGGLE_DEBUG("Delete token for " + this->page->PageName + ": " + this->DeleteToken, 1);
 
     // let's delete the page
     this->qDelete = new ApiQuery(ActionDelete);
@@ -193,14 +193,14 @@ void DeleteForm::Delete()
 {
     if (this->qDelete == nullptr || !this->qDelete->IsProcessed())
         return;
-    if (this->qDelete->Result->Failed)
+    if (this->qDelete->Result->IsFailed())
     {
         this->Failed(_l("delete-e1", this->qDelete->Result->ErrorMessage));
         return;
     }
     // let's assume the page was deleted
     this->ui->pushButton->setText(_l("deleted"));
-    Huggle::Syslog::HuggleLogs->DebugLog("Deletion result: " + this->qDelete->Result->Data, 2);
+    HUGGLE_DEBUG("Deletion result: " + this->qDelete->Result->Data, 2);
     this->qDelete->DecRef();
     this->tDelete->stop();
 }

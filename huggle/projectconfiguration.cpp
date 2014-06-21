@@ -8,17 +8,24 @@
 //MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //GNU General Public License for more details.
 
-#include "hugglemassrollback.hpp"
-#include "ui_hugglemassrollback.h"
+#include "projectconfiguration.hpp"
 
 using namespace Huggle;
 
-HuggleMassRollback::HuggleMassRollback(QWidget *parent) : QDialog(parent), ui(new Ui::HuggleMassRollback)
+ScoreWord::ScoreWord(QString Word, int Score)
 {
-    this->ui->setupUi(this);
+    this->score = Score;
+    this->word = Word;
 }
 
-HuggleMassRollback::~HuggleMassRollback()
+ScoreWord::ScoreWord(ScoreWord *word)
 {
-    delete this->ui;
+    this->score = word->score;
+    this->word = word->word;
+}
+
+ScoreWord::ScoreWord(const ScoreWord &word)
+{
+    this->score = word.score;
+    this->word = word.word;
 }

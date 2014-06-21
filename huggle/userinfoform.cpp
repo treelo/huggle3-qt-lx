@@ -127,11 +127,11 @@ void UserinfoForm::OnTick()
     }
     if (this->qContributions->IsProcessed())
     {
-        if (this->qContributions->Result->Failed)
+        if (this->qContributions->Result->IsFailed())
         {
             this->qContributions->DecRef();
             Syslog::HuggleLogs->ErrorLog("unable to retrieve history for user: " + this->User->Username);
-            this->qContributions = NULL;
+            this->qContributions = nullptr;
             this->timer->stop();
             return;
         }
@@ -197,7 +197,7 @@ void UserinfoForm::OnTick()
             Syslog::HuggleLogs->ErrorLog("unable to retrieve history for user: " + this->User->Username);
         this->ui->tableWidget->resizeRowsToContents();
         this->qContributions->DecRef();
-        this->qContributions = NULL;
+        this->qContributions = nullptr;
     }
     this->timer->stop();
 }
@@ -206,7 +206,7 @@ void UserinfoForm::on_tableWidget_clicked(const QModelIndex &index)
 {
     // in case there are no edits we can safely quit here, there is also check because
     // we must not retrieve edit until previous operation did finish
-    if (this->qContributions != NULL || this->ui->tableWidget->rowCount() == 0)
+    if (this->qContributions != nullptr || this->ui->tableWidget->rowCount() == 0)
         return;
 
     // check if we don't have this edit in a buffer

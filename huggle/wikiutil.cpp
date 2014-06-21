@@ -99,7 +99,7 @@ Message *WikiUtil::MessageUser(WikiUser *User, QString Text, QString Title, QStr
         m->RegisterConsumer(HUGGLECONSUMER_CORE_MESSAGE);
     }
     m->Send();
-    Huggle::Syslog::HuggleLogs->DebugLog("Sending message to user " + User->Username);
+    HUGGLE_DEBUG("Sending message to user " + User->Username, 1);
     return m;
 }
 
@@ -158,4 +158,15 @@ EditQuery *WikiUtil::EditPage(WikiPage *page, QString text, QString summary, boo
                                 " summary, bool minor, QString BaseTimestamp)");
     }
     return EditPage(page->PageName, text, summary, minor, BaseTimestamp);
+}
+
+
+QString WikiUtil::SanitizeUser(QString username)
+{
+    // ensure we don't modify the original string
+    if (username.contains(" "))
+    {
+        return QString(username).replace(" ", "_");
+    }
+    return username;
 }

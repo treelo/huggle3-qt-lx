@@ -61,8 +61,7 @@ void RevertQuery::DisplayError(QString error, QString reason)
     this->Kill();
     this->Status = StatusDone;
     this->Result = new QueryResult();
-    this->Result->ErrorMessage = reason;
-    this->Result->Failed = true;
+    this->Result->SetError();
 }
 
 void RevertQuery::Process()
@@ -290,7 +289,7 @@ void RevertQuery::CheckPreflight()
         this->Kill();
         this->Result = new QueryResult();
         this->Status = StatusDone;
-        this->Result->Failed = true;
+        this->Result->SetError();
         return;
     }
     QDomDocument d;
@@ -320,7 +319,7 @@ void RevertQuery::CheckPreflight()
         }
         if (e.attributes().contains("user"))
         {
-            QString user = e.attribute("user");
+            QString user = WikiUtil::SanitizeUser(e.attribute("user"));
             if (PreviousEditsMadeBySameUser && this->edit->RevID != WIKI_UNKNOWN_REVID && RevID > this->edit->RevID)
             {
                 if (user != this->edit->User->Username)
@@ -388,8 +387,7 @@ void RevertQuery::CheckPreflight()
             this->Exit();
             this->CustomStatus = "Stopped";
             this->Result = new QueryResult();
-            this->Result->Failed = true;
-            this->Result->ErrorMessage = "User requested to abort this";
+            this->Result->SetError("User requested to abort this");
             this->Status = StatusDone;
             this->PreflightFinished = true;
             return;
@@ -410,11 +408,9 @@ bool RevertQuery::CheckRevert()
     if (this->CustomStatus != "Reverted")
     {
         Huggle::Syslog::HuggleLogs->Log(_l("revert-fail", this->qRevert->Target, this->CustomStatus));
-        this->qRevert->Result->Failed = true;
-        this->qRevert->Result->ErrorMessage = CustomStatus;
-        this->Result = new QueryResult();
-        this->Result->ErrorMessage = CustomStatus;
-        this->Result->Failed = true;
+        this->qRevert->Result->SetError(CustomStatus);
+        this->Result = new QueryResult(true);
+        this->Result->SetError(CustomStatus);
     } else
     {
         HistoryItem *item = new HistoryItem();
@@ -437,9 +433,8 @@ void RevertQuery::Cancel()
 {
     this->Exit();
     this->CustomStatus = "Stopped";
-    this->Result = new QueryResult();
-    this->Result->Failed = true;
-    this->Result->ErrorMessage = "User requested to abort this";
+    this->Result = new QueryResult(true);
+    this->Result->SetError("User requested to abort this");
     this->Status = StatusDone;
     this->PreflightFinished = true;
 }
@@ -503,13 +498,11 @@ bool RevertQuery::ProcessRevert()
         }
         this->eqSoftwareRollback->UnregisterConsumer(HUGGLECONSUMER_REVERTQUERY);
         this->Result = new QueryResult();
-        if (this->eqSoftwareRollback->Result->Failed || this->eqSoftwareRollback->Status == Huggle::StatusInError)
+        if (this->eqSoftwareRollback->IsFailed())
         {
             // failure during revert
-            this->Result->Failed = true;
-            this->Result->ErrorMessage = this->eqSoftwareRollback->Result->ErrorMessage;
-            Syslog::HuggleLogs->ErrorLog(_l("revert-fail", this->edit->Page->PageName,
-                                                                                      "edit failed"));
+            Syslog::HuggleLogs->ErrorLog(_l("revert-fail", this->edit->Page->PageName, "edit failed"));
+            this->Result->SetError(this->eqSoftwareRollback->Result->ErrorMessage);
             this->Kill();
             this->Status = StatusDone;
         }
@@ -579,7 +572,7 @@ bool RevertQuery::ProcessRevert()
     }
     if (this->qHistoryInfo == nullptr || !this->qHistoryInfo->IsProcessed())
         return false;
-    if (this->qHistoryInfo->Result->Failed)
+    if (this->qHistoryInfo->Result->IsFailed())
     {
         this->DisplayError("Failed to retrieve a list of edits made to this page: " + this->qHistoryInfo->Result->ErrorMessage);
         return true;
@@ -640,7 +633,7 @@ bool RevertQuery::ProcessRevert()
             }
             // we got it, this is the revision we want to revert to
             this->SR_RevID = e.attribute("revid").toInt();
-            this->SR_Target = e.attribute("user");
+            this->SR_Target = WikiUtil::SanitizeUser(e.attribute("user"));
             break;
         }
         this->SR_Depth++;

@@ -59,11 +59,11 @@ void Core::Init()
     {
         Configuration::LoadSystemConfig(QCoreApplication::applicationDirPath() + HUGGLE_CONF);
     }
-    Syslog::HuggleLogs->DebugLog("Loading defs");
+    HUGGLE_DEBUG1("Loading defs");
     this->LoadDefs();
-    Syslog::HuggleLogs->DebugLog("Loading wikis");
+    HUGGLE_DEBUG1("Loading wikis");
     this->LoadDB();
-    Syslog::HuggleLogs->DebugLog("Loading queue");
+    HUGGLE_DEBUG1("Loading queue");
     // These are separators that we use to parse words, less we have, faster huggle will be,
     // despite it will fail more to detect vandals. Keep it low but precise enough!!
     Configuration::HuggleConfiguration->SystemConfig_WordSeparators << " " << "." << "," << "(" << ")" << ":" << ";" << "!"
@@ -75,7 +75,11 @@ void Core::Init()
         Syslog::HuggleLogs->Log("Loading python engine");
         this->Python = new Python::PythonEngine(Configuration::GetExtensionsRootPath());
 #endif
+#ifdef HUGGLE_GLOBAL_EXTENSION_PATH
+        Syslog::HuggleLogs->Log("Loading plugins in " + QString(HUGGLE_GLOBAL_EXTENSION_PATH) + " and " + Configuration::GetExtensionsRootPath());
+#else
         Syslog::HuggleLogs->Log("Loading plugins in " + Configuration::GetExtensionsRootPath());
+#endif
         this->ExtensionLoad();
     } else
     {
@@ -250,7 +254,7 @@ void Core::LoadDefs()
             i++;
         }
     }
-    Syslog::HuggleLogs->DebugLog("Loaded " + QString::number(WikiUser::ProblematicUsers.count()) + " records from last session");
+    HUGGLE_DEBUG1("Loaded " + QString::number(WikiUser::ProblematicUsers.count()) + " records from last session");
     defs.close();
 }
 
@@ -260,14 +264,35 @@ void Core::ExtensionLoad()
     if (QDir().exists(path_))
     {
         QDir d(path_);
-        QStringList extensions = d.entryList();
+        QStringList extensions;
+        QStringList files = d.entryList();
+        foreach (QString e_, files)
+        {
+            // we need to prefix the files here so that we can track the full path
+            extensions << path_ + e_;
+        }
+#ifdef HUGGLE_GLOBAL_EXTENSION_PATH
+        if (QDir().exists(HUGGLE_GLOBAL_EXTENSION_PATH))
+        {
+            QString globalpath(HUGGLE_GLOBAL_EXTENSION_PATH);
+            // ensure it's finished with slash
+            globalpath += "/";
+            QDir g(globalpath);
+            files = g.entryList();
+            foreach (QString e_, files)
+            {
+                // we need to prefix the files here so that we can track the full path
+                extensions << globalpath + e_;
+            }
+        }
+#endif
         int xx = 0;
         while (xx < extensions.count())
         {
             QString name = extensions.at(xx).toLower();
             if (name.endsWith(".so") || name.endsWith(".dll"))
             {
-                name = QString(path_) + extensions.at(xx);
+                name = extensions.at(xx);
                 QPluginLoader *extension = new QPluginLoader(name);
                 if (extension->load())
                 {
@@ -278,7 +303,7 @@ void Core::ExtensionLoad()
                         if (!interface)
                         {
                             Huggle::Syslog::HuggleLogs->Log("Unable to cast the library to extension");
-                        }else
+                        } else
                         {
                             if (interface->RequestNetwork())
                             {
@@ -292,6 +317,7 @@ void Core::ExtensionLoad()
                             {
                                 interface->HuggleCore = Core::HuggleCore;
                             }
+                            interface->Localization = Localizations::HuggleLocalizations;
                             if (interface->Register())
                             {
                                 Core::Extensions.append(interface);
@@ -311,7 +337,7 @@ void Core::ExtensionLoad()
             } else if (name.endsWith(".py"))
             {
 #ifdef PYTHONENGINE
-                name = QString(path_) + extensions.at(xx);
+                name = extensions.at(xx);
                 if (Core::Python->LoadScript(name))
                 {
                     Huggle::Syslog::HuggleLogs->Log("Loaded python script: " + name);
@@ -472,6 +498,7 @@ void Core::LoadLocalizations()
     Localizations::HuggleLocalizations->LocalInit("pt-BR"); // Portuguese (in Brazil)
     Localizations::HuggleLocalizations->LocalInit("ru"); // Russian
     Localizations::HuggleLocalizations->LocalInit("sv"); // Swedish
+    Localizations::HuggleLocalizations->LocalInit("tr"); // Turkish
     Localizations::HuggleLocalizations->LocalInit("zh"); // Chinese
     this->TestLanguages();
 }
